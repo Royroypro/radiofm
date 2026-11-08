@@ -18,6 +18,7 @@ el archivo Go. Antes de portar, comprobar la cabecera de licencia del archivo co
 | [Vite](https://vite.dev) | 8.x | MIT | compilación del frontend |
 | [FFmpeg](https://ffmpeg.org) (build de [BtbN](https://github.com/BtbN/FFmpeg-Builds)) | n8.1.3 GPL | GPL-3.0 (build) | subproceso: decodificar, analizar, codificar. Se distribuye como ejecutable aparte con su `LICENSE.txt` |
 | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | 20261104 | Apache-2.0 con excepciones LLVM | solo para compilar (CGO), no se distribuye |
+| [NSIS](https://nsis.sourceforge.io) | 3.11 | zlib/libpng | solo para compilar el instalador, no se distribuye por separado |
 | Nunito (fuente) | v16 | OFL-1.1 | tipografía de la interfaz (`frontend/src/assets/fonts/OFL.txt`) |
 
 ## Proyectos de referencia

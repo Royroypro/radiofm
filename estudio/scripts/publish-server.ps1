@@ -44,7 +44,9 @@ $files = @(
     @{ local = (Join-Path $ff 'LICENSE.txt'); remote = "$toolDir/LICENSE.txt" },
     @{ local = (Join-Path $bin 'club25-estudio.exe'); remote = "$appDir/club25-estudio.exe" }
 )
-$installer = Join-Path $bin 'club25-estudio-amd64-installer.exe'
+# wails build -nsis lo nombra con el nombre del proyecto ("Club25 Estudio-amd64-installer.exe")
+$installer = (Get-ChildItem $bin -Filter '*-amd64-installer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+if (-not $installer) { $installer = Join-Path $bin 'club25-estudio-amd64-installer.exe' }
 if (Test-Path $installer) { $files += @{ local = $installer; remote = "$appDir/club25-estudio-amd64-installer.exe" } }
 
 $manifest = [ordered]@{
@@ -65,12 +67,15 @@ $tmp = Join-Path ([IO.Path]::GetTempPath()) 'club25-manifest.json'
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -Path $tmp -Encoding utf8NoBOM
 
 $target = "$User@$SshHost"
-ssh -o BatchMode=yes -p $Port $target "mkdir -p '$remote/$toolDir' '$remote/$appDir'"
+# ruta explícita: en algunas PC "ssh" resuelve a un archivo sin extensión que no hace nada
+$ssh = Join-Path $env:windir 'System32\OpenSSH\ssh.exe'
+$scp = Join-Path $env:windir 'System32\OpenSSH\scp.exe'
+& $ssh -o BatchMode=yes -p $Port $target "mkdir -p '$remote/$toolDir' '$remote/$appDir'"
 if ($LASTEXITCODE -ne 0) { throw "no se pudieron crear las carpetas en el servidor" }
 foreach ($f in $files) {
     Write-Host "Subiendo $($f.remote) ..."
-    scp -q -o BatchMode=yes -P $Port $f.local "${target}:$remote/$($f.remote)"
+    & $scp -q -o BatchMode=yes -P $Port $f.local "${target}:$remote/$($f.remote)"
     if ($LASTEXITCODE -ne 0) { throw "scp falló: $($f.remote)" }
 }
-scp -q -o BatchMode=yes -P $Port $tmp "${target}:$remote/manifest.json"
+& $scp -q -o BatchMode=yes -P $Port $tmp "${target}:$remote/manifest.json"
 Write-Host "Publicado: https://radioclub25.sehuacho.com/uploads/estudio/manifest.json"

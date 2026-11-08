@@ -12,6 +12,7 @@ Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estud
 - Copia diaria de la base (`backups`, 14 días); aviso si el reloj de la PC difiere del servidor.
 - Instalador NSIS en español: WebView2, accesos directos, `--setup` al final; no borra los datos al desinstalar.
 - Ajustes → Sistema: revisión y descarga de herramientas. Documentación: `docs/user-guide.md`.
+- Publicado en el servidor (`scripts/publish-server.ps1`): instalador, programa, ffmpeg/ffprobe y `manifest.json`.
 
 ## Fase 7 — sincronización con el panel web
 

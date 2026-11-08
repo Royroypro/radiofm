@@ -15,7 +15,8 @@ si no están.
 | Task | v3.54 | atajos (`task dev`, `task test`) | `go install github.com/go-task/task/v3/cmd/task@v3.54.0` |
 | gcc (llvm-mingw) | 20261104 ucrt x86_64 | CGO para miniaudio (malgo) | zip de https://github.com/mstorsjo/llvm-mingw/releases |
 | ffmpeg/ffprobe | n8.1.3 (GPL, BtbN) | decodificar, analizar, codificar | `scripts/get-ffmpeg.ps1` |
-| NSIS | 3.x (opcional) | instalador (fase 8) | https://nsis.sourceforge.io/ |
+| NSIS | 3.11 (portable) | instalador (`task installer`) | zip de https://nsis.sourceforge.io/ descomprimido en `%LOCALAPPDATA%\Programs
+sis-3.11` (sin administrador; `with-toolchain.ps1` lo encuentra) |
 
 ## Paso a paso
 

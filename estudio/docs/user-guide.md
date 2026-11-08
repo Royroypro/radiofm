@@ -2,8 +2,10 @@
 
 ## Instalar
 
-1. Descargue el instalador desde el servidor de la radio (Admin → Estudio (PC) indica el enlace) o use
-   el programa portable `club25-estudio.exe`.
+1. Descargue el instalador:
+   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.0/club25-estudio-amd64-installer.exe`
+   (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
+   firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
    `club25-estudio.exe --setup`, que **descarga del servidor** `radioclub25.sehuacho.com` lo que falte
    (ffmpeg y ffprobe), verificando su huella SHA-256.
