@@ -53,6 +53,26 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestAnalyze(t *testing.T) {
+	tl := tools(t)
+	path := makeTone(t, tl, 3)
+	l, err := tl.Analyze(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// seno de lavfi (amplitud 1/8) ≈ −21 LUFS; ~30 mediciones (una cada 100 ms)
+	if l.Integrated > -15 || l.Integrated < -30 {
+		t.Fatalf("integrado = %.1f LUFS", l.Integrated)
+	}
+	if len(l.Momentary) < 25 || len(l.Momentary) > 35 {
+		t.Fatalf("mediciones = %d", len(l.Momentary))
+	}
+	info, err := tl.Probe(context.Background(), path)
+	if err != nil || info.Duration < 2900*time.Millisecond || info.Codec != "mp3" || info.Channels != 2 {
+		t.Fatalf("Probe = %+v, %v", info, err)
+	}
+}
+
 func TestDecodeMissingFile(t *testing.T) {
 	tl := tools(t)
 	r, err := tl.Decode(context.Background(), filepath.Join(os.TempDir(), "no-existe-club25.mp3"), 0)

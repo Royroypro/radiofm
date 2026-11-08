@@ -26,6 +26,7 @@ $gobin = Join-Path (go env GOPATH) 'bin'
 $env:Path = "$llvm;$gobin;$env:Path"
 $env:CGO_ENABLED = '1'
 
-$exe, $rest = $Command
+$exe = $Command[0]
+$rest = @($Command | Select-Object -Skip 1)   # siempre un array (con un solo argumento también)
 & $exe @rest
 exit $LASTEXITCODE

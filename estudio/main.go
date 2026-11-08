@@ -2,11 +2,12 @@
 //
 // Este archivo está en la raíz del módulo (y no en cmd/estudio) porque Wails v2
 // compila el paquete main de la raíz del proyecto y embebe frontend/dist desde
-// aquí. Por eso es solo la "raíz de composición": construye las piezas, las
-// inyecta y arranca la ventana. Nada de lógica de negocio aquí.
+// aquí. Solo arranca: la composición de servicios está en internal/app y lo
+// que ve el frontend en internal/ui.
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
+	"radioclub25/estudio/internal/app"
 	"radioclub25/estudio/internal/ui"
 )
 
@@ -21,19 +23,24 @@ import (
 var assets embed.FS
 
 func main() {
-	app := ui.NewApp()
-	err := wails.Run(&options.App{
+	core, err := app.New(context.Background(), "")
+	if err != nil {
+		log.Fatal("Club25 Estudio: ", err)
+	}
+	front := ui.NewApp(core)
+	err = wails.Run(&options.App{
 		Title:     "Club25 Estudio",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  1024,
+		Width:     1366,
+		Height:    820,
+		MinWidth:  1100,
 		MinHeight: 680,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 10, G: 26, B: 107, A: 1}, // azul marino de la marca (#0A1A6B)
-		OnStartup:        app.Startup,
-		Bind:             []any{app},
+		BackgroundColour: &options.RGBA{R: 11, G: 18, B: 51, A: 1},
+		OnStartup:        front.Startup,
+		OnShutdown:       front.Shutdown,
+		Bind:             []any{front},
 	})
 	if err != nil {
 		log.Fatal("Club25 Estudio: ", err)

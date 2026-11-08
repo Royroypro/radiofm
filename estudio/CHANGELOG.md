@@ -2,6 +2,20 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 3 — biblioteca
+
+- Base local SQLite (`platform/sqlite`, migraciones embebidas): categorías, pistas e historial.
+- `service/library`: categorías iniciales del plan, importación de carpetas con ffprobe (4 en paralelo),
+  título desde el nombre del archivo, re-importación sin perder cambios manuales, analizador en segundo
+  plano (EBU R128 con ffmpeg → ganancia a −16 LUFS, cue-in/out, punto de mezcla) y verificación de archivos.
+- `platform/config` (settings.json, carpeta de datos `%ProgramData%\Club25Estudio`), `platform/logger`
+  (log rotativo) e `internal/app` (raíz de composición compartida por la ventana y la CLI).
+- Interfaz: navegación lateral, pantalla **Biblioteca** (categorías, búsqueda, importación con progreso,
+  editor de pista con cues y vigencia) y **Ajustes** (dispositivos, mezcla, Icecast, emisora, rotación,
+  locuciones, seguridad).
+- `with-toolchain.ps1` admite comandos con un solo argumento (`wails dev`).
+- Documentación: `docs/library.md`.
+
 ## Fase 2 — emisión a Icecast
 
 - `platform/ffmpeg.Encoder`: PCM del motor → ffmpeg → `icecast://` (MP3 128 kbps o AAC), contraseña

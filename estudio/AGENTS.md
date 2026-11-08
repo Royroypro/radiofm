@@ -43,7 +43,8 @@ pura sin instalar el toolchain C.
 ## Mapa
 
 ```
-main.go                  raíz de composición + arranque Wails (Wails v2 exige el main en la raíz)
+main.go                  arranque Wails (Wails v2 exige el main en la raíz)
+internal/app/            raíz de composición: config, log, base, servicios, tareas en segundo plano
 cmd/estudio-cli/         herramientas sin interfaz (version, devices; luego play, encode, analyze…)
 internal/domain/         entidades y reglas puras (sin E/S, sin dependencias internas)
 internal/service/<x>/    casos de uso: library, rotation, scheduler, events, spots,
