@@ -13,3 +13,7 @@ bin/
 .vscode/
 *.swp
 data-dev/
+
+# Workspace local de Go (servidor + estudio); cada uno lo crea con: go work init . ./estudio
+go.work
+go.work.sum

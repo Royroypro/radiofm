@@ -1,0 +1,63 @@
+# Club25 Estudio — tareas habituales (https://taskfile.dev). Ejecute `task --list`.
+# Requiere PowerShell 7 (pwsh). La primera vez: `task setup`.
+#
+# Los comandos que compilan con CGO (malgo/miniaudio) pasan por scripts/with-toolchain.ps1, que
+# pone gcc (llvm-mingw) en el PATH solo para ese comando.
+version: '3'
+
+vars:
+  VERSION: 0.1.0-dev
+  LDFLAGS: -X radioclub25/estudio/internal/version.Version={{.VERSION}}
+  TC: pwsh -NoProfile -File scripts/with-toolchain.ps1
+
+tasks:
+  setup:
+    desc: Prepara la PC (Wails, Task, gcc, PATH, ffmpeg, npm install)
+    cmds:
+      - pwsh -NoProfile -File scripts/dev-setup.ps1
+
+  dev:
+    desc: Ventana de desarrollo con recarga en caliente del frontend
+    cmds:
+      - '{{.TC}} wails dev -ldflags "{{.LDFLAGS}}"'
+
+  build:
+    desc: Compila build/bin/club25-estudio.exe
+    cmds:
+      - '{{.TC}} wails build -clean -ldflags "{{.LDFLAGS}}"'
+      # wails build -clean borra frontend/dist; el gitkeep permite compilar Go en un clon limpio.
+      - pwsh -NoProfile -Command "New-Item -Force frontend/dist/gitkeep | Out-Null"
+
+  installer:
+    desc: Compila el instalador NSIS (requiere NSIS instalado; fase 8)
+    cmds:
+      - '{{.TC}} wails build -clean -nsis -ldflags "{{.LDFLAGS}}"'
+      - pwsh -NoProfile -Command "New-Item -Force frontend/dist/gitkeep | Out-Null"
+
+  test:
+    desc: Tests de Go (con CGO)
+    cmds:
+      - '{{.TC}} go test ./...'
+
+  lint:
+    desc: gofmt, go vet, staticcheck y svelte-check
+    cmds:
+      - test -z "$(gofmt -l .)" || (echo "Archivos sin formatear:"; gofmt -l .; exit 1)
+      - '{{.TC}} go vet ./...'
+      - '{{.TC}} go run honnef.co/go/tools/cmd/staticcheck@latest ./...'
+      - npm --prefix frontend run check
+
+  cli:
+    desc: 'Ejecuta estudio-cli (ej.: task cli -- devices)'
+    cmds:
+      - '{{.TC}} go run -ldflags "{{.LDFLAGS}}" ./cmd/estudio-cli {{.CLI_ARGS}}'
+
+  ffmpeg:
+    desc: Descarga ffmpeg fijado y verificado en third_party/ffmpeg
+    cmds:
+      - pwsh -NoProfile -File scripts/get-ffmpeg.ps1
+
+  locutions:
+    desc: Genera locuciones provisionales de hora y temperatura (voz de Windows)
+    cmds:
+      - pwsh -NoProfile -File scripts/make-locutions.ps1

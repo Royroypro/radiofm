@@ -1,0 +1,13 @@
+# Salidas de compilación
+build/bin/
+# Frontend: dependencias y compilado (se conserva gitkeep para que //go:embed compile en un clon limpio)
+frontend/node_modules/
+frontend/dist/*
+!frontend/dist/gitkeep
+# ffmpeg/ffprobe se descargan con scripts/get-ffmpeg.ps1 (no van al repositorio)
+third_party/ffmpeg/*
+!third_party/ffmpeg/README.md
+# Locuciones provisionales generadas con scripts/make-locutions.ps1
+testdata/locutions/
+# Caché de Wails (detecta cambios en package.json)
+frontend/package.json.md5

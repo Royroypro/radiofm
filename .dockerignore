@@ -1,0 +1,11 @@
+# Contexto de Docker: solo el servidor.
+# El programa de Windows (estudio/) es otro módulo Go y no se compila en el contenedor.
+estudio/
+go.work
+go.work.sum
+.git/
+data/
+data-dev/
+backups/
+bin/
+.env

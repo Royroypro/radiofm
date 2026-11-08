@@ -1,0 +1,32 @@
+/* Estilos globales de Club25 Estudio. Paleta de la marca (docs/branding.md del servidor). */
+:root {
+    --navy: #0A1A6B;
+    --royal: #223CB8;
+    --red: #FF1E1E;
+    --orange: #FF8A00;
+    --bg: #0b1233;
+    --panel: #131c47;
+    --line: #26306a;
+    --text: #eef1ff;
+    --muted: #9aa3d0;
+    color-scheme: dark;
+}
+
+@font-face {
+    font-family: "Nunito";
+    font-style: normal;
+    font-weight: 400;
+    src: url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+
+#app { height: 100vh; }

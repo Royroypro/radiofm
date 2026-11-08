@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 210" role="img" aria-label="Radio Club 25 93.3 FM">
+  <!-- Logo provisional de Radio Club 25 (ver docs/branding.md). Reemplazable desde Admin → Marca y contacto. -->
+  <defs>
+    <style>
+      .serif { font-family: 'Playfair Display', 'Bodoni MT', Didot, Georgia, serif; font-style: italic; font-weight: 900; }
+      .sans  { font-family: Montserrat, 'Arial Black', Arial, sans-serif; font-weight: 800; font-style: italic; }
+    </style>
+  </defs>
+  <!-- órbita (parte trasera) -->
+  <ellipse cx="420" cy="118" rx="112" ry="20" transform="rotate(-24 420 118)" fill="none" stroke="#FF1E1E" stroke-width="7"/>
+  <!-- púa roja -->
+  <path d="M398 18 C448 22 500 70 497 124 C494 172 446 200 404 196 C366 192 342 160 344 118 C346 72 360 16 398 18 Z" fill="#FF1E1E"/>
+  <!-- órbita (parte delantera, tapa la púa) -->
+  <path d="M318 168 C 360 160, 470 112, 522 72" fill="none" stroke="#FF1E1E" stroke-width="7" stroke-linecap="round"/>
+  <!-- 25 -->
+  <text x="336" y="156" class="serif" font-size="118" fill="#FFFFFF" letter-spacing="-6">25</text>
+  <!-- RADIO / CLUB / 93.3 FM -->
+  <text x="78" y="56" class="sans" font-size="30" fill="#FFFFFF" letter-spacing="3">RADIO</text>
+  <text x="14" y="150" class="serif" font-size="112" fill="#FFFFFF" letter-spacing="-5">CLUB</text>
+  <text x="18" y="196" class="sans" font-size="36" fill="#FFFFFF" letter-spacing="2">93.3 FM</text>
+</svg>

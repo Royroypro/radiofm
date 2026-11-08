@@ -62,6 +62,7 @@ Sin Icecast/MediaMTX la web funciona igual y muestra "Fuera del aire".
 | [docs/superadmin-guide.md](docs/superadmin-guide.md) | proveedor | contratos, pagos y bloqueos |
 | [docs/branding.md](docs/branding.md) | diseño | paleta, tipografía, logo |
 | [docs/adr/](docs/adr/) | todos | registro de decisiones de arquitectura |
+| [estudio/README.md](estudio/README.md) | programadores (Windows) | programa de automatización "Club25 Estudio": instalación, AGENTS.md y documentación propia |
 | [docs/estudio/plan.md](docs/estudio/plan.md) | programadores (Windows) | plan del programa de automatización "Club25 Estudio" y la API que lo conecta |
 
 ## Proyectos libres utilizados

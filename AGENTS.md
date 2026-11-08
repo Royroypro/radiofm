@@ -98,3 +98,11 @@ y, si la usa un contenedor, en `docker-compose.yml`.
   son los que permiten bloquear la emisión desde el superadmin.
 - El hash de tokens de sesión (`auth.hashToken`) y el patrón CSRF (`middleware.CSRF`).
 - `.env` (secretos de producción; nunca al repositorio).
+
+## Programa de Windows: `estudio/` (Club25 Estudio)
+
+`estudio/` es otro módulo Go (`radioclub25/estudio`): el programa de automatización de radio que
+corre en la PC de la emisora (Wails v2 + miniaudio + ffmpeg, licencia GPL-3.0-or-later). Tiene su
+propia guía: **[estudio/AGENTS.md](estudio/AGENTS.md)**. Los comandos de esta guía (`make …`) no lo
+compilan, Docker lo ignora (`.dockerignore`) y el servidor sigue sin CGO.
+Para ver ambos módulos en el editor: `go work init . ./estudio` (no se versiona).

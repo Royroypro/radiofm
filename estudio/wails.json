@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Club25 Estudio",
+  "outputfilename": "club25-estudio",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Radio Club 25"
+  },
+  "info": {
+    "companyName": "Radio Club 25",
+    "productName": "Club25 Estudio",
+    "productVersion": "0.1.0",
+    "copyright": "GPL-3.0-or-later",
+    "comments": "Automatización de radio para Radio Club 25 (93.3 FM)"
+  }
+}
