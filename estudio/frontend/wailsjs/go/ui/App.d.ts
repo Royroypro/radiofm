@@ -49,6 +49,8 @@ export function GenerateDay(arg1:string):Promise<void>;
 
 export function Grid():Promise<Array<domain.GridCell>>;
 
+export function History(arg1:number):Promise<Array<domain.Play>>;
+
 export function ImportFolder(arg1:string,arg2:number,arg3:boolean):Promise<library.ImportResult>;
 
 export function Info():Promise<ui.AppInfo>;
@@ -68,6 +70,8 @@ export function OnAirStart():Promise<void>;
 export function OnAirStatus():Promise<ui.OnAirView>;
 
 export function OnAirStop():Promise<void>;
+
+export function OnAirStopAfter():Promise<void>;
 
 export function PickFile(arg1:string):Promise<string>;
 

@@ -93,5 +93,29 @@ func Derive(integrated float64, momentary []float64, duration time.Duration, r A
 		segue = 0
 	}
 	a.SegueAt = segue
+	a.Envelope = Envelope(momentary, 200)
 	return a
+}
+
+// Envelope reduce la sonoridad momentánea a n puntos (el máximo de cada tramo) y
+// los codifica como un carácter base 36 por punto: −60 LUFS o menos = "0", 0 LUFS = "z".
+// Es la "forma de onda" que dibuja la pantalla Al aire. Función pura.
+func Envelope(momentary []float64, n int) string {
+	if len(momentary) == 0 || n <= 0 {
+		return ""
+	}
+	const digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+	out := make([]byte, n)
+	for i := 0; i < n; i++ {
+		from := i * len(momentary) / n
+		to := max((i+1)*len(momentary)/n, from+1)
+		peak := -120.0
+		for _, v := range momentary[from:min(to, len(momentary))] {
+			peak = math.Max(peak, v)
+		}
+		level := (peak + 60) / 60 // 0…1
+		level = math.Max(0, math.Min(1, level))
+		out[i] = digits[int(math.Round(level*35))]
+	}
+	return string(out)
 }

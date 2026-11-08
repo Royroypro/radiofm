@@ -78,6 +78,10 @@ export function Grid() {
   return window['go']['ui']['App']['Grid']();
 }
 
+export function History(arg1) {
+  return window['go']['ui']['App']['History'](arg1);
+}
+
 export function ImportFolder(arg1, arg2, arg3) {
   return window['go']['ui']['App']['ImportFolder'](arg1, arg2, arg3);
 }
@@ -116,6 +120,10 @@ export function OnAirStatus() {
 
 export function OnAirStop() {
   return window['go']['ui']['App']['OnAirStop']();
+}
+
+export function OnAirStopAfter() {
+  return window['go']['ui']['App']['OnAirStopAfter']();
 }
 
 export function PickFile(arg1) {

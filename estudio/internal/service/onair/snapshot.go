@@ -28,6 +28,10 @@ type Snapshot struct {
 	Running   bool                     `json:"running"`
 	Mode      domain.StudioMode        `json:"mode"`
 	Waiting   bool                     `json:"waiting"` // asistido: esperando al operador
+	StopAfter bool                     `json:"stop_after"`
+	Current   *domain.LogItem          `json:"current"`         // elemento de la playlist en curso
+	NextBreak *time.Time               `json:"next_break"`      // hora prevista de la próxima tanda
+	Remaining time.Duration            `json:"remaining_today"` // lo que queda programado hoy
 	Decks     [audio.NumDecks]DeckView `json:"decks"`
 	ItemID    int64                    `json:"item_id"`
 	Next      []domain.LogItem         `json:"next"`
@@ -72,10 +76,27 @@ func (s *Service) publish() {
 		decks[slot] = v
 	}
 	var next []domain.LogItem
+	var nextBreak *time.Time
+	var remaining time.Duration
+	var current *domain.LogItem
+	now := s.d.Now()
+	today := now.In(s.d.Location()).Format(domain.DayLayout)
+	for i, it := range s.upcoming {
+		if it.ID == s.itemID {
+			c := s.upcoming[i]
+			current = &c
+		}
+	}
 	for _, it := range s.pending() {
-		next = append(next, it)
-		if len(next) == 8 {
-			break
+		if len(next) < 40 {
+			next = append(next, it)
+		}
+		if nextBreak == nil && it.Kind == domain.SlotSpots && it.At.After(now) {
+			at := it.At
+			nextBreak = &at
+		}
+		if it.Day == today {
+			remaining += it.Length
 		}
 	}
 	silence := time.Duration(0)
@@ -84,6 +105,7 @@ func (s *Service) publish() {
 	}
 	s.mu.Lock()
 	s.snap.Running, s.snap.Mode, s.snap.Waiting = s.running, s.mode, s.waiting
+	s.snap.StopAfter, s.snap.Current, s.snap.NextBreak, s.snap.Remaining = s.stopAfter, current, nextBreak, remaining
 	s.snap.Decks, s.snap.ItemID, s.snap.Next, s.snap.Silence = decks, s.itemID, next, silence
 	s.snap.Engine, s.snap.CartsOn, s.snap.UpdatedAt = st, st.CartsOn, s.d.Now()
 	s.mu.Unlock()

@@ -95,7 +95,7 @@ func NewTrackRepo(db *sql.DB) *TrackRepo { return &TrackRepo{db: db} }
 
 const trackCols = `id, path, title, artist, album, genre, year, category_id, duration_ms, active, valid_from, valid_to,
 	analyzed, loudness, gain_db, cue_in_ms, cue_out_ms, segue_ms, intro_ms, analyze_err, missing, last_played_at,
-	play_count, created_at`
+	play_count, created_at, envelope`
 
 func scanTrack(r rowScanner) (*domain.Track, error) {
 	var t domain.Track
@@ -105,7 +105,7 @@ func scanTrack(r rowScanner) (*domain.Track, error) {
 	var created string
 	if err := r.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.Genre, &t.Year, &t.CategoryID, &durMs, &active,
 		&from, &to, &analyzed, &t.Loudness, &t.GainDB, &cueIn, &cueOut, &segue, &intro, &t.AnalyzeErr, &missing, &last,
-		&t.PlayCount, &created); err != nil {
+		&t.PlayCount, &created, &t.Envelope); err != nil {
 		return nil, err
 	}
 	t.Duration, t.CueIn, t.CueOut, t.SegueAt, t.Intro = dur(durMs), dur(cueIn), dur(cueOut), dur(segue), dur(intro)
@@ -227,8 +227,8 @@ func (r *TrackRepo) PendingAnalysis(ctx context.Context, limit int) ([]domain.Tr
 // SetAnalysis guarda el resultado del análisis.
 func (r *TrackRepo) SetAnalysis(ctx context.Context, id int64, a domain.Analysis) error {
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET analyzed=1, loudness=?, gain_db=?, cue_in_ms=?,
-		cue_out_ms=?, segue_ms=?, analyze_err=? WHERE id=?`,
-		a.Loudness, a.GainDB, ms(a.CueIn), ms(a.CueOut), ms(a.SegueAt), a.Err, id))
+		cue_out_ms=?, segue_ms=?, analyze_err=?, envelope=? WHERE id=?`,
+		a.Loudness, a.GainDB, ms(a.CueIn), ms(a.CueOut), ms(a.SegueAt), a.Err, a.Envelope, id))
 }
 
 // SetMissing marca si el archivo falta.

@@ -34,9 +34,11 @@ type Segment struct {
 	Length   time.Duration   `json:"length"` // lo que suena (0 = hasta el final)
 	Segue    time.Duration   `json:"segue"`  // desde el inicio: arrancar lo siguiente aquí (0 = al terminar)
 	Intro    time.Duration   `json:"intro"`
-	Silence  time.Duration   `json:"silence"` // segmento sin audio
-	Mode     string          `json:"mode"`    // cambio de modo
-	Music    bool            `json:"music"`   // es una canción (se informa como "lo que suena")
+	Silence  time.Duration   `json:"silence"`  // segmento sin audio
+	Mode     string          `json:"mode"`     // cambio de modo
+	Music    bool            `json:"music"`    // es una canción (se informa como "lo que suena")
+	Envelope string          `json:"envelope"` // forma de onda (domain.Track.Envelope)
+	Duration time.Duration   `json:"duration"` // duración total del archivo (para ubicar cues en la forma de onda)
 }
 
 // Key identifica el segmento (para saber si lo precargado sigue siendo lo siguiente).
@@ -69,7 +71,7 @@ func (x *expander) trackSegment(t domain.Track) Segment {
 	}
 	return Segment{Kind: kind, Path: t.Path, TrackID: t.ID, Artist: t.Artist, Title: t.Title, GainDB: t.GainDB,
 		CueIn: t.CueIn, Length: t.PlayLength(), Segue: t.Segue(x.crossfade), Intro: t.Intro,
-		Music: kind == domain.PlayMusic}
+		Music: kind == domain.PlayMusic, Envelope: t.Envelope, Duration: t.Duration}
 }
 
 // expand devuelve los segmentos de it. Puede devolver cero (p. ej. temperatura sin dato).

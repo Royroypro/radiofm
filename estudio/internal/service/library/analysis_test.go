@@ -59,6 +59,18 @@ func TestDeriveDryEndAndBoostCap(t *testing.T) {
 	}
 }
 
+func TestEnvelope(t *testing.T) {
+	m, d := series(time.Second, time.Minute, 8*time.Second, time.Second, -12)
+	env := Derive(-12, m, d, DefaultAnalysisRules()).Envelope
+	if len(env) != 200 || env[0] != '0' || env[len(env)-1] != '0' {
+		t.Fatalf("envolvente = %q", env)
+	}
+	// cuerpo a −12 LUFS → (48/60)·35 = 28 → "s"
+	if env[100] != 's' {
+		t.Fatalf("nivel del cuerpo = %q, quería 's'", env[100])
+	}
+}
+
 func TestDeriveSilence(t *testing.T) {
 	m, d := series(10*time.Second, 0, 0, 0, -120)
 	if a := Derive(-120, m, d, DefaultAnalysisRules()); a.Err == "" {

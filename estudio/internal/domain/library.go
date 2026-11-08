@@ -100,6 +100,7 @@ type Track struct {
 	SegueAt    time.Duration `json:"segue_at"` // punto de mezcla desde el inicio del archivo; 0 = CueOut − crossfade
 	Intro      time.Duration `json:"intro"`    // duración de la intro (para hablar encima)
 	AnalyzeErr string        `json:"analyze_err"`
+	Envelope   string        `json:"envelope"` // forma de onda: 200 puntos en base 36 ("0" silencio … "z" máximo)
 
 	Missing      bool       `json:"missing"` // el archivo ya no está
 	LastPlayedAt *time.Time `json:"last_played_at"`
@@ -179,6 +180,7 @@ type Analysis struct {
 	CueIn    time.Duration
 	CueOut   time.Duration
 	SegueAt  time.Duration
+	Envelope string
 	Err      string
 }
 

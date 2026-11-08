@@ -20,6 +20,7 @@
   import { onair, handleKey } from './lib/onair.svelte'
   import Placeholder from './pages/Placeholder.svelte'
   import { toast } from './lib/toast.svelte'
+  import { nav } from './lib/nav.svelte'
 
   type Page = { id: string; label: string; phase?: string }
   const pages: Page[] = [
@@ -34,7 +35,9 @@
     { id: 'settings', label: 'Ajustes' },
   ]
 
-  let page = $state('onair')
+  // Al aire usa toda la ventana: la barra lateral se abre con su botón "Menú".
+  const page = $derived(nav.page)
+  const sidebar = $derived(page !== 'onair' || nav.menuOpen)
   let info: ui.AppInfo | null = $state(null)
   let now = $state(new Date())
 
@@ -50,8 +53,9 @@
 
 <svelte:window onkeydown={handleKey} />
 
-<div class="shell">
-  <aside>
+<div class="shell" class:full={!sidebar}>
+  {#if sidebar}
+  <aside class:overlay={page === 'onair'}>
     <div class="brand">
       <img src={isotipo} alt="" />
       <div>
@@ -61,7 +65,7 @@
     </div>
     <nav>
       {#each pages as p (p.id)}
-        <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{p.label}</button>
+        <button class="nav" class:active={page === p.id} onclick={() => nav.go(p.id)}>{p.label}</button>
       {/each}
     </nav>
     {#if onair.view}
@@ -76,6 +80,7 @@
       <p class="error small">ffmpeg no encontrado: la biblioteca no puede analizar ni reproducir.</p>
     {/if}
   </aside>
+  {/if}
 
   <main>
     {#if page === 'onair'}
@@ -108,6 +113,11 @@
 
 <style>
   .shell { display: grid; grid-template-columns: 190px 1fr; height: 100vh; }
+  .shell.full { grid-template-columns: 1fr; }
+  .shell.full main { padding: 6px; }
+  aside.overlay { position: fixed; left: 0; top: 0; bottom: 0; width: 190px; z-index: 40; box-shadow: 4px 0 20px rgba(0,0,0,.6); }
+  .shell:has(aside.overlay) { grid-template-columns: 1fr; }
+  .shell:has(aside.overlay) main { padding: 6px; }
   aside { background: var(--navy); display: flex; flex-direction: column; padding: 14px 10px; gap: 14px; }
   .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
   .brand img { width: 40px; height: 40px; }

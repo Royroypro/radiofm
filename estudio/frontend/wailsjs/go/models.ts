@@ -676,6 +676,7 @@ export namespace domain {
 	    segue_at: number;
 	    intro: number;
 	    analyze_err: string;
+	    envelope: string;
 	    missing: boolean;
 	    // Go type: time
 	    last_played_at?: any;
@@ -709,6 +710,7 @@ export namespace domain {
 	        this.segue_at = source["segue_at"];
 	        this.intro = source["intro"];
 	        this.analyze_err = source["analyze_err"];
+	        this.envelope = source["envelope"];
 	        this.missing = source["missing"];
 	        this.last_played_at = this.convertValues(source["last_played_at"], null);
 	        this.play_count = source["play_count"];
@@ -862,6 +864,8 @@ export namespace onair {
 	    silence: number;
 	    mode: string;
 	    music: boolean;
+	    envelope: string;
+	    duration: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Segment(source);
@@ -887,6 +891,8 @@ export namespace onair {
 	        this.silence = source["silence"];
 	        this.mode = source["mode"];
 	        this.music = source["music"];
+	        this.envelope = source["envelope"];
+	        this.duration = source["duration"];
 	    }
 	}
 	export class DeckView {
@@ -967,6 +973,11 @@ export namespace onair {
 	    running: boolean;
 	    mode: string;
 	    waiting: boolean;
+	    stop_after: boolean;
+	    current?: domain.LogItem;
+	    // Go type: time
+	    next_break?: any;
+	    remaining_today: number;
 	    decks: DeckView[];
 	    item_id: number;
 	    next: domain.LogItem[];
@@ -986,6 +997,10 @@ export namespace onair {
 	        this.running = source["running"];
 	        this.mode = source["mode"];
 	        this.waiting = source["waiting"];
+	        this.stop_after = source["stop_after"];
+	        this.current = this.convertValues(source["current"], domain.LogItem);
+	        this.next_break = this.convertValues(source["next_break"], null);
+	        this.remaining_today = source["remaining_today"];
 	        this.decks = this.convertValues(source["decks"], DeckView);
 	        this.item_id = source["item_id"];
 	        this.next = this.convertValues(source["next"], domain.LogItem);

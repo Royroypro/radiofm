@@ -140,3 +140,16 @@ func (s *Service) WriteProofCSV(w io.Writer, rows []ProofRow) error {
 	cw.Flush()
 	return cw.Error()
 }
+
+// Recent devuelve las últimas limit emisiones de las 24 h anteriores, la más reciente primero.
+func (s *Service) Recent(ctx context.Context, limit int) ([]domain.Play, error) {
+	plays, err := s.plays.Since(ctx, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Play, 0, limit)
+	for i := len(plays) - 1; i >= 0 && len(out) < limit; i-- {
+		out = append(out, plays[i])
+	}
+	return out, nil
+}

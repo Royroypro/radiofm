@@ -2,6 +2,19 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.1 — pantalla Al aire todo en uno
+
+- Nueva pantalla **Al aire** en una sola vista, con la distribución habitual de un automatizador (y la
+  identidad de Club25, sin marcas ni gráficos de terceros): AHORA/SIGUE con cuentas atrás grandes
+  (rojo en los últimos 10 s) e intro, forma de onda con lo sonado, intro y punto de mezcla, transporte
+  (Iniciar/Detener, **Parar tras actual**, Micrófono), vúmetro, reloj con anillo de segundos, modos;
+  debajo playlist (duración restante del día, quitar), biblioteca con pestañas por tipo y búsqueda
+  (doble clic = insertar después de lo que suena o del elemento elegido), botonera 4×6 con páginas,
+  historial, **cuenta atrás a la próxima tanda**, estado y problemas.
+- En Al aire la barra lateral se oculta; se abre con "Menú".
+- Envolvente de sonoridad por pista (migración `0006_envelope`: las pistas se reanalizan solas).
+- Publicado en el servidor el instalador 1.0.1.
+
 ## Fase 8 — robustez e instalador (versión 1.0.0)
 
 - `platform/winsys`: instancia única (mutex global), evitar la suspensión, arranque con Windows (clave Run

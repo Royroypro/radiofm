@@ -101,3 +101,15 @@ func (a *App) SyncNow() { a.core.Sync.SyncNow() }
 
 // SyncStatus devuelve el estado de la sincronización.
 func (a *App) SyncStatus() syncsvc.Status { return a.core.Sync.Status() }
+
+// OnAirStopAfter alterna "parar al terminar lo que suena".
+func (a *App) OnAirStopAfter() error { return a.core.OnAir.StopAfterCurrent() }
+
+// History devuelve las últimas emisiones (la más reciente primero).
+func (a *App) History(limit int) ([]domain.Play, error) {
+	plays, err := a.core.Reports.Recent(context.Background(), limit)
+	if plays == nil {
+		plays = []domain.Play{}
+	}
+	return plays, err
+}

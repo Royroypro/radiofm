@@ -103,6 +103,7 @@ type Service struct {
 	fading     []*active // lo que se está fundiendo
 	queue      []Segment // segmentos restantes del elemento en curso
 	waiting    bool      // asistido: terminó y espera al operador
+	stopAfter  bool      // parar al terminar lo que suena (botón "Parar tras actual")
 	silenceAt  time.Time // fin de un segmento de silencio
 	silenceSeg Segment
 	upcoming   []domain.LogItem
@@ -163,6 +164,10 @@ func (s *Service) TriggerCart(page, slot int) error {
 	return s.send(cmd{kind: "cart", cart: page*domain.CartsPerPage + slot})
 }
 
+// StopAfterCurrent alterna "parar al terminar lo que suena": la playlist queda
+// en espera hasta pulsar Siguiente (o Iniciar).
+func (s *Service) StopAfterCurrent() error { return s.send(cmd{kind: "stop_after"}) }
+
 // StopCarts detiene todos los carts.
 func (s *Service) StopCarts() error { return s.send(cmd{kind: "carts_off"}) }
 
@@ -200,7 +205,7 @@ func (s *Service) handleCmd(ctx context.Context, c cmd) error {
 		s.fadeOutCurrent(2 * time.Second)
 		s.queue = nil
 	case "next":
-		s.waiting = false
+		s.waiting, s.stopAfter = false, false
 		if !s.running {
 			s.running = true
 		}
@@ -212,6 +217,8 @@ func (s *Service) handleCmd(ctx context.Context, c cmd) error {
 		return s.carts.trigger(ctx, c.cart/domain.CartsPerPage, c.cart%domain.CartsPerPage)
 	case "carts_off":
 		s.carts.stopAll()
+	case "stop_after":
+		s.stopAfter = !s.stopAfter
 	case "refresh":
 		s.upAt = time.Time{}
 	}
@@ -254,7 +261,7 @@ func (s *Service) handleEvent(ctx context.Context, ev audio.Event) {
 	switch ev.Type {
 	case audio.EventSegue:
 		if s.current != nil && ev.Slot == s.current.slot && uint64(s.current.playID) == ev.Tag &&
-			s.running && s.mode == domain.ModeAuto {
+			s.running && s.mode == domain.ModeAuto && !(s.stopAfter && len(s.queue) == 0) {
 			s.advance(ctx, true)
 		}
 	case audio.EventEnded:
@@ -262,6 +269,10 @@ func (s *Service) handleEvent(ctx context.Context, ev audio.Event) {
 		if s.current != nil && ev.Slot == s.current.slot && uint64(s.current.playID) == ev.Tag {
 			s.current = nil
 			if !s.running || s.mode == domain.ModeLive {
+				return
+			}
+			if s.stopAfter && len(s.queue) == 0 {
+				s.stopAfter, s.waiting = false, true // se pidió parar tras este elemento
 				return
 			}
 			if s.mode == domain.ModeAssisted && len(s.queue) == 0 {
