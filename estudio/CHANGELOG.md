@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.4 — corrige el cierre al abrir en algunas PC
+
+- El analizador de la biblioteca se caía con archivos en los que ffmpeg informa la sonoridad como
+  "nan" en algunos tramos (el índice de la forma de onda salía negativo). Como el análisis se retoma
+  al arrancar, el programa se cerraba a los pocos segundos cada vez. Ahora esos tramos cuentan como
+  silencio.
+- Si una pista provoca cualquier otro error inesperado al analizarse, queda marcada con el error y
+  el analizador sigue con la siguiente: un archivo raro ya no puede cerrar el programa.
+
 ## 1.0.3 — registro de caídas
 
 - Si el programa se cae (error de Go o de código nativo: audio, WebView2), el detalle queda en

@@ -3,10 +3,12 @@ package library
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -341,8 +343,20 @@ func (s *Service) RunAnalyzer(ctx context.Context) {
 }
 
 // AnalyzeTrack mide una pista y guarda el resultado (también los errores, para no reintentar sin fin).
-func (s *Service) AnalyzeTrack(ctx context.Context, t domain.Track) domain.Analysis {
-	var a domain.Analysis
+//
+// Un archivo raro nunca debe tumbar el programa (el analizador corre al
+// arrancar y volvería a caerse cada vez): si algo falla de forma inesperada,
+// la pista queda marcada con el error y se sigue con la siguiente.
+func (s *Service) AnalyzeTrack(ctx context.Context, t domain.Track) (a domain.Analysis) {
+	defer func() {
+		if p := recover(); p != nil {
+			s.log.Error("analizador: error inesperado", "track", t.ID, "path", t.Path, "panic", p, "stack", string(debug.Stack()))
+			a = domain.Analysis{Err: fmt.Sprintf("error inesperado al analizar: %v", p)}
+			if err := s.tracks.SetAnalysis(context.WithoutCancel(ctx), t.ID, a); err != nil {
+				s.log.Error("analizador: guardar", "track", t.ID, "err", err)
+			}
+		}
+	}()
 	if _, err := os.Stat(t.Path); err != nil {
 		_ = s.tracks.SetMissing(ctx, t.ID, true)
 		return a

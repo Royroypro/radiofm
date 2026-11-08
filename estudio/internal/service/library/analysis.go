@@ -36,8 +36,9 @@ const frameStep = 100 * time.Millisecond
 //
 // Función pura: se prueba sin ffmpeg.
 func Derive(integrated float64, momentary []float64, duration time.Duration, r AnalysisRules) domain.Analysis {
+	momentary = cleanLoudness(momentary)
 	a := domain.Analysis{Loudness: integrated}
-	if integrated <= -70 || math.IsNaN(integrated) {
+	if integrated <= -70 || math.IsNaN(integrated) || math.IsInf(integrated, 0) {
 		a.Err = "pista en silencio"
 		return a
 	}
@@ -97,6 +98,24 @@ func Derive(integrated float64, momentary []float64, duration time.Duration, r A
 	return a
 }
 
+// cleanLoudness cambia los valores que no son números (ffmpeg escribe "nan" en
+// algunos tramos de ciertos archivos) por silencio, para que ningún cálculo
+// posterior reciba NaN. Devuelve una copia si hay algo que cambiar.
+func cleanLoudness(m []float64) []float64 {
+	for i, v := range m {
+		if math.IsNaN(v) {
+			out := append([]float64(nil), m...)
+			for j := i; j < len(out); j++ {
+				if math.IsNaN(out[j]) {
+					out[j] = -120
+				}
+			}
+			return out
+		}
+	}
+	return m
+}
+
 // Envelope reduce la sonoridad momentánea a n puntos (el máximo de cada tramo) y
 // los codifica como un carácter base 36 por punto: −60 LUFS o menos = "0", 0 LUFS = "z".
 // Es la "forma de onda" que dibuja la pantalla Al aire. Función pura.
@@ -111,7 +130,9 @@ func Envelope(momentary []float64, n int) string {
 		to := max((i+1)*len(momentary)/n, from+1)
 		peak := -120.0
 		for _, v := range momentary[from:min(to, len(momentary))] {
-			peak = math.Max(peak, v)
+			if !math.IsNaN(v) {
+				peak = math.Max(peak, v)
+			}
 		}
 		level := (peak + 60) / 60 // 0…1
 		level = math.Max(0, math.Min(1, level))

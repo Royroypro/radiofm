@@ -1,6 +1,7 @@
 package library
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -75,5 +76,25 @@ func TestDeriveSilence(t *testing.T) {
 	m, d := series(10*time.Second, 0, 0, 0, -120)
 	if a := Derive(-120, m, d, DefaultAnalysisRules()); a.Err == "" {
 		t.Fatal("una pista en silencio debe marcarse con error")
+	}
+}
+
+// En la PC de la radio, ffmpeg devolvió "nan" en algunos tramos de un archivo
+// y Envelope calculaba un índice negativo: el programa se caía en cada arranque.
+func TestDeriveWithNaN(t *testing.T) {
+	m, d := series(time.Second, time.Minute, 8*time.Second, time.Second, -12)
+	for i := 100; i < 140; i++ {
+		m[i] = math.NaN()
+	}
+	m[len(m)-1] = math.Inf(1)
+	a := Derive(-12, m, d, DefaultAnalysisRules())
+	if a.Err != "" || len(a.Envelope) != 200 || a.CueOut < 0 || a.SegueAt < 0 {
+		t.Fatalf("análisis con NaN = %+v", a)
+	}
+	if env := Envelope([]float64{math.NaN(), math.NaN()}, 200); len(env) != 200 || env[0] != '0' {
+		t.Fatalf("envolvente solo NaN = %q", env)
+	}
+	if a := Derive(math.NaN(), m, d, DefaultAnalysisRules()); a.Err == "" {
+		t.Fatal("sonoridad integrada NaN debe marcarse con error")
 	}
 }
