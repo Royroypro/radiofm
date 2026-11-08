@@ -2,6 +2,18 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 4 — programación
+
+- `service/rotation`: elección de la pista menos reciente con separación de título/artista, intérprete
+  distinto del anterior, comparación normalizada (tildes, "feat.") y relajación en orden.
+- `service/scheduler`: relojes (validación), parrilla 7×24 con excepciones, generador del día (eventos
+  duros al minuto exacto, relleno, cierre de hora, opcionales), conservación de bloqueados y de lo emitido,
+  edición (mover, quitar, bloquear, insertar) con horas recalculadas e IDs estables, generación automática
+  de hoy y los días siguientes, reloj y parrilla iniciales.
+- Interfaz: **Playlist** (día, horas, edición), **Relojes** (editor de slots) y **Parrilla** (pintar celdas,
+  excepciones).
+- Documentación: `docs/scheduling.md`.
+
 ## Fase 3 — biblioteca
 
 - Base local SQLite (`platform/sqlite`, migraciones embebidas): categorías, pistas e historial.

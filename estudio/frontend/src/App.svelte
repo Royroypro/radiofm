@@ -10,16 +10,19 @@
   import isotipo from './assets/brand/isotipo.svg'
   import Library from './pages/Library.svelte'
   import Settings from './pages/Settings.svelte'
+  import Playlist from './pages/Playlist.svelte'
+  import Clocks from './pages/Clocks.svelte'
+  import Grid from './pages/Grid.svelte'
   import Placeholder from './pages/Placeholder.svelte'
   import { toast } from './lib/toast.svelte'
 
   type Page = { id: string; label: string; phase?: string }
   const pages: Page[] = [
     { id: 'onair', label: 'Al aire', phase: 'fase 6' },
-    { id: 'log', label: 'Playlist', phase: 'fase 4' },
+    { id: 'log', label: 'Playlist' },
     { id: 'library', label: 'Biblioteca' },
-    { id: 'clocks', label: 'Relojes', phase: 'fase 4' },
-    { id: 'grid', label: 'Parrilla', phase: 'fase 4' },
+    { id: 'clocks', label: 'Relojes' },
+    { id: 'grid', label: 'Parrilla' },
     { id: 'spots', label: 'Cuñas', phase: 'fase 5' },
     { id: 'carts', label: 'Botonera', phase: 'fase 6' },
     { id: 'reports', label: 'Reportes', phase: 'fase 5' },
@@ -62,6 +65,12 @@
   <main>
     {#if page === 'library'}
       <Library />
+    {:else if page === 'log'}
+      <Playlist />
+    {:else if page === 'clocks'}
+      <Clocks />
+    {:else if page === 'grid'}
+      <Grid />
     {:else if page === 'settings'}
       <Settings {info} />
     {:else}

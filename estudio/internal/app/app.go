@@ -15,12 +15,15 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"radioclub25/estudio/internal/platform/config"
 	"radioclub25/estudio/internal/platform/ffmpeg"
 	"radioclub25/estudio/internal/platform/logger"
 	"radioclub25/estudio/internal/platform/sqlite"
 	"radioclub25/estudio/internal/service/library"
+	"radioclub25/estudio/internal/service/rotation"
+	"radioclub25/estudio/internal/service/scheduler"
 )
 
 // App reúne las piezas construidas.
@@ -32,7 +35,8 @@ type App struct {
 	Tools   ffmpeg.Tools
 	FFmpeg  error // error al localizar ffmpeg (la app arranca igual y lo muestra)
 
-	Library *library.Service
+	Library   *library.Service
+	Scheduler *scheduler.Service
 
 	mu       sync.RWMutex
 	settings config.Settings
@@ -73,6 +77,11 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	if err := a.Library.EnsureDefaultCategories(ctx); err != nil {
 		return nil, err
 	}
+	a.Scheduler = scheduler.New(sqlite.NewClockRepo(a.DB), sqlite.NewGridRepo(a.DB), sqlite.NewLogRepo(a.DB),
+		sqlite.NewTrackRepo(a.DB), sqlite.NewCategoryRepo(a.DB), sqlite.NewPlayRepo(a.DB), a.schedulerConfig)
+	if err := a.Scheduler.EnsureDefaults(ctx); err != nil {
+		return nil, err
+	}
 	log.Info("Club25 Estudio iniciado", "datos", dataDir)
 	return a, nil
 }
@@ -95,13 +104,41 @@ func (a *App) SaveSettings(s config.Settings) error {
 	return nil
 }
 
-// Start arranca las tareas en segundo plano (analizador de la biblioteca…).
+// schedulerConfig traduce los ajustes a la configuración del generador de playlist.
+func (a *App) schedulerConfig() (scheduler.Config, *time.Location) {
+	s := a.Settings()
+	c := scheduler.DefaultConfig()
+	c.Crossfade = s.Audio.Crossfade()
+	c.Tolerance = time.Duration(s.Schedule.FillToleranceMs) * time.Millisecond
+	c.Rules = rotation.Rules{ArtistSeparation: time.Duration(s.Rotation.ArtistSeparationMin) * time.Minute,
+		TitleSeparation: time.Duration(s.Rotation.TitleSeparationHours) * time.Hour}
+	return c, s.Location()
+}
+
+// Start arranca las tareas en segundo plano: analizador de la biblioteca y
+// generación de la playlist de hoy y los próximos días (al arrancar y cada 10 min).
 func (a *App) Start(ctx context.Context) {
 	ctx, a.cancel = context.WithCancel(ctx)
 	if a.FFmpeg == nil {
 		a.wg.Add(1)
 		go func() { defer a.wg.Done(); a.Library.RunAnalyzer(ctx) }()
 	}
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		t := time.NewTicker(10 * time.Minute)
+		defer t.Stop()
+		for {
+			if err := a.Scheduler.EnsureDays(ctx, a.Settings().Schedule.DaysAhead); err != nil && ctx.Err() == nil {
+				a.Log.Error("generar playlist", "err", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+		}
+	}()
 }
 
 // Close detiene todo y cierra la base y el log.

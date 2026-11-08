@@ -18,8 +18,16 @@ export function CheckMissing() {
   return window['go']['ui']['App']['CheckMissing']();
 }
 
+export function Clocks() {
+  return window['go']['ui']['App']['Clocks']();
+}
+
 export function DeleteCategory(arg1) {
   return window['go']['ui']['App']['DeleteCategory'](arg1);
+}
+
+export function DeleteClock(arg1) {
+  return window['go']['ui']['App']['DeleteClock'](arg1);
 }
 
 export function DeleteTrack(arg1) {
@@ -30,12 +38,36 @@ export function Devices() {
   return window['go']['ui']['App']['Devices']();
 }
 
+export function Exceptions() {
+  return window['go']['ui']['App']['Exceptions']();
+}
+
+export function GenerateDay(arg1) {
+  return window['go']['ui']['App']['GenerateDay'](arg1);
+}
+
+export function Grid() {
+  return window['go']['ui']['App']['Grid']();
+}
+
 export function ImportFolder(arg1, arg2, arg3) {
   return window['go']['ui']['App']['ImportFolder'](arg1, arg2, arg3);
 }
 
 export function Info() {
   return window['go']['ui']['App']['Info']();
+}
+
+export function InsertLogTrack(arg1, arg2) {
+  return window['go']['ui']['App']['InsertLogTrack'](arg1, arg2);
+}
+
+export function LogDay(arg1) {
+  return window['go']['ui']['App']['LogDay'](arg1);
+}
+
+export function MoveLogItem(arg1, arg2) {
+  return window['go']['ui']['App']['MoveLogItem'](arg1, arg2);
 }
 
 export function PickFile(arg1) {
@@ -50,16 +82,44 @@ export function ReanalyzeTrack(arg1) {
   return window['go']['ui']['App']['ReanalyzeTrack'](arg1);
 }
 
+export function RemoveLogItem(arg1) {
+  return window['go']['ui']['App']['RemoveLogItem'](arg1);
+}
+
 export function SaveCategory(arg1) {
   return window['go']['ui']['App']['SaveCategory'](arg1);
+}
+
+export function SaveClock(arg1) {
+  return window['go']['ui']['App']['SaveClock'](arg1);
 }
 
 export function SaveSettings(arg1) {
   return window['go']['ui']['App']['SaveSettings'](arg1);
 }
 
+export function SetException(arg1) {
+  return window['go']['ui']['App']['SetException'](arg1);
+}
+
+export function SetGrid(arg1) {
+  return window['go']['ui']['App']['SetGrid'](arg1);
+}
+
 export function Settings() {
   return window['go']['ui']['App']['Settings']();
+}
+
+export function SlotKinds() {
+  return window['go']['ui']['App']['SlotKinds']();
+}
+
+export function Today() {
+  return window['go']['ui']['App']['Today']();
+}
+
+export function ToggleLogLock(arg1) {
+  return window['go']['ui']['App']['ToggleLogLock'](arg1);
 }
 
 export function Tracks(arg1) {

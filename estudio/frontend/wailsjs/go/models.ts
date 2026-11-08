@@ -260,6 +260,164 @@ export namespace domain {
 	        this.color = source["color"];
 	    }
 	}
+	export class ClockSlot {
+	    kind: string;
+	    category_id: number;
+	    track_id: number;
+	    hard: boolean;
+	    minute: number;
+	    mode: string;
+	    seconds: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ClockSlot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.category_id = source["category_id"];
+	        this.track_id = source["track_id"];
+	        this.hard = source["hard"];
+	        this.minute = source["minute"];
+	        this.mode = source["mode"];
+	        this.seconds = source["seconds"];
+	    }
+	}
+	export class Clock {
+	    id: number;
+	    name: string;
+	    color: string;
+	    slots: ClockSlot[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Clock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.color = source["color"];
+	        this.slots = this.convertValues(source["slots"], ClockSlot);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class GridCell {
+	    weekday: number;
+	    hour: number;
+	    clock_id: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GridCell(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.weekday = source["weekday"];
+	        this.hour = source["hour"];
+	        this.clock_id = source["clock_id"];
+	    }
+	}
+	export class GridException {
+	    date: string;
+	    hour: number;
+	    clock_id: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GridException(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.hour = source["hour"];
+	        this.clock_id = source["clock_id"];
+	    }
+	}
+	export class LogItem {
+	    id: number;
+	    day: string;
+	    hour: number;
+	    seq: number;
+	    kind: string;
+	    track_id: number;
+	    category_id: number;
+	    hard: boolean;
+	    // Go type: time
+	    at: any;
+	    length: number;
+	    optional: boolean;
+	    locked: boolean;
+	    status: string;
+	    title: string;
+	    artist: string;
+	    mode: string;
+	    seconds: number;
+	    note: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.day = source["day"];
+	        this.hour = source["hour"];
+	        this.seq = source["seq"];
+	        this.kind = source["kind"];
+	        this.track_id = source["track_id"];
+	        this.category_id = source["category_id"];
+	        this.hard = source["hard"];
+	        this.at = this.convertValues(source["at"], null);
+	        this.length = source["length"];
+	        this.optional = source["optional"];
+	        this.locked = source["locked"];
+	        this.status = source["status"];
+	        this.title = source["title"];
+	        this.artist = source["artist"];
+	        this.mode = source["mode"];
+	        this.seconds = source["seconds"];
+	        this.note = source["note"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Track {
 	    id: number;
 	    path: string;

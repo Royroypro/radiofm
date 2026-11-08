@@ -14,15 +14,31 @@ export function CategoryKinds():Promise<Array<domain.CategoryKind>>;
 
 export function CheckMissing():Promise<number>;
 
+export function Clocks():Promise<Array<domain.Clock>>;
+
 export function DeleteCategory(arg1:number):Promise<void>;
+
+export function DeleteClock(arg1:number):Promise<void>;
 
 export function DeleteTrack(arg1:number):Promise<void>;
 
 export function Devices():Promise<Array<audio.Device>>;
 
+export function Exceptions():Promise<Array<domain.GridException>>;
+
+export function GenerateDay(arg1:string):Promise<void>;
+
+export function Grid():Promise<Array<domain.GridCell>>;
+
 export function ImportFolder(arg1:string,arg2:number,arg3:boolean):Promise<library.ImportResult>;
 
 export function Info():Promise<ui.AppInfo>;
+
+export function InsertLogTrack(arg1:number,arg2:number):Promise<void>;
+
+export function LogDay(arg1:string):Promise<Array<domain.LogItem>>;
+
+export function MoveLogItem(arg1:number,arg2:number):Promise<void>;
 
 export function PickFile(arg1:string):Promise<string>;
 
@@ -30,11 +46,25 @@ export function PickFolder(arg1:string):Promise<string>;
 
 export function ReanalyzeTrack(arg1:number):Promise<domain.Track>;
 
+export function RemoveLogItem(arg1:number):Promise<void>;
+
 export function SaveCategory(arg1:domain.Category):Promise<domain.Category>;
+
+export function SaveClock(arg1:domain.Clock):Promise<domain.Clock>;
 
 export function SaveSettings(arg1:config.Settings):Promise<void>;
 
+export function SetException(arg1:domain.GridException):Promise<void>;
+
+export function SetGrid(arg1:Array<domain.GridCell>):Promise<void>;
+
 export function Settings():Promise<config.Settings>;
+
+export function SlotKinds():Promise<Array<domain.SlotKind>>;
+
+export function Today():Promise<string>;
+
+export function ToggleLogLock(arg1:number):Promise<void>;
 
 export function Tracks(arg1:domain.TrackFilter):Promise<ui.TrackPage>;
 
