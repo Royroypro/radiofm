@@ -20,7 +20,8 @@ Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estud
 - `service/sync`: bucle de sincronización, cola local de emisiones (tabla `airplay_queue`) que se envía al
   volver la red, desactivación de cuñas retiradas, aplicación de la configuración del panel.
 - Token del panel cifrado (DPAPI); Ajustes → Panel web; indicador en Al aire.
-- Pendiente: prueba de punta a punta completa contra el servidor local (iniciada: token y cuña creados).
+- Probado de punta a punta contra el servidor (misma versión que producción): cuña descargada y medida,
+  heartbeat (versión, modo, codificador), "lo que suena" en Admin → Estudio (PC), reloj a 0,6 s.
 
 ## Fase 6 — Al aire
 

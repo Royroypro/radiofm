@@ -1,6 +1,10 @@
 # Plan: "Club25 Estudio" — automatización de radio para Windows
 
-> Estado: Fase S (servidor) implementada en la rama `fase-s-api-estudio`. El contrato vigente de la
+> Estado (2026-11-08): **todas las fases implementadas** (S y 0–8, versión 1.0.0), desplegadas en el
+> servidor desde la rama `fase-8-robustez`. Avance y cambios respecto a este plan: `estudio/CHANGELOG.md`.
+> Herramientas e instalador publicados en `https://radioclub25.sehuacho.com/uploads/estudio/manifest.json`.
+>
+> Fase S (servidor) implementada en la rama `fase-s-api-estudio`. El contrato vigente de la
 > API está en [docs/api.md](../api.md) → "API del estudio"; si difiere de este plan, manda `docs/api.md`.
 
 ## 0. Qué cambia respecto al plan original (resumen del afinado)
