@@ -14,6 +14,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +27,9 @@ import (
 	"radioclub25/estudio/internal/platform/logger"
 	"radioclub25/estudio/internal/platform/secrets"
 	"radioclub25/estudio/internal/platform/sqlite"
+	"radioclub25/estudio/internal/platform/tools"
 	"radioclub25/estudio/internal/platform/weather"
+	"radioclub25/estudio/internal/platform/winsys"
 	"radioclub25/estudio/internal/service/library"
 	"radioclub25/estudio/internal/service/onair"
 	"radioclub25/estudio/internal/service/reports"
@@ -98,7 +102,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		logFile.Close()
 		return nil, err
 	}
-	a.Tools, a.FFmpeg = ffmpeg.Locate()
+	a.Tools, a.FFmpeg = ffmpeg.LocateIn(a.ToolsDir("ffmpeg"))
 	if a.FFmpeg != nil {
 		log.Error("ffmpeg no encontrado", "err", a.FFmpeg)
 	}
@@ -196,6 +200,11 @@ func (a *App) SaveSettings(s config.Settings) error {
 	if err := a.Config.Save(s); err != nil {
 		return err
 	}
+	if s.Safety.AutoStart != winsys.AutoStartEnabled(AutoStartName) {
+		if err := winsys.SetAutoStart(AutoStartName, s.Safety.AutoStart); err != nil {
+			a.Log.Error("arranque con Windows", "err", err)
+		}
+	}
 	a.mu.Lock()
 	a.settings = s
 	a.mu.Unlock()
@@ -236,6 +245,16 @@ func (a *App) Start(ctx context.Context) {
 	a.Streaming.Restart(ctx)
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.Sync.Run(ctx) }()
+	// si falta ffmpeg, descargarlo del servidor en segundo plano
+	if a.FFmpeg != nil {
+		go func() {
+			if got, err := a.EnsureTools(ctx, nil); err != nil {
+				a.Log.Error("descargar herramientas", "err", err)
+			} else if got {
+				a.Log.Info("ffmpeg descargado: se usará al reiniciar el programa")
+			}
+		}()
+	}
 	if a.Settings().Safety.StartPlaying {
 		go func() {
 			// esperar a que la playlist de hoy exista
@@ -254,6 +273,7 @@ func (a *App) Start(ctx context.Context) {
 			if err := a.Scheduler.EnsureDays(ctx, a.Settings().Schedule.DaysAhead); err != nil && ctx.Err() == nil {
 				a.Log.Error("generar playlist", "err", err)
 			}
+			a.backupDaily(ctx)
 			// las cuñas pueden haber cambiado (sincronización, vigencias): replanificar hoy
 			if _, err := a.Spots.Replan(ctx, a.Scheduler.DayOf(time.Now())); err != nil && ctx.Err() == nil {
 				a.Log.Error("replanificar tandas", "err", err)
@@ -265,6 +285,82 @@ func (a *App) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// AutoStartName es el nombre del valor de arranque con Windows (clave Run del usuario).
+const AutoStartName = "Club25 Estudio"
+
+// ToolsDir es la carpeta donde se guardan las herramientas descargadas del servidor.
+func (a *App) ToolsDir(name string) string {
+	return a.DataDir + string(os.PathSeparator) + "tools" + string(os.PathSeparator) + name
+}
+
+// ToolsStatus revisa la PC y las herramientas.
+func (a *App) ToolsStatus() []tools.Check {
+	checks := tools.System(a.DataDir)
+	ff := tools.Check{Name: "ffmpeg", OK: a.FFmpeg == nil}
+	if a.FFmpeg == nil {
+		ff.Detail = a.Tools.FFmpeg
+	} else {
+		ff.Detail = "no encontrado: se descarga del servidor"
+	}
+	if _, err := ffmpeg.LocateIn(a.ToolsDir("ffmpeg")); err == nil && a.FFmpeg != nil {
+		ff.Detail = "descargado: reinicie el programa para usarlo"
+	}
+	return append(checks, ff)
+}
+
+// EnsureTools descarga del servidor las herramientas que falten (ffmpeg).
+// Devuelve true si descargó algo (hay que reiniciar el programa para usarlo).
+func (a *App) EnsureTools(ctx context.Context, progress func(name string, done, total int64)) (bool, error) {
+	if _, err := ffmpeg.LocateIn(a.ToolsDir("ffmpeg")); err == nil {
+		return false, nil
+	}
+	server := a.Settings().Server.URL
+	m, err := tools.Fetch(ctx, server)
+	if err != nil {
+		return false, err
+	}
+	t, ok := m.Find("ffmpeg")
+	if !ok {
+		return false, fmt.Errorf("el servidor no publica ffmpeg")
+	}
+	a.Log.Info("descargando herramienta", "tool", t.Name, "version", t.Version)
+	if err := tools.Install(ctx, server, t, a.ToolsDir("ffmpeg"), func(done, total int64) {
+		if progress != nil {
+			progress(t.Name, done, total)
+		}
+	}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// backupDaily guarda una copia de la base por día en <datos>ackups (conserva 14).
+func (a *App) backupDaily(ctx context.Context) {
+	dir := a.DataDir + string(os.PathSeparator) + "backups"
+	_ = os.MkdirAll(dir, 0o755)
+	name := dir + string(os.PathSeparator) + "estudio-" + time.Now().Format("20060102") + ".db"
+	if _, err := os.Stat(name); err == nil {
+		return
+	}
+	if err := sqlite.Backup(ctx, a.DB, name); err != nil {
+		a.Log.Error("copia de la base", "err", err)
+		return
+	}
+	a.Log.Info("copia de la base", "archivo", name)
+	entries, _ := os.ReadDir(dir)
+	var copies []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "estudio-") && strings.HasSuffix(e.Name(), ".db") {
+			copies = append(copies, e.Name())
+		}
+	}
+	sort.Strings(copies)
+	for len(copies) > 14 {
+		_ = os.Remove(dir + string(os.PathSeparator) + copies[0])
+		copies = copies[1:]
+	}
 }
 
 // applyServerConfig guarda los datos de la radio que envía el panel web.

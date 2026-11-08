@@ -28,11 +28,16 @@ var ErrNotFound = errors.New("ffmpeg: no se encontró ffmpeg.exe (ejecute script
 //  2. junto al ejecutable (instalación) o en su subcarpeta ffmpeg\;
 //  3. third_party\ffmpeg subiendo desde el ejecutable y desde la carpeta actual (desarrollo);
 //  4. el PATH.
-func Locate() (Tools, error) {
+func Locate() (Tools, error) { return LocateIn() }
+
+// LocateIn es como Locate pero busca primero en extra (p. ej. la carpeta de
+// herramientas descargadas del servidor: <datos>	oolsfmpeg).
+func LocateIn(extra ...string) (Tools, error) {
 	var dirs []string
 	if d := os.Getenv("CLUB25_FFMPEG_DIR"); d != "" {
 		dirs = append(dirs, d)
 	}
+	dirs = append(dirs, extra...)
 	if exe, err := os.Executable(); err == nil {
 		d := filepath.Dir(exe)
 		dirs = append(dirs, d, filepath.Join(d, "ffmpeg"))

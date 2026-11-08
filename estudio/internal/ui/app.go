@@ -15,6 +15,7 @@ import (
 	"radioclub25/estudio/internal/app"
 	"radioclub25/estudio/internal/audio"
 	"radioclub25/estudio/internal/platform/config"
+	"radioclub25/estudio/internal/platform/tools"
 	"radioclub25/estudio/internal/version"
 )
 
@@ -82,4 +83,14 @@ func (a *App) PickFolder(title string) (string, error) {
 func (a *App) PickFile(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
 		{DisplayName: "Audio", Pattern: "*.mp3;*.wav;*.flac;*.ogg;*.m4a;*.aac;*.wma;*.opus"}}})
+}
+
+// ToolsStatus revisa la PC y las herramientas (ffmpeg).
+func (a *App) ToolsStatus() []tools.Check { return a.core.ToolsStatus() }
+
+// DownloadTools descarga del servidor las herramientas que falten. Emite "tools:progress".
+func (a *App) DownloadTools() (bool, error) {
+	return a.core.EnsureTools(context.Background(), func(name string, done, total int64) {
+		a.emit("tools:progress", map[string]any{"name": name, "done": done, "total": total})
+	})
 }

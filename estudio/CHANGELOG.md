@@ -2,6 +2,17 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 8 — robustez e instalador (versión 1.0.0)
+
+- `platform/winsys`: instancia única (mutex global), evitar la suspensión, arranque con Windows (clave Run
+  del usuario, sin administrador), aviso nativo si falla el arranque.
+- `platform/tools`: revisión de la PC y descarga de herramientas (ffmpeg) desde el servidor de la radio
+  según `/uploads/estudio/manifest.json`, con SHA-256; modo `club25-estudio.exe --setup` para el instalador
+  y descarga automática al abrir si falta.
+- Copia diaria de la base (`backups`, 14 días); aviso si el reloj de la PC difiere del servidor.
+- Instalador NSIS en español: WebView2, accesos directos, `--setup` al final; no borra los datos al desinstalar.
+- Ajustes → Sistema: revisión y descarga de herramientas. Documentación: `docs/user-guide.md`.
+
 ## Fase 7 — sincronización con el panel web
 
 - `platform/apiclient`: cliente de `/api/studio/*` (config, cuñas con ETag, heartbeat, lo que suena,

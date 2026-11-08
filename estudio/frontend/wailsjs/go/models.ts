@@ -1166,6 +1166,7 @@ export namespace sync {
 	    spots: number;
 	    // Go type: time
 	    last_spots: any;
+	    clock_offset: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Status(source);
@@ -1182,6 +1183,7 @@ export namespace sync {
 	        this.queue = source["queue"];
 	        this.spots = source["spots"];
 	        this.last_spots = this.convertValues(source["last_spots"], null);
+	        this.clock_offset = source["clock_offset"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1201,6 +1203,27 @@ export namespace sync {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace tools {
+	
+	export class Check {
+	    name: string;
+	    ok: boolean;
+	    detail: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Check(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.ok = source["ok"];
+	        this.detail = source["detail"];
+	    }
 	}
 
 }

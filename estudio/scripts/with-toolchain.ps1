@@ -24,6 +24,10 @@ if (-not (Test-Path (Join-Path $llvm 'gcc.exe'))) {
 }
 $gobin = Join-Path (go env GOPATH) 'bin'
 $env:Path = "$llvm;$gobin;$env:Path"
+# NSIS (makensis) para el instalador, si está instalado
+foreach ($n in @("$env:LOCALAPPDATA\Programs\nsis-3.11", "${env:ProgramFiles(x86)}\NSIS", "$env:ProgramFiles\NSIS")) {
+    if (Test-Path (Join-Path $n 'makensis.exe')) { $env:Path = "$n;$env:Path"; break }
+}
 $env:CGO_ENABLED = '1'
 
 $exe = $Command[0]

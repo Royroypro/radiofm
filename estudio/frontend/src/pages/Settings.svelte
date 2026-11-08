@@ -1,7 +1,8 @@
 <!-- Ajustes: dispositivos, mezcla, Icecast, panel web, emisora, rotación, locuciones y seguridad. -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature, SetIcecastPassword, RestartAudio, RestartStreaming, SetServerConnection, SyncStatus } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature, SetIcecastPassword, RestartAudio, RestartStreaming, SetServerConnection, SyncStatus, ToolsStatus, DownloadTools } from '../../wailsjs/go/ui/App'
+  import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -17,6 +18,7 @@
   onMount(async () => {
     s = await Settings()
     sync = await SyncStatus()
+    checks = await ToolsStatus()
     try {
       devices = (await Devices()) ?? []
     } catch (e) {
@@ -36,6 +38,23 @@
   }
 
   let icePass = $state('')
+  let checks: any[] = $state([])
+  let dl: { name: string; done: number; total: number } | null = $state(null)
+
+  async function downloadTools() {
+    dl = { name: 'ffmpeg', done: 0, total: 0 }
+    const off = EventsOn('tools:progress', (p: any) => (dl = p))
+    try {
+      const got = await DownloadTools()
+      toast.show(got ? 'Herramientas descargadas: reinicie el programa para usarlas' : 'No faltaba nada')
+      checks = await ToolsStatus()
+    } catch (e) {
+      toast.error(e)
+    } finally {
+      off()
+      dl = null
+    }
+  }
   let token = $state('')
   let sync: any = $state(null)
 
@@ -217,6 +236,17 @@
       <h2>Sistema</h2>
       <p class="small">Carpeta de datos: <code>{info?.data_dir}</code></p>
       <p class="small">ffmpeg: <code class:error={!info?.ffmpeg_ok}>{info?.ffmpeg}</code></p>
+      {#each checks as c}
+        <div class="small"><span class="pill" class:ok={c.ok} class:bad={!c.ok}>{c.ok ? 'OK' : 'FALTA'}</span> {c.name}: <span class="muted">{c.detail}</span></div>
+      {/each}
+      {#if sync && Math.abs(sync.clock_offset) > 5}
+        <p class="error small">El reloj de esta PC está {sync.clock_offset > 0 ? 'adelantado' : 'atrasado'} {Math.abs(sync.clock_offset).toFixed(0)} s respecto al servidor:
+          la hora locutada y los eventos duros saldrán corridos. Sincronice la hora de Windows.</p>
+      {/if}
+      <div class="row" style="margin-top:6px">
+        <button class="ghost small" disabled={!!dl} onclick={downloadTools}>Revisar y descargar herramientas del servidor</button>
+        {#if dl}<progress max={dl.total || 1} value={dl.done}></progress><span class="small muted">{dl.name} {(dl.done / 1048576).toFixed(0)} / {(dl.total / 1048576).toFixed(0)} MB</span>{/if}
+      </div>
     </section>
   </div>
 {/if}

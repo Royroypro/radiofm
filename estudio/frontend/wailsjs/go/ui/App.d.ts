@@ -9,6 +9,7 @@ import {reports} from '../models';
 import {app} from '../models';
 import {config} from '../models';
 import {sync} from '../models';
+import {tools} from '../models';
 
 export function AnalyzerStatus():Promise<library.AnalyzerStatus>;
 
@@ -37,6 +38,8 @@ export function DeleteSpot(arg1:number):Promise<void>;
 export function DeleteTrack(arg1:number):Promise<void>;
 
 export function Devices():Promise<Array<audio.Device>>;
+
+export function DownloadTools():Promise<boolean>;
 
 export function Exceptions():Promise<Array<domain.GridException>>;
 
@@ -121,6 +124,8 @@ export function SyncStatus():Promise<sync.Status>;
 export function Today():Promise<string>;
 
 export function ToggleLogLock(arg1:number):Promise<void>;
+
+export function ToolsStatus():Promise<Array<tools.Check>>;
 
 export function Tracks(arg1:domain.TrackFilter):Promise<ui.TrackPage>;
 

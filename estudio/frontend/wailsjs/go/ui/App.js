@@ -58,6 +58,10 @@ export function Devices() {
   return window['go']['ui']['App']['Devices']();
 }
 
+export function DownloadTools() {
+  return window['go']['ui']['App']['DownloadTools']();
+}
+
 export function Exceptions() {
   return window['go']['ui']['App']['Exceptions']();
 }
@@ -224,6 +228,10 @@ export function Today() {
 
 export function ToggleLogLock(arg1) {
   return window['go']['ui']['App']['ToggleLogLock'](arg1);
+}
+
+export function ToolsStatus() {
+  return window['go']['ui']['App']['ToolsStatus']();
 }
 
 export function Tracks(arg1) {

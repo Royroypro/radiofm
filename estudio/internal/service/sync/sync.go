@@ -70,6 +70,7 @@ type Status struct {
 	Queue        int       `json:"queue"`
 	Spots        int       `json:"spots"`
 	LastSpots    time.Time `json:"last_spots"`
+	ClockOffset  float64   `json:"clock_offset"` // segundos que el reloj de la PC va adelantado (+) o atrasado (−) respecto al servidor
 }
 
 // Service es la sincronización.
@@ -215,9 +216,21 @@ func (s *Service) run(ctx context.Context, f func() error) bool {
 }
 
 func (s *Service) syncConfig(ctx context.Context, c *apiclient.Client) error {
+	sent := time.Now()
 	cfg, err := c.GetConfig(ctx)
 	if err != nil {
 		return err
+	}
+	if !cfg.ServerTime.IsZero() {
+		// el servidor responde en segundos enteros: se compara con el punto medio de la petición
+		mid := sent.Add(time.Since(sent) / 2)
+		off := mid.Sub(cfg.ServerTime).Seconds()
+		s.mu.Lock()
+		s.status.ClockOffset = off
+		s.mu.Unlock()
+		if off > 5 || off < -5 {
+			s.d.Log.Warn("el reloj de la PC no coincide con el del servidor", "segundos", off)
+		}
 	}
 	if s.d.ApplyConfig != nil {
 		s.d.ApplyConfig(cfg)
