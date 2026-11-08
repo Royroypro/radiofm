@@ -190,6 +190,13 @@ export namespace config {
 	}
 	export class InterfaceSettings {
 	    cart_page: number;
+	    theme: string;
+	    custom_base: string;
+	    custom_accent: string;
+	    custom_bg: string;
+	    custom_panel: string;
+	    custom_sidebar: string;
+	    custom_text: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new InterfaceSettings(source);
@@ -198,6 +205,13 @@ export namespace config {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.cart_page = source["cart_page"];
+	        this.theme = source["theme"];
+	        this.custom_base = source["custom_base"];
+	        this.custom_accent = source["custom_accent"];
+	        this.custom_bg = source["custom_bg"];
+	        this.custom_panel = source["custom_panel"];
+	        this.custom_sidebar = source["custom_sidebar"];
+	        this.custom_text = source["custom_text"];
 	    }
 	}
 	export class LocutionSettings {

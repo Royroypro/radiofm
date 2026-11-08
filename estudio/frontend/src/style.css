@@ -1,16 +1,28 @@
 /* Estilos globales de Club25 Estudio. Paleta de la marca (docs/branding.md del servidor). */
 :root {
-    --navy: #0A1A6B;
-    --royal: #223CB8;
-    --red: #FF1E1E;
-    --orange: #FF8A00;
-    --green: #2EAD5B;
-    --bg: #0b1233;
-    --panel: #131c47;
-    --panel-2: #1a255a;
-    --line: #26306a;
-    --text: #eef1ff;
-    --muted: #9aa3d0;
+    /* Valores del tema oscuro; lib/theme.ts los reemplaza al cargar el tema elegido. */
+    --red: #e5212b;
+    --orange: #ff8a00;
+    --green: #22a05a;
+    --bg: #111316;
+    --panel: #1a1d21;
+    --panel-2: #25292f;
+    --line: #30353d;
+    --line-soft: #23272d;
+    --text: #eceff3;
+    --muted: #9aa1ab;
+    --accent: #d9333d;
+    --accent-text: #ffffff;
+    --sel: #33404f;
+    --current: #3a1f22;
+    --sidebar: #16181b;
+    --sidebar-text: #eceff3;
+    --input-bg: #121417;
+    --ok-btn: #1f8a3f;
+    --problem: #8b1a1a;
+    --problem-text: #ffb3b3;
+    --royal: var(--accent);
+    --navy: var(--sidebar);
     --radius: 8px;
     color-scheme: dark;
 }
@@ -42,31 +54,32 @@ h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 button, .btn {
     font: inherit;
     color: var(--text);
-    background: var(--royal);
-    border: 1px solid transparent;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 7px 14px;
     cursor: pointer;
 }
 button:hover { filter: brightness(1.15); }
 button:disabled { opacity: .45; cursor: default; filter: none; }
-button.ghost { background: transparent; border-color: var(--line); }
-button.danger { background: #a3121b; }
-button.ok { background: var(--green); }
+button.ghost { background: transparent; border-color: var(--line); color: var(--text); }
+button.primary, button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.danger { background: var(--problem); color: #fff; }
+button.ok { background: var(--ok-btn); color: #fff; }
 button.warn { background: var(--orange); color: #111; }
 button.small { padding: 3px 9px; font-size: 12px; }
 
 input, select, textarea {
     font: inherit;
     color: var(--text);
-    background: #0d1640;
+    background: var(--input-bg);
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 6px 9px;
     user-select: text;
 }
-input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--royal); }
-input:focus, select:focus { outline: 2px solid var(--royal); outline-offset: -1px; }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
 label.field input, label.field select { width: 100%; min-width: 0; }
@@ -79,18 +92,18 @@ label.check { display: flex; align-items: center; gap: 8px; }
 .grow { flex: 1; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.error { color: #ff6b6b; }
-.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2); }
-.pill.ok { background: #1f6b3d; }
-.pill.warn { background: #8a5200; }
-.pill.bad { background: #8b1a1a; }
+.error { color: var(--problem-text); }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2); color: var(--text); }
+.pill.ok { background: var(--ok-btn); color: #fff; }
+.pill.warn { background: var(--orange); color: #111; }
+.pill.bad { background: var(--problem); color: #fff; }
 
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
      padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
-td { padding: 6px 8px; border-bottom: 1px solid #1c2554; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
-tr.sel td { background: #24307a; }
-tbody tr:hover td { background: #1b2563; cursor: pointer; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+tr.sel td { background: var(--sel); }
+tbody tr:hover td { background: var(--panel-2); cursor: pointer; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .scroll { overflow: auto; }

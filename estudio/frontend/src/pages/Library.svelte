@@ -324,7 +324,8 @@
   .list { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
   .cat { display: flex; align-items: center; gap: 4px; width: 100%; background: transparent; text-align: left; padding: 6px 8px; }
   .cat .muted { margin-left: auto; }
-  .cat.active { background: var(--royal); }
+  .cat { color: var(--text); border-color: transparent; }
+  .cat.active { background: var(--accent); color: var(--accent-text); }
   .catrow { display: flex; gap: 2px; align-items: center; }
   .editor { display: flex; flex-direction: column; gap: 8px; }
   .path { word-break: break-all; margin: 0; }

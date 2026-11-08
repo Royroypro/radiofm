@@ -3,7 +3,7 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.1/club25-estudio-amd64-installer.exe`
+   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.2/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
@@ -25,7 +25,8 @@ Desinstalar no los borra.
    Streams y emisión) y "Guardar y reiniciar emisión". Si el micrófono está en una consola, elija la
    fuente "Entrada de línea" y la entrada donde llega la salida de la consola.
 4. **Locuciones**: carpeta con `HRS00…23`, `MIN00…59`, `TMP-10…45` ("Verificar archivos").
-5. **Seguridad**: "Arrancar con Windows" y "Empezar a sonar al abrir" para una PC dedicada.
+5. **Apariencia**: tema Oscuro, Claro, Azul Club25 o Personalizado ("Guardar tema").
+6. **Seguridad**: "Arrancar con Windows" y "Empezar a sonar al abrir" para una PC dedicada.
 
 ## Uso diario
 

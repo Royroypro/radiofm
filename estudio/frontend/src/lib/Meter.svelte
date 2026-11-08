@@ -15,8 +15,8 @@
 </div>
 
 <style>
-  .meter { position: relative; width: 18px; height: 100%; background: #0d1640; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
-  .bar.rms { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, #2ead5b, #e6b800 85%, #ff1e1e); z-index: 1; }
-  .bar.peak { position: absolute; left: 0; right: 0; height: 2px; background: #fff; z-index: 2; }
+  .meter { position: relative; width: 18px; height: 100%; background: var(--input-bg); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .bar.rms { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, var(--meter-low, #22a05a), var(--meter-mid, #e6b800) 85%, var(--meter-high, #e5212b)); z-index: 1; }
+  .bar.peak { position: absolute; left: 0; right: 0; height: 2px; background: var(--text); z-index: 2; }
   span { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 10px; z-index: 3; }
 </style>

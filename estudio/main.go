@@ -56,14 +56,17 @@ func main() {
 	front := ui.NewApp(core)
 	err = wails.Run(&options.App{
 		Title:     "Club25 Estudio",
-		Width:     1366,
-		Height:    820,
-		MinWidth:  1100,
-		MinHeight: 680,
+		Width:     1280,
+		Height:    720,
+		MinWidth:  1024, // la interfaz se adapta hasta 1024×600
+		MinHeight: 600,
+		// Arranca maximizada: así la barra de título (minimizar, maximizar, cerrar)
+		// siempre queda visible aunque la pantalla sea pequeña.
+		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 11, G: 18, B: 51, A: 1},
+		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 22, A: 1}, // fondo del tema oscuro
 		OnStartup:        front.Startup,
 		OnShutdown:       front.Shutdown,
 		Bind:             []any{front},

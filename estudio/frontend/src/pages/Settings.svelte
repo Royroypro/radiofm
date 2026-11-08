@@ -5,6 +5,7 @@
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
+  import Appearance from '../lib/Appearance.svelte'
 
   let { info }: { info: ui.AppInfo | null } = $props()
   let s: config.Settings | null = $state(null)
@@ -120,6 +121,11 @@
       <h1 class="grow">Ajustes</h1>
       <button class="ok" disabled={!dirty} onclick={save}>Guardar cambios</button>
     </div>
+
+    <section class="panel">
+      <h2>Apariencia</h2>
+      <Appearance />
+    </section>
 
     <section class="panel">
       <h2>Audio</h2>

@@ -158,7 +158,8 @@
   .clocks { display: grid; grid-template-columns: 240px 1fr; gap: 12px; height: 100%; min-height: 0; }
   .item { display: flex; align-items: center; gap: 4px; width: 100%; background: transparent; text-align: left; padding: 7px 8px; }
   .item .small { margin-left: auto; }
-  .item.active { background: var(--royal); }
+  .item { color: var(--text); border-color: transparent; }
+  .item.active { background: var(--accent); color: var(--accent-text); }
   .editor { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
   td.acts { text-align: right; width: 130px; }
 </style>

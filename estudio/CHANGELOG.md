@@ -2,6 +2,18 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.2 — temas, ventana y pantallas pequeñas
+
+- **Temas**: Oscuro (grafito, por defecto, poco azul), Claro, Azul Club25 y Personalizado (color principal,
+  fondo, paneles, menú y texto sobre un tema base). Vista previa al instante en Ajustes → Apariencia;
+  se guarda en `settings.json` (`ui.theme`, `ui.custom_*`). Todos los colores salen de variables CSS
+  (`frontend/src/lib/theme.ts`): ningún componente fija colores a mano.
+- Botones neutros por defecto; el color principal solo en lo activo o importante.
+- **Ventana**: arranca maximizada (la barra de título con minimizar/maximizar/cerrar siempre visible),
+  tamaño mínimo 1024×600, botones minimizar/maximizar/pantalla completa en Al aire y Ctrl+F11.
+- **Al aire adaptable**: medidas con `clamp()`; en anchos ≤ 1280 px la botonera usa 3 columnas; en
+  ≤ 1150 px historial/tanda/estado pasan a una franja inferior; en alturas ≤ 700 px la cabecera se compacta.
+
 ## 1.0.1 — pantalla Al aire todo en uno
 
 - Nueva pantalla **Al aire** en una sola vista, con la distribución habitual de un automatizador (y la

@@ -10,7 +10,7 @@
     {#each dots as i}
       {@const a = (i / 60) * Math.PI * 2 - Math.PI / 2}
       <circle cx={100 + Math.cos(a) * 90} cy={100 + Math.sin(a) * 90} r={i % 5 === 0 ? 3.2 : 2.2}
-        fill={i <= sec ? '#FF1E1E' : '#26306a'} />
+        fill={i <= sec ? 'var(--red)' : 'var(--line)'} />
     {/each}
   </svg>
   <div class="txt">

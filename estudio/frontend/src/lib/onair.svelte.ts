@@ -3,6 +3,18 @@
 import { OnAirStatus, TriggerCart, OnAirNext, SetMic } from '../../wailsjs/go/ui/App'
 import type { ui } from '../../wailsjs/go/models'
 import { toast } from './toast.svelte'
+import { WindowMinimise, WindowToggleMaximise, WindowFullscreen, WindowUnfullscreen, WindowIsFullscreen } from '../../wailsjs/runtime/runtime'
+
+/** Botones de ventana (además de los de la barra de título de Windows). */
+export const win = {
+  minimise: () => WindowMinimise(),
+  maximise: () => WindowToggleMaximise(),
+}
+
+export async function toggleFullscreen() {
+  if (await WindowIsFullscreen()) WindowUnfullscreen()
+  else WindowFullscreen()
+}
 
 class OnAirState {
   view: ui.OnAirView | null = $state(null)
@@ -48,8 +60,13 @@ class OnAirState {
 
 export const onair = new OnAirState()
 
-/** Atajos globales: Espacio = siguiente, F1–F12 = botones 1–12, Ctrl+M = micrófono. */
+/** Atajos globales: Espacio = siguiente, F1–F12 = botones 1–12, Ctrl+M = micrófono, Ctrl+F11 = pantalla completa. */
 export function handleKey(e: KeyboardEvent) {
+  if (e.key === 'F11' && e.ctrlKey) {
+    e.preventDefault()
+    toggleFullscreen()
+    return
+  }
   const t = e.target as HTMLElement
   const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')
   if (/^F([1-9]|1[0-2])$/.test(e.key)) {

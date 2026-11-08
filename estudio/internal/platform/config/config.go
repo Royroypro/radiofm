@@ -99,7 +99,15 @@ type ScheduleSettings struct {
 
 // InterfaceSettings: preferencias de la interfaz.
 type InterfaceSettings struct {
-	CartPage int `json:"cart_page"`
+	CartPage int    `json:"cart_page"`
+	Theme    string `json:"theme"` // dark | light | club25 | custom
+	// Colores del tema personalizado (#RRGGBB; vacío = el del tema base).
+	CustomBase    string `json:"custom_base"` // dark | light | club25
+	CustomAccent  string `json:"custom_accent"`
+	CustomBg      string `json:"custom_bg"`
+	CustomPanel   string `json:"custom_panel"`
+	CustomSidebar string `json:"custom_sidebar"`
+	CustomText    string `json:"custom_text"`
 }
 
 // Defaults devuelve la configuración inicial del plan.
@@ -115,6 +123,7 @@ func Defaults() Settings {
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},
 		Safety:    SafetySettings{SilenceSeconds: 15, StartPlaying: true},
 		Schedule:  ScheduleSettings{DaysAhead: 1, FillToleranceMs: 30000},
+		UI:        InterfaceSettings{Theme: "dark", CustomBase: "dark"},
 	}
 }
 
@@ -215,6 +224,8 @@ func (c Settings) Validate() error {
 		return errors.New("las separaciones no pueden ser negativas")
 	case c.Safety.SilenceSeconds < 0:
 		return errors.New("el tiempo de silencio no puede ser negativo")
+	case c.UI.Theme != "" && c.UI.Theme != "dark" && c.UI.Theme != "light" && c.UI.Theme != "club25" && c.UI.Theme != "custom":
+		return errors.New("tema desconocido")
 	}
 	if _, err := time.LoadLocation(c.Station.Timezone); err != nil {
 		return fmt.Errorf("zona horaria inválida: %w", err)
