@@ -190,6 +190,10 @@ export function SetMic(arg1) {
   return window['go']['ui']['App']['SetMic'](arg1);
 }
 
+export function SetServerConnection(arg1, arg2) {
+  return window['go']['ui']['App']['SetServerConnection'](arg1, arg2);
+}
+
 export function Settings() {
   return window['go']['ui']['App']['Settings']();
 }
@@ -204,6 +208,14 @@ export function Spots() {
 
 export function StopCarts() {
   return window['go']['ui']['App']['StopCarts']();
+}
+
+export function SyncNow() {
+  return window['go']['ui']['App']['SyncNow']();
+}
+
+export function SyncStatus() {
+  return window['go']['ui']['App']['SyncStatus']();
 }
 
 export function Today() {

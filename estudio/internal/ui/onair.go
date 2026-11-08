@@ -8,6 +8,7 @@ import (
 	"radioclub25/estudio/internal/platform/secrets"
 	"radioclub25/estudio/internal/service/onair"
 	"radioclub25/estudio/internal/service/streaming"
+	syncsvc "radioclub25/estudio/internal/service/sync"
 )
 
 // OnAirView es todo lo que dibuja la pantalla Al aire (se consulta varias veces por segundo).
@@ -15,11 +16,13 @@ type OnAirView struct {
 	Air    onair.Snapshot   `json:"air"`
 	Stream streaming.Status `json:"stream"`
 	Audio  app.AudioState   `json:"audio"`
+	Sync   syncsvc.Status   `json:"sync"`
 }
 
 // OnAirStatus devuelve la foto del aire, la emisión y los dispositivos.
 func (a *App) OnAirStatus() OnAirView {
-	return OnAirView{Air: a.core.OnAir.Snapshot(), Stream: a.core.Streaming.Status(), Audio: a.core.Audio()}
+	return OnAirView{Air: a.core.OnAir.Snapshot(), Stream: a.core.Streaming.Status(), Audio: a.core.Audio(),
+		Sync: a.core.Sync.Status()}
 }
 
 // OnAirStart arranca la automatización.
@@ -75,3 +78,26 @@ func (a *App) RestartAudio() app.AudioState {
 	a.core.RestartAudio()
 	return a.core.Audio()
 }
+
+// SetServerConnection guarda la URL del panel y el token (cifrado) y sincroniza ya.
+// token vacío conserva el guardado.
+func (a *App) SetServerConnection(url, token string) error {
+	st := a.core.Settings()
+	st.Server.URL = url
+	if err := a.core.SaveSettings(st); err != nil {
+		return err
+	}
+	if token != "" {
+		if err := a.core.Secrets.Set(secrets.ServerToken, token); err != nil {
+			return err
+		}
+	}
+	a.core.Sync.SyncNow()
+	return nil
+}
+
+// SyncNow sincroniza con el panel ahora.
+func (a *App) SyncNow() { a.core.Sync.SyncNow() }
+
+// SyncStatus devuelve el estado de la sincronización.
+func (a *App) SyncStatus() syncsvc.Status { return a.core.Sync.Status() }

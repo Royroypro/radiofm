@@ -8,6 +8,7 @@ import {audio} from '../models';
 import {reports} from '../models';
 import {app} from '../models';
 import {config} from '../models';
+import {sync} from '../models';
 
 export function AnalyzerStatus():Promise<library.AnalyzerStatus>;
 
@@ -103,6 +104,8 @@ export function SetIcecastPassword(arg1:string):Promise<void>;
 
 export function SetMic(arg1:boolean):Promise<void>;
 
+export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
+
 export function Settings():Promise<config.Settings>;
 
 export function SlotKinds():Promise<Array<domain.SlotKind>>;
@@ -110,6 +113,10 @@ export function SlotKinds():Promise<Array<domain.SlotKind>>;
 export function Spots():Promise<Array<ui.SpotView>>;
 
 export function StopCarts():Promise<void>;
+
+export function SyncNow():Promise<void>;
+
+export function SyncStatus():Promise<sync.Status>;
 
 export function Today():Promise<string>;
 

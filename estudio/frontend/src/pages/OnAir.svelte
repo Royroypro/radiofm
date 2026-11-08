@@ -144,6 +144,10 @@
     <span>Salida: {v?.audio.output ?? '…'}</span>
     {#if v?.audio.mic}<span>· Mic: {v.audio.mic}</span>{/if}
     <span class="grow"></span>
+    {#if v?.sync.configured}
+      <span class="pill" class:ok={v.sync.online} class:bad={!v.sync.online}
+        title={v.sync.last_error}>Panel {v.sync.online ? 'sincronizado' : v.sync.suspended ? 'suspendido' : 'sin conexión'}{v.sync.queue ? ` · ${v.sync.queue} en cola` : ''}</span>
+    {/if}
     {#if v?.stream.enabled}
       <span class="pill" class:ok={v.stream.encoder.connected} class:bad={!v.stream.encoder.connected}>
         Icecast {v.stream.encoder.connected ? 'conectado' : 'desconectado'} · {v.stream.encoder.kbps} kbps

@@ -1,7 +1,7 @@
 <!-- Ajustes: dispositivos, mezcla, Icecast, panel web, emisora, rotación, locuciones y seguridad. -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature, SetIcecastPassword, RestartAudio, RestartStreaming } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature, SetIcecastPassword, RestartAudio, RestartStreaming, SetServerConnection, SyncStatus } from '../../wailsjs/go/ui/App'
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -16,6 +16,7 @@
 
   onMount(async () => {
     s = await Settings()
+    sync = await SyncStatus()
     try {
       devices = (await Devices()) ?? []
     } catch (e) {
@@ -35,6 +36,20 @@
   }
 
   let icePass = $state('')
+  let token = $state('')
+  let sync: any = $state(null)
+
+  async function saveServer() {
+    try {
+      await SetServerConnection(s!.server.url, token)
+      token = ''
+      dirty = false
+      toast.show('Conexión guardada; sincronizando…')
+      setTimeout(async () => (sync = await SyncStatus()), 3000)
+    } catch (e) {
+      toast.error(e)
+    }
+  }
 
   async function savePassword() {
     try {
@@ -145,8 +160,19 @@
 
     <section class="panel grid2">
       <div>
-        <h2>Panel web</h2>
+        <h2>Panel web (sincronización)</h2>
         <label class="field">URL del sitio<input bind:value={s.server.url} /></label>
+        <label class="field" style="margin-top:6px">Token de Admin → Estudio (PC)
+          <input type="password" placeholder={sync?.configured ? '(guardado; escriba otro para cambiarlo)' : 'c25s_…'} bind:value={token} /></label>
+        <div class="row" style="margin-top:6px">
+          <button onclick={saveServer}>Guardar y sincronizar</button>
+          {#if sync}
+            <span class="pill" class:ok={sync.online} class:bad={!sync.online && sync.configured}>
+              {sync.online ? 'conectado' : sync.suspended ? 'servicio suspendido' : sync.unauthorized ? 'token inválido' : sync.configured ? 'sin conexión' : 'sin configurar'}</span>
+            <span class="small muted">{sync.spots} cuñas · {sync.queue} emisiones en cola</span>
+          {/if}
+        </div>
+        {#if sync?.last_error}<p class="error small">{sync.last_error}</p>{/if}
       </div>
       <div>
         <h2>Emisora</h2>

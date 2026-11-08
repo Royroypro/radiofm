@@ -1152,6 +1152,59 @@ export namespace streaming {
 
 }
 
+export namespace sync {
+	
+	export class Status {
+	    configured: boolean;
+	    online: boolean;
+	    suspended: boolean;
+	    unauthorized: boolean;
+	    // Go type: time
+	    last_ok: any;
+	    last_error: string;
+	    queue: number;
+	    spots: number;
+	    // Go type: time
+	    last_spots: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configured = source["configured"];
+	        this.online = source["online"];
+	        this.suspended = source["suspended"];
+	        this.unauthorized = source["unauthorized"];
+	        this.last_ok = this.convertValues(source["last_ok"], null);
+	        this.last_error = source["last_error"];
+	        this.queue = source["queue"];
+	        this.spots = source["spots"];
+	        this.last_spots = this.convertValues(source["last_spots"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace ui {
 	
 	export class AppInfo {
@@ -1200,6 +1253,7 @@ export namespace ui {
 	    air: onair.Snapshot;
 	    stream: streaming.Status;
 	    audio: app.AudioState;
+	    sync: sync.Status;
 	
 	    static createFrom(source: any = {}) {
 	        return new OnAirView(source);
@@ -1210,6 +1264,7 @@ export namespace ui {
 	        this.air = this.convertValues(source["air"], onair.Snapshot);
 	        this.stream = this.convertValues(source["stream"], streaming.Status);
 	        this.audio = this.convertValues(source["audio"], app.AudioState);
+	        this.sync = this.convertValues(source["sync"], sync.Status);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

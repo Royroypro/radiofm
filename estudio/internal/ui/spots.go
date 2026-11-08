@@ -55,15 +55,7 @@ func (a *App) DeleteSpot(id int64) error {
 }
 
 // replanSoon replanifica las tandas de hoy y mañana en segundo plano.
-func (a *App) replanSoon() {
-	go func() {
-		ctx := context.Background()
-		today := a.Today()
-		_, _ = a.core.Spots.Replan(ctx, today)
-		_, _ = a.core.Spots.Replan(ctx, nextDay(today))
-		a.emit("log:changed", today)
-	}()
-}
+func (a *App) replanSoon() { a.core.ReplanSoon() }
 
 // ReplanResult resume una replanificación.
 type ReplanResult struct {

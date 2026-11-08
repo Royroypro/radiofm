@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 7 — sincronización con el panel web
+
+- `platform/apiclient`: cliente de `/api/studio/*` (config, cuñas con ETag, heartbeat, lo que suena,
+  emisiones) y descarga verificada por SHA-256.
+- `service/sync`: bucle de sincronización, cola local de emisiones (tabla `airplay_queue`) que se envía al
+  volver la red, desactivación de cuñas retiradas, aplicación de la configuración del panel.
+- Token del panel cifrado (DPAPI); Ajustes → Panel web; indicador en Al aire.
+- Pendiente: prueba de punta a punta completa contra el servidor local (iniciada: token y cuña creados).
+
 ## Fase 6 — Al aire
 
 - `service/onair`: orquestación del aire (un goroutine dueño del estado), expansión de elementos en

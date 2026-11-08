@@ -19,6 +19,7 @@ import (
 
 	"radioclub25/estudio/internal/audio"
 	"radioclub25/estudio/internal/domain"
+	"radioclub25/estudio/internal/platform/apiclient"
 	"radioclub25/estudio/internal/platform/config"
 	"radioclub25/estudio/internal/platform/ffmpeg"
 	"radioclub25/estudio/internal/platform/logger"
@@ -32,7 +33,9 @@ import (
 	"radioclub25/estudio/internal/service/scheduler"
 	"radioclub25/estudio/internal/service/spots"
 	"radioclub25/estudio/internal/service/streaming"
+	syncsvc "radioclub25/estudio/internal/service/sync"
 	"radioclub25/estudio/internal/service/timeannounce"
+	"radioclub25/estudio/internal/version"
 )
 
 // App reúne las piezas construidas.
@@ -53,6 +56,7 @@ type App struct {
 	Engine    *audio.Engine
 	OnAir     *onair.Service
 	Streaming *streaming.Service
+	Sync      *syncsvc.Service
 
 	audioMu   sync.Mutex
 	output    *audio.Stream
@@ -137,8 +141,30 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		OnSegment: func(seg onair.Segment) {
 			if seg.Path != "" {
 				a.Streaming.UpdateSong(seg.Display(), seg.Music)
+				a.Sync.NowPlaying(seg.Artist, seg.Title, string(seg.Kind))
 			}
 		},
+		OnPlayEnded: func(p domain.Play, seg onair.Segment) {
+			if seg.RemoteID > 0 { // cuña del panel web: emisión para el comprobante
+				a.Sync.EnqueueAirplay(context.Background(), seg.RemoteID, p.UUID, p.StartedAt, p.Duration, p.Complete)
+			}
+		},
+	})
+	a.Sync = syncsvc.New(syncsvc.Deps{
+		ServerURL: func() string { return a.Settings().Server.URL },
+		Token:     func() (string, error) { return a.Secrets.Get(secrets.ServerToken) },
+		Version:   version.Version,
+		Spots:     sqlite.NewSpotRepo(a.DB), Queue: sqlite.NewAirplayQueue(a.DB), KV: sqlite.NewKV(a.DB),
+		SpotsDir: dataDir + string(os.PathSeparator) + "spots",
+		Probe: func(ctx context.Context, path string) (time.Duration, error) {
+			info, err := a.Tools.Probe(ctx, path)
+			return info.Duration, err
+		},
+		ApplyConfig:  a.applyServerConfig,
+		SpotsChanged: a.ReplanSoon,
+		Mode:         func() string { return string(a.OnAir.Snapshot().Mode) },
+		Encoder:      func() any { return a.Streaming.Status().Encoder },
+		Log:          log,
 	})
 	a.OnAir.SetCartRepository(sqlite.NewCartRepo(a.DB))
 	// Al cambiar una playlist se replanifican sus tandas. En otra goroutine: OnChange
@@ -208,6 +234,8 @@ func (a *App) Start(ctx context.Context) {
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.OnAir.Run(ctx) }()
 	a.Streaming.Restart(ctx)
+	a.wg.Add(1)
+	go func() { defer a.wg.Done(); a.Sync.Run(ctx) }()
 	if a.Settings().Safety.StartPlaying {
 		go func() {
 			// esperar a que la playlist de hoy exista
@@ -235,6 +263,47 @@ func (a *App) Start(ctx context.Context) {
 				return
 			case <-t.C:
 			}
+		}
+	}()
+}
+
+// applyServerConfig guarda los datos de la radio que envía el panel web.
+func (a *App) applyServerConfig(c apiclient.Config) {
+	s := a.Settings()
+	before := s
+	if c.Station.Name != "" {
+		s.Station.Name = c.Station.Name
+	}
+	if c.Station.Timezone != "" {
+		s.Station.Timezone = c.Station.Timezone
+	}
+	if c.Station.Latitude != 0 || c.Station.Longitude != 0 {
+		s.Station.Latitude, s.Station.Longitude = c.Station.Latitude, c.Station.Longitude
+	}
+	if c.Icecast.Host != "" {
+		s.Icecast.Host, s.Icecast.Port, s.Icecast.Mount = c.Icecast.Host, c.Icecast.Port, c.Icecast.Mount
+	}
+	if s != before {
+		if err := a.SaveSettings(s); err != nil {
+			a.Log.Error("guardar configuración del panel", "err", err)
+		}
+	}
+}
+
+// ReplanSoon replanifica las tandas de hoy y mañana en segundo plano.
+func (a *App) ReplanSoon() {
+	go func() {
+		ctx := context.Background()
+		today := time.Now().In(a.Settings().Location())
+		for i := 0; i < 2; i++ {
+			day := today.AddDate(0, 0, i).Format(domain.DayLayout)
+			if _, err := a.Spots.Replan(ctx, day); err != nil {
+				a.Log.Error("replanificar tandas", "day", day, "err", err)
+			}
+		}
+		a.OnAir.Refresh()
+		if a.OnLogChange != nil {
+			a.OnLogChange(today.Format(domain.DayLayout))
 		}
 	}()
 }
