@@ -15,27 +15,31 @@
   import Grid from './pages/Grid.svelte'
   import Spots from './pages/Spots.svelte'
   import Reports from './pages/Reports.svelte'
+  import OnAir from './pages/OnAir.svelte'
+  import Carts from './pages/Carts.svelte'
+  import { onair, handleKey } from './lib/onair.svelte'
   import Placeholder from './pages/Placeholder.svelte'
   import { toast } from './lib/toast.svelte'
 
   type Page = { id: string; label: string; phase?: string }
   const pages: Page[] = [
-    { id: 'onair', label: 'Al aire', phase: 'fase 6' },
+    { id: 'onair', label: 'Al aire' },
     { id: 'log', label: 'Playlist' },
     { id: 'library', label: 'Biblioteca' },
     { id: 'clocks', label: 'Relojes' },
     { id: 'grid', label: 'Parrilla' },
     { id: 'spots', label: 'Cuñas' },
-    { id: 'carts', label: 'Botonera', phase: 'fase 6' },
+    { id: 'carts', label: 'Botonera' },
     { id: 'reports', label: 'Reportes' },
     { id: 'settings', label: 'Ajustes' },
   ]
 
-  let page = $state('library')
+  let page = $state('onair')
   let info: ui.AppInfo | null = $state(null)
   let now = $state(new Date())
 
   onMount(() => {
+    onair.start()
     Info().then((i) => (info = i))
     const t = setInterval(() => (now = new Date()), 500)
     return () => clearInterval(t)
@@ -43,6 +47,8 @@
 
   const current = $derived(pages.find((p) => p.id === page)!)
 </script>
+
+<svelte:window onkeydown={handleKey} />
 
 <div class="shell">
   <aside>
@@ -58,6 +64,13 @@
         <button class="nav" class:active={page === p.id} onclick={() => (page = p.id)}>{p.label}</button>
       {/each}
     </nav>
+    {#if onair.view}
+      <div class="air small">
+        <span class="pill" class:ok={onair.view.air.running}>{onair.view.air.running ? 'AL AIRE' : 'detenido'}</span>
+        {#if onair.mic}<span class="pill bad">MIC</span>{/if}
+        {#if onair.view.stream.enabled}<span class="pill" class:ok={onair.view.stream.encoder.connected} class:bad={!onair.view.stream.encoder.connected}>WEB</span>{/if}
+      </div>
+    {/if}
     <time>{now.toLocaleTimeString('es-PE', { hour12: false })}</time>
     {#if info && !info.ffmpeg_ok}
       <p class="error small">ffmpeg no encontrado: la biblioteca no puede analizar ni reproducir.</p>
@@ -65,7 +78,11 @@
   </aside>
 
   <main>
-    {#if page === 'library'}
+    {#if page === 'onair'}
+      <OnAir />
+    {:else if page === 'carts'}
+      <Carts />
+    {:else if page === 'library'}
       <Library />
     {:else if page === 'log'}
       <Playlist />
@@ -98,6 +115,7 @@
   nav { display: flex; flex-direction: column; gap: 4px; }
   .nav { text-align: left; background: transparent; border-radius: 6px; padding: 9px 12px; }
   .nav.active { background: var(--red); }
-  time { margin-top: auto; font-size: 28px; text-align: center; font-variant-numeric: tabular-nums; }
+  .air { display: flex; gap: 4px; justify-content: center; margin-top: auto; }
+  time { font-size: 28px; text-align: center; font-variant-numeric: tabular-nums; }
   main { overflow: hidden; padding: 16px; display: flex; flex-direction: column; min-width: 0; }
 </style>

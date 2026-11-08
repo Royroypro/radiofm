@@ -6,6 +6,10 @@ export function AnalyzerStatus() {
   return window['go']['ui']['App']['AnalyzerStatus']();
 }
 
+export function Carts(arg1) {
+  return window['go']['ui']['App']['Carts'](arg1);
+}
+
 export function Categories() {
   return window['go']['ui']['App']['Categories']();
 }
@@ -90,6 +94,26 @@ export function MoveLogItem(arg1, arg2) {
   return window['go']['ui']['App']['MoveLogItem'](arg1, arg2);
 }
 
+export function OnAirMode(arg1) {
+  return window['go']['ui']['App']['OnAirMode'](arg1);
+}
+
+export function OnAirNext() {
+  return window['go']['ui']['App']['OnAirNext']();
+}
+
+export function OnAirStart() {
+  return window['go']['ui']['App']['OnAirStart']();
+}
+
+export function OnAirStatus() {
+  return window['go']['ui']['App']['OnAirStatus']();
+}
+
+export function OnAirStop() {
+  return window['go']['ui']['App']['OnAirStop']();
+}
+
 export function PickFile(arg1) {
   return window['go']['ui']['App']['PickFile'](arg1);
 }
@@ -118,6 +142,18 @@ export function ReportSpots(arg1, arg2, arg3) {
   return window['go']['ui']['App']['ReportSpots'](arg1, arg2, arg3);
 }
 
+export function RestartAudio() {
+  return window['go']['ui']['App']['RestartAudio']();
+}
+
+export function RestartStreaming() {
+  return window['go']['ui']['App']['RestartStreaming']();
+}
+
+export function SaveCart(arg1) {
+  return window['go']['ui']['App']['SaveCart'](arg1);
+}
+
 export function SaveCategory(arg1) {
   return window['go']['ui']['App']['SaveCategory'](arg1);
 }
@@ -134,12 +170,24 @@ export function SaveSpot(arg1) {
   return window['go']['ui']['App']['SaveSpot'](arg1);
 }
 
+export function SetDuck(arg1) {
+  return window['go']['ui']['App']['SetDuck'](arg1);
+}
+
 export function SetException(arg1) {
   return window['go']['ui']['App']['SetException'](arg1);
 }
 
 export function SetGrid(arg1) {
   return window['go']['ui']['App']['SetGrid'](arg1);
+}
+
+export function SetIcecastPassword(arg1) {
+  return window['go']['ui']['App']['SetIcecastPassword'](arg1);
+}
+
+export function SetMic(arg1) {
+  return window['go']['ui']['App']['SetMic'](arg1);
 }
 
 export function Settings() {
@@ -154,6 +202,10 @@ export function Spots() {
   return window['go']['ui']['App']['Spots']();
 }
 
+export function StopCarts() {
+  return window['go']['ui']['App']['StopCarts']();
+}
+
 export function Today() {
   return window['go']['ui']['App']['Today']();
 }
@@ -164,6 +216,10 @@ export function ToggleLogLock(arg1) {
 
 export function Tracks(arg1) {
   return window['go']['ui']['App']['Tracks'](arg1);
+}
+
+export function TriggerCart(arg1, arg2) {
+  return window['go']['ui']['App']['TriggerCart'](arg1, arg2);
 }
 
 export function UpdateTrack(arg1) {

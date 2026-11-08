@@ -1,3 +1,24 @@
+export namespace app {
+	
+	export class AudioState {
+	    output: string;
+	    mic: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AudioState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.output = source["output"];
+	        this.mic = source["mic"];
+	        this.error = source["error"];
+	    }
+	}
+
+}
+
 export namespace audio {
 	
 	export class Device {
@@ -17,6 +38,90 @@ export namespace audio {
 	        this.kind = source["kind"];
 	        this.is_default = source["is_default"];
 	    }
+	}
+	export class Levels {
+	    PeakL: number;
+	    PeakR: number;
+	    RMSL: number;
+	    RMSR: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Levels(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.PeakL = source["PeakL"];
+	        this.PeakR = source["PeakR"];
+	        this.RMSL = source["RMSL"];
+	        this.RMSR = source["RMSR"];
+	    }
+	}
+	export class SlotState {
+	    loaded: boolean;
+	    playing: boolean;
+	    tag: number;
+	    position: number;
+	    length: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SlotState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.loaded = source["loaded"];
+	        this.playing = source["playing"];
+	        this.tag = source["tag"];
+	        this.position = source["position"];
+	        this.length = source["length"];
+	    }
+	}
+	export class Status {
+	    decks: SlotState[];
+	    carts_on: number[];
+	    levels: Levels;
+	    duck_gain: number;
+	    limiter_gain: number;
+	    mic_on: boolean;
+	    dropouts: number;
+	    enc_dropped: number;
+	    rendered: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.decks = this.convertValues(source["decks"], SlotState);
+	        this.carts_on = source["carts_on"];
+	        this.levels = this.convertValues(source["levels"], Levels);
+	        this.duck_gain = source["duck_gain"];
+	        this.limiter_gain = source["limiter_gain"];
+	        this.mic_on = source["mic_on"];
+	        this.dropouts = source["dropouts"];
+	        this.enc_dropped = source["enc_dropped"];
+	        this.rendered = source["rendered"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
@@ -240,6 +345,28 @@ export namespace config {
 
 export namespace domain {
 	
+	export class Cart {
+	    page: number;
+	    slot: number;
+	    label: string;
+	    color: string;
+	    path: string;
+	    stop_on_push: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Cart(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.page = source["page"];
+	        this.slot = source["slot"];
+	        this.label = source["label"];
+	        this.color = source["color"];
+	        this.path = source["path"];
+	        this.stop_on_push = source["stop_on_push"];
+	    }
+	}
 	export class Category {
 	    id: number;
 	    name: string;
@@ -629,6 +756,54 @@ export namespace domain {
 
 }
 
+export namespace ffmpeg {
+	
+	export class EncoderStatus {
+	    connected: boolean;
+	    // Go type: time
+	    since?: any;
+	    retries: number;
+	    last_error?: string;
+	    kbps: number;
+	    bytes_sent: number;
+	    format: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EncoderStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connected = source["connected"];
+	        this.since = this.convertValues(source["since"], null);
+	        this.retries = source["retries"];
+	        this.last_error = source["last_error"];
+	        this.kbps = source["kbps"];
+	        this.bytes_sent = source["bytes_sent"];
+	        this.format = source["format"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace library {
 	
 	export class AnalyzerStatus {
@@ -662,6 +837,182 @@ export namespace library {
 	        this.failed = source["failed"];
 	        this.errors = source["errors"];
 	    }
+	}
+
+}
+
+export namespace onair {
+	
+	export class Segment {
+	    item_id: number;
+	    index: number;
+	    last: boolean;
+	    kind: string;
+	    path: string;
+	    track_id: number;
+	    spot_id: number;
+	    remote_id: number;
+	    artist: string;
+	    title: string;
+	    gain_db: number;
+	    cue_in: number;
+	    length: number;
+	    segue: number;
+	    intro: number;
+	    silence: number;
+	    mode: string;
+	    music: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Segment(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.item_id = source["item_id"];
+	        this.index = source["index"];
+	        this.last = source["last"];
+	        this.kind = source["kind"];
+	        this.path = source["path"];
+	        this.track_id = source["track_id"];
+	        this.spot_id = source["spot_id"];
+	        this.remote_id = source["remote_id"];
+	        this.artist = source["artist"];
+	        this.title = source["title"];
+	        this.gain_db = source["gain_db"];
+	        this.cue_in = source["cue_in"];
+	        this.length = source["length"];
+	        this.segue = source["segue"];
+	        this.intro = source["intro"];
+	        this.silence = source["silence"];
+	        this.mode = source["mode"];
+	        this.music = source["music"];
+	    }
+	}
+	export class DeckView {
+	    playing: boolean;
+	    current: boolean;
+	    segment?: Segment;
+	    position: number;
+	    remaining: number;
+	    intro_left: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeckView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playing = source["playing"];
+	        this.current = source["current"];
+	        this.segment = this.convertValues(source["segment"], Segment);
+	        this.position = source["position"];
+	        this.remaining = source["remaining"];
+	        this.intro_left = source["intro_left"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class Warning {
+	    // Go type: time
+	    at: any;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Warning(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.at = this.convertValues(source["at"], null);
+	        this.message = source["message"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Snapshot {
+	    running: boolean;
+	    mode: string;
+	    waiting: boolean;
+	    decks: DeckView[];
+	    item_id: number;
+	    next: domain.LogItem[];
+	    silence_left: number;
+	    engine: audio.Status;
+	    carts_on: number[];
+	    warnings: Warning[];
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Snapshot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.running = source["running"];
+	        this.mode = source["mode"];
+	        this.waiting = source["waiting"];
+	        this.decks = this.convertValues(source["decks"], DeckView);
+	        this.item_id = source["item_id"];
+	        this.next = this.convertValues(source["next"], domain.LogItem);
+	        this.silence_left = source["silence_left"];
+	        this.engine = this.convertValues(source["engine"], audio.Status);
+	        this.carts_on = source["carts_on"];
+	        this.warnings = this.convertValues(source["warnings"], Warning);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
@@ -754,6 +1105,53 @@ export namespace spots {
 
 }
 
+export namespace streaming {
+	
+	export class Status {
+	    enabled: boolean;
+	    has_password: boolean;
+	    source: string;
+	    target: string;
+	    encoder: ffmpeg.EncoderStatus;
+	    error: string;
+	    song: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.has_password = source["has_password"];
+	        this.source = source["source"];
+	        this.target = source["target"];
+	        this.encoder = this.convertValues(source["encoder"], ffmpeg.EncoderStatus);
+	        this.error = source["error"];
+	        this.song = source["song"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace ui {
 	
 	export class AppInfo {
@@ -797,6 +1195,40 @@ export namespace ui {
 	        this.color = source["color"];
 	        this.tracks = source["tracks"];
 	    }
+	}
+	export class OnAirView {
+	    air: onair.Snapshot;
+	    stream: streaming.Status;
+	    audio: app.AudioState;
+	
+	    static createFrom(source: any = {}) {
+	        return new OnAirView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.air = this.convertValues(source["air"], onair.Snapshot);
+	        this.stream = this.convertValues(source["stream"], streaming.Status);
+	        this.audio = this.convertValues(source["audio"], app.AudioState);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ReplanResult {
 	    missing: Record<number, number>;

@@ -17,16 +17,21 @@ import (
 	"sync"
 	"time"
 
+	"radioclub25/estudio/internal/audio"
+	"radioclub25/estudio/internal/domain"
 	"radioclub25/estudio/internal/platform/config"
 	"radioclub25/estudio/internal/platform/ffmpeg"
 	"radioclub25/estudio/internal/platform/logger"
+	"radioclub25/estudio/internal/platform/secrets"
 	"radioclub25/estudio/internal/platform/sqlite"
 	"radioclub25/estudio/internal/platform/weather"
 	"radioclub25/estudio/internal/service/library"
+	"radioclub25/estudio/internal/service/onair"
 	"radioclub25/estudio/internal/service/reports"
 	"radioclub25/estudio/internal/service/rotation"
 	"radioclub25/estudio/internal/service/scheduler"
 	"radioclub25/estudio/internal/service/spots"
+	"radioclub25/estudio/internal/service/streaming"
 	"radioclub25/estudio/internal/service/timeannounce"
 )
 
@@ -44,6 +49,16 @@ type App struct {
 	Spots     *spots.Service
 	Reports   *reports.Service
 	Weather   *weather.Client
+	Secrets   *secrets.Store
+	Engine    *audio.Engine
+	OnAir     *onair.Service
+	Streaming *streaming.Service
+
+	audioMu   sync.Mutex
+	output    *audio.Stream
+	mic       *audio.Stream
+	clockStop context.CancelFunc
+	audioErr  string
 
 	// OnLogChange se llama (en otra goroutine) cuando cambia la playlist de un día
 	// y sus tandas ya se replanificaron. La usa la interfaz para refrescarse.
@@ -98,6 +113,34 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		sqlite.NewCategoryRepo(a.DB), sqlite.NewTrackRepo(a.DB), a.Scheduler, a.Tools, loc, log)
 	a.Reports = reports.New(sqlite.NewPlayRepo(a.DB), sqlite.NewSpotRepo(a.DB), loc)
 	a.Weather = weather.New()
+	a.Secrets = secrets.NewStore(dataDir)
+
+	// Motor de audio, aire y emisión
+	s := a.Settings()
+	ecfg := audio.DefaultConfig()
+	ecfg.DuckDepthDB, ecfg.DuckThresholdDB = s.Audio.DuckDepthDB, s.Audio.DuckThresholdDB
+	ecfg.DuckAttack = time.Duration(s.Audio.DuckAttackMs) * time.Millisecond
+	ecfg.DuckRelease = time.Duration(s.Audio.DuckReleaseMs) * time.Millisecond
+	ecfg.SilenceAfter = time.Duration(s.Safety.SilenceSeconds) * time.Second
+	a.Engine = audio.NewEngine(ecfg)
+	a.Streaming = streaming.New(a.Tools, a.Engine, a.Settings,
+		func() (string, error) { return a.Secrets.Get(secrets.IcecastPassword) }, log)
+	a.OnAir = onair.New(onair.Deps{
+		Engine: a.Engine, Log: a.Scheduler, Tracks: sqlite.NewTrackRepo(a.DB), Categories: sqlite.NewCategoryRepo(a.DB),
+		Spots: a.Spots, Plays: sqlite.NewPlayRepo(a.DB), Decode: a.decode, Voice: a.Locutions,
+		Temperature: func(ctx context.Context) (float64, error) {
+			st := a.Settings().Station
+			return a.Weather.Current(ctx, st.Latitude, st.Longitude)
+		},
+		Location: loc, Options: a.onairOptions, Logger: log,
+	}, onair.Hooks{
+		OnSegment: func(seg onair.Segment) {
+			if seg.Path != "" {
+				a.Streaming.UpdateSong(seg.Display(), seg.Music)
+			}
+		},
+	})
+	a.OnAir.SetCartRepository(sqlite.NewCartRepo(a.DB))
 	// Al cambiar una playlist se replanifican sus tandas. En otra goroutine: OnChange
 	// se llama con el programador bloqueado y Replan necesita editar el día.
 	a.Scheduler.OnChange = func(day string) {
@@ -105,6 +148,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 			if _, err := a.Spots.Replan(context.Background(), day); err != nil {
 				a.Log.Error("replanificar tandas", "day", day, "err", err)
 			}
+			a.OnAir.Refresh()
 			if a.OnLogChange != nil {
 				a.OnLogChange(day)
 			}
@@ -151,6 +195,28 @@ func (a *App) Start(ctx context.Context) {
 		a.wg.Add(1)
 		go func() { defer a.wg.Done(); a.Library.RunAnalyzer(ctx) }()
 	}
+	// Elementos que quedaron "sonando" porque el programa se cerró de golpe: ya sonaron.
+	if items, err := a.Scheduler.Upcoming(ctx, time.Now().Add(-24*time.Hour), 100000); err == nil {
+		for _, it := range items {
+			if it.Status == domain.LogPlaying {
+				_ = a.Scheduler.SetStatus(ctx, it.ID, domain.LogPlayed)
+			}
+		}
+	}
+	// audio, aire y emisión
+	a.RestartAudio()
+	a.wg.Add(1)
+	go func() { defer a.wg.Done(); a.OnAir.Run(ctx) }()
+	a.Streaming.Restart(ctx)
+	if a.Settings().Safety.StartPlaying {
+		go func() {
+			// esperar a que la playlist de hoy exista
+			time.Sleep(2 * time.Second)
+			if err := a.OnAir.Start(); err != nil {
+				a.Log.Error("arrancar el aire", "err", err)
+			}
+		}()
+	}
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
@@ -173,6 +239,104 @@ func (a *App) Start(ctx context.Context) {
 	}()
 }
 
+// decode abre un archivo con ffmpeg como fuente del motor.
+func (a *App) decode(ctx context.Context, path string, start time.Duration) (audio.Source, error) {
+	if a.FFmpeg != nil {
+		return nil, a.FFmpeg
+	}
+	r, err := a.Tools.Decode(ctx, path, start)
+	if err != nil {
+		return nil, err
+	}
+	return audio.NewPCMSource(r), nil
+}
+
+// onairOptions traduce los ajustes a las opciones del aire.
+func (a *App) onairOptions() onair.Options {
+	s := a.Settings()
+	o := onair.Options{Crossfade: s.Audio.Crossfade(), HardFade: time.Duration(s.Audio.HardFadeMs) * time.Millisecond}
+	if cats, err := a.Library.Categories(context.Background()); err == nil {
+		for _, c := range cats {
+			if c.Kind == domain.KindEmergency && o.Emergency == 0 {
+				o.Emergency = c.ID
+			}
+		}
+		if o.Emergency == 0 {
+			for _, c := range cats {
+				if c.Kind == domain.KindFiller {
+					o.Emergency = c.ID
+				}
+			}
+		}
+	}
+	return o
+}
+
+// RestartAudio (re)abre la tarjeta de salida y el micrófono según los ajustes. Si la
+// salida falla, el motor sigue con el reloj de software (Icecast sigue sonando).
+func (a *App) RestartAudio() {
+	a.audioMu.Lock()
+	defer a.audioMu.Unlock()
+	if a.output != nil {
+		_ = a.output.Close()
+		a.output = nil
+	}
+	if a.mic != nil {
+		_ = a.mic.Close()
+		a.mic = nil
+	}
+	if a.clockStop != nil {
+		a.clockStop()
+		a.clockStop = nil
+	}
+	s := a.Settings()
+	a.audioErr = ""
+	out, err := audio.OpenOutput(s.Audio.OutputDevice, a.Engine.Render)
+	if err != nil {
+		a.audioErr = "salida de audio: " + err.Error() + " (se emite solo a Icecast)"
+		a.Log.Error("abrir salida de audio", "err", err)
+		ctx, cancel := context.WithCancel(context.Background())
+		a.clockStop = cancel
+		go audio.RunClock(ctx, a.Engine)
+	} else {
+		a.output = out
+		a.Log.Info("salida de audio", "dispositivo", out.Device.Name)
+	}
+	_ = a.Engine.SetMicGain(audio.DBToGain(s.Audio.MicGainDB))
+	if s.Audio.MicDevice != "" {
+		mic, err := audio.OpenCapture(s.Audio.MicDevice, a.Engine.MicInput())
+		if err != nil {
+			a.audioErr += " · micrófono: " + err.Error()
+			a.Log.Error("abrir micrófono", "err", err)
+		} else {
+			a.mic = mic
+		}
+	}
+}
+
+// AudioState describe los dispositivos abiertos.
+type AudioState struct {
+	Output string `json:"output"`
+	Mic    string `json:"mic"`
+	Error  string `json:"error"`
+}
+
+// Audio devuelve qué dispositivos están abiertos y el último error.
+func (a *App) Audio() AudioState {
+	a.audioMu.Lock()
+	defer a.audioMu.Unlock()
+	st := AudioState{Error: a.audioErr}
+	if a.output != nil {
+		st.Output = a.output.Device.Name
+	} else {
+		st.Output = "(sin tarjeta: reloj de software)"
+	}
+	if a.mic != nil {
+		st.Mic = a.mic.Device.Name
+	}
+	return st
+}
+
 // Locutions devuelve la ubicación de las locuciones de hora y temperatura según los ajustes.
 func (a *App) Locutions() timeannounce.Files {
 	l := a.Settings().Locutions
@@ -185,6 +349,18 @@ func (a *App) Close() {
 		a.cancel()
 	}
 	a.wg.Wait()
+	a.Streaming.Stop()
+	a.audioMu.Lock()
+	if a.output != nil {
+		_ = a.output.Close()
+	}
+	if a.mic != nil {
+		_ = a.mic.Close()
+	}
+	if a.clockStop != nil {
+		a.clockStop()
+	}
+	a.audioMu.Unlock()
 	if a.DB != nil {
 		a.DB.Close()
 	}

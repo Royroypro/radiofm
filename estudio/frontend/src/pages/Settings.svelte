@@ -1,7 +1,7 @@
 <!-- Ajustes: dispositivos, mezcla, Icecast, panel web, emisora, rotación, locuciones y seguridad. -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature, SetIcecastPassword, RestartAudio, RestartStreaming } from '../../wailsjs/go/ui/App'
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -32,6 +32,30 @@
     } catch (e) {
       toast.error(e)
     }
+  }
+
+  let icePass = $state('')
+
+  async function savePassword() {
+    try {
+      await SetIcecastPassword(icePass)
+      icePass = ''
+      toast.show('Contraseña guardada (cifrada) y emisión reiniciada')
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+
+  async function applyAudio() {
+    await save()
+    const st = await RestartAudio()
+    toast.show(st.error ? st.error : `Audio aplicado: ${st.output}${st.mic ? ' · mic ' + st.mic : ''}`, !!st.error)
+  }
+
+  async function applyStream() {
+    await save()
+    await RestartStreaming()
+    toast.show('Emisión reiniciada con los ajustes guardados')
   }
 
   async function checkLocutions() {
@@ -78,6 +102,8 @@
             {#each inputs as d (d.id)}<option value={d.name}>{d.name}</option>{/each}</select></label>
         <label class="field">Crossfade (ms)<input type="number" min="0" max="15000" step="100" bind:value={s.audio.crossfade_ms} /></label>
         <label class="field">Fundido de evento duro (ms)<input type="number" min="0" max="10000" step="100" bind:value={s.audio.hard_fade_ms} /></label>
+        <div class="row" style="grid-column: 1 / -1"><span class="grow muted small">El ducking se aplica al reiniciar el programa; dispositivos y ganancia, con el botón.</span>
+          <button onclick={applyAudio}>Guardar y aplicar audio</button></div>
         <label class="field">Ganancia del mic (dB)<input type="number" min="-20" max="30" step="0.5" bind:value={s.audio.mic_gain_db} /></label>
         <label class="field">Ducking (dB)<input type="number" min="-40" max="0" step="1" bind:value={s.audio.duck_depth_db} /></label>
         <label class="field">Umbral de voz (dBFS)<input type="number" min="-70" max="0" step="1" bind:value={s.audio.duck_threshold_db} /></label>
@@ -109,7 +135,12 @@
         {/if}
         <label class="check"><input type="checkbox" bind:checked={s.icecast.metadata_music_only} /> Enviar como título solo la música (no cuñas ni jingles)</label>
       </div>
-      <p class="muted small">La contraseña de fuente se guarda cifrada en esta PC (se configura en la fase de sincronización).</p>
+      <div class="row" style="margin-top:8px">
+        <input type="password" placeholder="Contraseña de fuente (se guarda cifrada en esta PC)" bind:value={icePass} style="width:340px" />
+        <button class="ghost" disabled={!icePass} onclick={savePassword}>Guardar contraseña</button>
+        <span class="grow"></span>
+        <button onclick={applyStream}>Guardar y reiniciar emisión</button>
+      </div>
     </section>
 
     <section class="panel grid2">

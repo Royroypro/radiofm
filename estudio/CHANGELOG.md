@@ -2,6 +2,19 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 6 — Al aire
+
+- `service/onair`: orquestación del aire (un goroutine dueño del estado), expansión de elementos en
+  segmentos (tanda con cortinas, hora, temperatura, silencio, modo), crossfade, eventos duros, modos
+  Automático/Asistido/En vivo, registro de emisiones, emergencia por silencio o lista vacía, recuperación.
+- Botonera (`domain.Cart`, tabla `carts`, audio en memoria, varios a la vez) y micrófono con ducking.
+- `service/streaming`: Icecast con contraseña cifrada (`platform/secrets`, DPAPI), fuente bus/captura y metadata.
+- Tarjeta de salida y micrófono según Ajustes (con respaldo al reloj de software si la tarjeta falla).
+- Interfaz: **Al aire** (decks, cuenta atrás, intro, lo que sigue, vúmetros, modos, mic, botonera, estado de
+  Icecast, avisos) como pantalla inicial, **Botonera** (configuración) y atajos (Espacio, F1–F12, numérico, Ctrl+M).
+- `Scheduler.Upcoming` empieza cerca de la hora actual.
+- Documentación: `docs/onair.md`.
+
 ## Fase 5 — tandas, hora, temperatura y eventos
 
 - `service/spots`: cuñas locales y del panel, reparto equitativo en tandas por franja y vigencia sin

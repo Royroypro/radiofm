@@ -483,17 +483,22 @@ func (s *Service) InsertTrack(ctx context.Context, afterID, trackID int64) error
 	})
 }
 
-// Upcoming devuelve los elementos pendientes desde now (hoy y mañana), en orden.
-func (s *Service) Upcoming(ctx context.Context, now time.Time, limit int) ([]domain.LogItem, error) {
+// Upcoming devuelve, en orden, los elementos que suenan o están pendientes y
+// que terminan después de since (hoy y mañana). Los pendientes que ya debían
+// haber terminado antes de since se omiten (los decide el aire como atrasados).
+func (s *Service) Upcoming(ctx context.Context, since time.Time, limit int) ([]domain.LogItem, error) {
 	_, loc := s.cfg()
 	var out []domain.LogItem
 	for i := 0; i < 2 && len(out) < limit; i++ {
-		day := now.In(loc).AddDate(0, 0, i).Format(domain.DayLayout)
+		day := since.In(loc).AddDate(0, 0, i).Format(domain.DayLayout)
 		items, err := s.logs.Day(ctx, day)
 		if err != nil {
 			return nil, err
 		}
 		for _, it := range items {
+			if it.Status == domain.LogPending && it.At.Add(it.Length).Before(since) {
+				continue
+			}
 			if it.Status == domain.LogPending || it.Status == domain.LogPlaying {
 				out = append(out, it)
 				if len(out) >= limit {
