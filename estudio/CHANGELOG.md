@@ -2,6 +2,14 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.3 — registro de caídas
+
+- Si el programa se cae (error de Go o de código nativo: audio, WebView2), el detalle queda en
+  `%ProgramData%\Club25Estudio\logs\crash.log`. Al abrirlo de nuevo avisa y muestra esa ruta.
+  Un corte de luz no genera aviso (no escribe `crash.log`).
+- Si la ventana no puede abrirse (normalmente porque falta WebView2), muestra un aviso con el
+  enlace de descarga en vez de cerrarse sin decir nada.
+
 ## 1.0.2 — temas, ventana y pantallas pequeñas
 
 - **Temas**: Oscuro (grafito, por defecto, poco azul), Claro, Azul Club25 y Personalizado (color principal,

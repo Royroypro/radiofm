@@ -15,7 +15,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -42,13 +41,15 @@ func main() {
 		os.Exit(1)
 	}
 	defer release()
-	winsys.KeepAwake() // la PC de la radio no debe suspenderse mientras emite
+	cleanExit := crashGuard() // si el programa se cae, el detalle queda en logs\crash.log
+	winsys.KeepAwake()        // la PC de la radio no debe suspenderse mientras emite
 	defer winsys.AllowSleep()
 
 	core, err := app.New(context.Background(), "")
 	if err != nil {
+		crashNote("no se pudo iniciar: %v", err)
 		winsys.Alert("Club25 Estudio", "No se pudo iniciar: "+err.Error())
-		log.Fatal("Club25 Estudio: ", err)
+		os.Exit(1)
 	}
 	if hasArg("--autostart") {
 		core.Log.Info("arranque automático con Windows")
@@ -72,8 +73,15 @@ func main() {
 		Bind:             []any{front},
 	})
 	if err != nil {
-		log.Fatal("Club25 Estudio: ", err)
+		// Normalmente: WebView2 no está instalado o no pudo arrancar.
+		core.Log.Error("la ventana no pudo abrirse", "err", err)
+		crashNote("la ventana no pudo abrirse: %v", err)
+		winsys.Alert("Club25 Estudio", "No se pudo abrir la ventana del programa:\n"+err.Error()+
+			"\n\nSuele deberse a que falta Microsoft Edge WebView2. Instálelo desde "+
+			"https://go.microsoft.com/fwlink/p/?LinkId=2124703 y vuelva a abrir el programa.")
+		os.Exit(1)
 	}
+	cleanExit()
 }
 
 // setup revisa la PC y descarga del servidor las herramientas que falten.
