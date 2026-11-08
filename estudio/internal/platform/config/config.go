@@ -38,7 +38,9 @@ type AudioSettings struct {
 }
 
 // Crossfade devuelve la duración del crossfade.
-func (a AudioSettings) Crossfade() time.Duration { return time.Duration(a.CrossfadeMs) * time.Millisecond }
+func (a AudioSettings) Crossfade() time.Duration {
+	return time.Duration(a.CrossfadeMs) * time.Millisecond
+}
 
 // IcecastSettings: emisión a la web.
 type IcecastSettings struct {

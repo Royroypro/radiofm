@@ -109,7 +109,9 @@ func (s *Service) Tracks(ctx context.Context, f domain.TrackFilter) ([]domain.Tr
 }
 
 // Track devuelve una pista.
-func (s *Service) Track(ctx context.Context, id int64) (*domain.Track, error) { return s.tracks.Get(ctx, id) }
+func (s *Service) Track(ctx context.Context, id int64) (*domain.Track, error) {
+	return s.tracks.Get(ctx, id)
+}
 
 // UpdateTrack guarda la edición manual de una pista (categoría, estado, vigencia, cues).
 func (s *Service) UpdateTrack(ctx context.Context, t *domain.Track) error {

@@ -137,7 +137,9 @@ func notFound(err error) error {
 	return err
 }
 
-func isUnique(err error) bool { return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") }
+func isUnique(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
 
 func checkAffected(res sql.Result, err error) error {
 	if err != nil {

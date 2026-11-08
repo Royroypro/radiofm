@@ -61,10 +61,14 @@ func (a *App) Tracks(f domain.TrackFilter) (TrackPage, error) {
 }
 
 // UpdateTrack guarda la edición de una pista.
-func (a *App) UpdateTrack(t domain.Track) error { return a.core.Library.UpdateTrack(context.Background(), &t) }
+func (a *App) UpdateTrack(t domain.Track) error {
+	return a.core.Library.UpdateTrack(context.Background(), &t)
+}
 
 // DeleteTrack quita una pista de la biblioteca.
-func (a *App) DeleteTrack(id int64) error { return a.core.Library.DeleteTrack(context.Background(), id) }
+func (a *App) DeleteTrack(id int64) error {
+	return a.core.Library.DeleteTrack(context.Background(), id)
+}
 
 // ReanalyzeTrack vuelve a medir una pista ahora.
 func (a *App) ReanalyzeTrack(id int64) (domain.Track, error) {
