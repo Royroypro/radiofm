@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { Today, LogDay, GenerateDay, MoveLogItem, RemoveLogItem, ToggleLogLock, InsertLogTrack } from '../../wailsjs/go/ui/App'
   import type { domain } from '../../wailsjs/go/models'
   import { dur } from '../lib/format'
@@ -66,9 +67,13 @@
     toast.show('Playlist regenerada')
   }
 
-  onMount(async () => {
-    today = day = await Today()
-    load()
+  onMount(() => {
+    Today().then((d) => {
+      today = day = d
+      load()
+    })
+    // la playlist cambia sola (tandas replanificadas, aire que avanza)
+    return EventsOn('log:changed', (d: string) => d === day && load())
   })
 </script>
 

@@ -14,6 +14,10 @@ export function CategoryKinds() {
   return window['go']['ui']['App']['CategoryKinds']();
 }
 
+export function CheckLocutions() {
+  return window['go']['ui']['App']['CheckLocutions']();
+}
+
 export function CheckMissing() {
   return window['go']['ui']['App']['CheckMissing']();
 }
@@ -22,12 +26,24 @@ export function Clocks() {
   return window['go']['ui']['App']['Clocks']();
 }
 
+export function CurrentTemperature() {
+  return window['go']['ui']['App']['CurrentTemperature']();
+}
+
+export function DayTandas(arg1) {
+  return window['go']['ui']['App']['DayTandas'](arg1);
+}
+
 export function DeleteCategory(arg1) {
   return window['go']['ui']['App']['DeleteCategory'](arg1);
 }
 
 export function DeleteClock(arg1) {
   return window['go']['ui']['App']['DeleteClock'](arg1);
+}
+
+export function DeleteSpot(arg1) {
+  return window['go']['ui']['App']['DeleteSpot'](arg1);
 }
 
 export function DeleteTrack(arg1) {
@@ -40,6 +56,10 @@ export function Devices() {
 
 export function Exceptions() {
   return window['go']['ui']['App']['Exceptions']();
+}
+
+export function ExportReport(arg1, arg2, arg3, arg4) {
+  return window['go']['ui']['App']['ExportReport'](arg1, arg2, arg3, arg4);
 }
 
 export function GenerateDay(arg1) {
@@ -86,6 +106,18 @@ export function RemoveLogItem(arg1) {
   return window['go']['ui']['App']['RemoveLogItem'](arg1);
 }
 
+export function ReplanDay(arg1) {
+  return window['go']['ui']['App']['ReplanDay'](arg1);
+}
+
+export function ReportAsRun(arg1, arg2) {
+  return window['go']['ui']['App']['ReportAsRun'](arg1, arg2);
+}
+
+export function ReportSpots(arg1, arg2, arg3) {
+  return window['go']['ui']['App']['ReportSpots'](arg1, arg2, arg3);
+}
+
 export function SaveCategory(arg1) {
   return window['go']['ui']['App']['SaveCategory'](arg1);
 }
@@ -96,6 +128,10 @@ export function SaveClock(arg1) {
 
 export function SaveSettings(arg1) {
   return window['go']['ui']['App']['SaveSettings'](arg1);
+}
+
+export function SaveSpot(arg1) {
+  return window['go']['ui']['App']['SaveSpot'](arg1);
 }
 
 export function SetException(arg1) {
@@ -112,6 +148,10 @@ export function Settings() {
 
 export function SlotKinds() {
   return window['go']['ui']['App']['SlotKinds']();
+}
+
+export function Spots() {
+  return window['go']['ui']['App']['Spots']();
 }
 
 export function Today() {

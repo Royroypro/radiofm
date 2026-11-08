@@ -93,3 +93,12 @@ func (a *App) ToggleLogLock(id int64) error {
 func (a *App) InsertLogTrack(afterID, trackID int64) error {
 	return a.core.Scheduler.InsertTrack(context.Background(), afterID, trackID)
 }
+
+// nextDay devuelve el día siguiente a day (YYYY-MM-DD).
+func nextDay(day string) string {
+	t, err := time.Parse(domain.DayLayout, day)
+	if err != nil {
+		return day
+	}
+	return t.AddDate(0, 0, 1).Format(domain.DayLayout)
+}

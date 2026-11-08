@@ -13,6 +13,8 @@
   import Playlist from './pages/Playlist.svelte'
   import Clocks from './pages/Clocks.svelte'
   import Grid from './pages/Grid.svelte'
+  import Spots from './pages/Spots.svelte'
+  import Reports from './pages/Reports.svelte'
   import Placeholder from './pages/Placeholder.svelte'
   import { toast } from './lib/toast.svelte'
 
@@ -23,9 +25,9 @@
     { id: 'library', label: 'Biblioteca' },
     { id: 'clocks', label: 'Relojes' },
     { id: 'grid', label: 'Parrilla' },
-    { id: 'spots', label: 'Cuñas', phase: 'fase 5' },
+    { id: 'spots', label: 'Cuñas' },
     { id: 'carts', label: 'Botonera', phase: 'fase 6' },
-    { id: 'reports', label: 'Reportes', phase: 'fase 5' },
+    { id: 'reports', label: 'Reportes' },
     { id: 'settings', label: 'Ajustes' },
   ]
 
@@ -71,6 +73,10 @@
       <Clocks />
     {:else if page === 'grid'}
       <Grid />
+    {:else if page === 'spots'}
+      <Spots />
+    {:else if page === 'reports'}
+      <Reports />
     {:else if page === 'settings'}
       <Settings {info} />
     {:else}

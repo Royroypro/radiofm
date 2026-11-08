@@ -3,7 +3,9 @@
 import {library} from '../models';
 import {ui} from '../models';
 import {domain} from '../models';
+import {spots} from '../models';
 import {audio} from '../models';
+import {reports} from '../models';
 import {config} from '../models';
 
 export function AnalyzerStatus():Promise<library.AnalyzerStatus>;
@@ -12,19 +14,29 @@ export function Categories():Promise<Array<ui.CategoryView>>;
 
 export function CategoryKinds():Promise<Array<domain.CategoryKind>>;
 
+export function CheckLocutions():Promise<Array<string>>;
+
 export function CheckMissing():Promise<number>;
 
 export function Clocks():Promise<Array<domain.Clock>>;
 
+export function CurrentTemperature():Promise<number>;
+
+export function DayTandas(arg1:string):Promise<Array<spots.TandaView>>;
+
 export function DeleteCategory(arg1:number):Promise<void>;
 
 export function DeleteClock(arg1:number):Promise<void>;
+
+export function DeleteSpot(arg1:number):Promise<void>;
 
 export function DeleteTrack(arg1:number):Promise<void>;
 
 export function Devices():Promise<Array<audio.Device>>;
 
 export function Exceptions():Promise<Array<domain.GridException>>;
+
+export function ExportReport(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function GenerateDay(arg1:string):Promise<void>;
 
@@ -48,11 +60,19 @@ export function ReanalyzeTrack(arg1:number):Promise<domain.Track>;
 
 export function RemoveLogItem(arg1:number):Promise<void>;
 
+export function ReplanDay(arg1:string):Promise<ui.ReplanResult>;
+
+export function ReportAsRun(arg1:string,arg2:string):Promise<Array<domain.Play>>;
+
+export function ReportSpots(arg1:string,arg2:string,arg3:string):Promise<Array<reports.ProofRow>>;
+
 export function SaveCategory(arg1:domain.Category):Promise<domain.Category>;
 
 export function SaveClock(arg1:domain.Clock):Promise<domain.Clock>;
 
 export function SaveSettings(arg1:config.Settings):Promise<void>;
+
+export function SaveSpot(arg1:domain.Spot):Promise<domain.Spot>;
 
 export function SetException(arg1:domain.GridException):Promise<void>;
 
@@ -61,6 +81,8 @@ export function SetGrid(arg1:Array<domain.GridCell>):Promise<void>;
 export function Settings():Promise<config.Settings>;
 
 export function SlotKinds():Promise<Array<domain.SlotKind>>;
+
+export function Spots():Promise<Array<ui.SpotView>>;
 
 export function Today():Promise<string>;
 

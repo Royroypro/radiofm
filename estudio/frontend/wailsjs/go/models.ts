@@ -418,6 +418,114 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class Play {
+	    id: number;
+	    track_id: number;
+	    spot_id: number;
+	    kind: string;
+	    artist: string;
+	    title: string;
+	    // Go type: time
+	    started_at: any;
+	    duration: number;
+	    complete: boolean;
+	    uuid: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Play(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.track_id = source["track_id"];
+	        this.spot_id = source["spot_id"];
+	        this.kind = source["kind"];
+	        this.artist = source["artist"];
+	        this.title = source["title"];
+	        this.started_at = this.convertValues(source["started_at"], null);
+	        this.duration = source["duration"];
+	        this.complete = source["complete"];
+	        this.uuid = source["uuid"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Spot {
+	    id: number;
+	    remote_id: number;
+	    advertiser: string;
+	    name: string;
+	    path: string;
+	    sha256: string;
+	    duration: number;
+	    // Go type: time
+	    starts_at?: any;
+	    // Go type: time
+	    ends_at?: any;
+	    plays_per_day: number;
+	    hour_from: number;
+	    hour_to: number;
+	    active: boolean;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Spot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.remote_id = source["remote_id"];
+	        this.advertiser = source["advertiser"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.sha256 = source["sha256"];
+	        this.duration = source["duration"];
+	        this.starts_at = this.convertValues(source["starts_at"], null);
+	        this.ends_at = this.convertValues(source["ends_at"], null);
+	        this.plays_per_day = source["plays_per_day"];
+	        this.hour_from = source["hour_from"];
+	        this.hour_to = source["hour_to"];
+	        this.active = source["active"];
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Track {
 	    id: number;
 	    path: string;
@@ -558,6 +666,94 @@ export namespace library {
 
 }
 
+export namespace reports {
+	
+	export class ProofRow {
+	    // Go type: time
+	    at: any;
+	    advertiser: string;
+	    spot: string;
+	    duration: number;
+	    complete: boolean;
+	    uuid: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProofRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.at = this.convertValues(source["at"], null);
+	        this.advertiser = source["advertiser"];
+	        this.spot = source["spot"];
+	        this.duration = source["duration"];
+	        this.complete = source["complete"];
+	        this.uuid = source["uuid"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace spots {
+	
+	export class TandaView {
+	    log_item_id: number;
+	    // Go type: time
+	    at: any;
+	    status: string;
+	    spots: domain.Spot[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TandaView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.log_item_id = source["log_item_id"];
+	        this.at = this.convertValues(source["at"], null);
+	        this.status = source["status"];
+	        this.spots = this.convertValues(source["spots"], domain.Spot);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace ui {
 	
 	export class AppInfo {
@@ -601,6 +797,81 @@ export namespace ui {
 	        this.color = source["color"];
 	        this.tracks = source["tracks"];
 	    }
+	}
+	export class ReplanResult {
+	    missing: Record<number, number>;
+	
+	    static createFrom(source: any = {}) {
+	        return new ReplanResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.missing = source["missing"];
+	    }
+	}
+	export class SpotView {
+	    id: number;
+	    remote_id: number;
+	    advertiser: string;
+	    name: string;
+	    path: string;
+	    sha256: string;
+	    duration: number;
+	    // Go type: time
+	    starts_at?: any;
+	    // Go type: time
+	    ends_at?: any;
+	    plays_per_day: number;
+	    hour_from: number;
+	    hour_to: number;
+	    active: boolean;
+	    // Go type: time
+	    updated_at: any;
+	    aired_today: number;
+	    from_web: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpotView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.remote_id = source["remote_id"];
+	        this.advertiser = source["advertiser"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.sha256 = source["sha256"];
+	        this.duration = source["duration"];
+	        this.starts_at = this.convertValues(source["starts_at"], null);
+	        this.ends_at = this.convertValues(source["ends_at"], null);
+	        this.plays_per_day = source["plays_per_day"];
+	        this.hour_from = source["hour_from"];
+	        this.hour_to = source["hour_to"];
+	        this.active = source["active"];
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	        this.aired_today = source["aired_today"];
+	        this.from_web = source["from_web"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class TrackPage {
 	    items: domain.Track[];

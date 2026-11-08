@@ -361,6 +361,31 @@ func (s *Service) EnsureDays(ctx context.Context, ahead int) error {
 	return nil
 }
 
+// Apply carga la playlist de un día, aplica f, recalcula las horas y guarda.
+// notify = false no llama a OnChange (lo usa el servicio de cuñas, que se
+// ejecuta precisamente al cambiar la playlist: así no hay bucles).
+func (s *Service) Apply(ctx context.Context, day string, f func(items []domain.LogItem) []domain.LogItem, notify bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	midnight, err := s.midnight(day)
+	if err != nil {
+		return err
+	}
+	items, err := s.logs.Day(ctx, day)
+	if err != nil {
+		return err
+	}
+	items = f(items)
+	Retime(items, midnight)
+	if err := s.logs.ReplaceDay(ctx, day, items); err != nil {
+		return err
+	}
+	if notify {
+		s.changed(day)
+	}
+	return nil
+}
+
 // edit carga el día de un elemento, aplica f y guarda con horas recalculadas.
 func (s *Service) edit(ctx context.Context, id int64, f func(items []domain.LogItem, i int) ([]domain.LogItem, error)) error {
 	s.mu.Lock()

@@ -2,6 +2,19 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 5 — tandas, hora, temperatura y eventos
+
+- `service/spots`: cuñas locales y del panel, reparto equitativo en tandas por franja y vigencia sin
+  repetir anunciante, replanificación automática (al cambiar la playlist, al cambiar cuñas y cada 10 min)
+  y duración de la tanda con cortinas.
+- `service/timeannounce` (HRS/MIN/TMP con verificación) y `platform/weather` (Open-Meteo con caché).
+- `service/events`: decisión pura de eventos duros/blandos, saltos de atrasados y opcionales.
+- `service/reports`: as-run y comprobante de cuñas, CSV.
+- `Scheduler.Apply` para editar un día sin provocar bucles de aviso.
+- Interfaz: **Cuñas** (lista, cuñas locales, tandas del día, replanificar) y **Reportes**; Ajustes con
+  verificación de locuciones y prueba de temperatura; la Playlist se refresca sola.
+- Documentación: `docs/spots-and-events.md`.
+
 ## Fase 4 — programación
 
 - `service/rotation`: elección de la pista menos reciente con separación de título/artista, intérprete

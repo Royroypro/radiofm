@@ -30,6 +30,7 @@ func NewApp(core *app.App) *App { return &App{core: core} }
 // Startup lo llama Wails al abrir la ventana; arranca las tareas en segundo plano.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.core.OnLogChange = func(day string) { a.emit("log:changed", day) }
 	a.core.Start(ctx)
 }
 

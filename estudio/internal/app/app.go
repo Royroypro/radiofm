@@ -21,9 +21,13 @@ import (
 	"radioclub25/estudio/internal/platform/ffmpeg"
 	"radioclub25/estudio/internal/platform/logger"
 	"radioclub25/estudio/internal/platform/sqlite"
+	"radioclub25/estudio/internal/platform/weather"
 	"radioclub25/estudio/internal/service/library"
+	"radioclub25/estudio/internal/service/reports"
 	"radioclub25/estudio/internal/service/rotation"
 	"radioclub25/estudio/internal/service/scheduler"
+	"radioclub25/estudio/internal/service/spots"
+	"radioclub25/estudio/internal/service/timeannounce"
 )
 
 // App reúne las piezas construidas.
@@ -37,6 +41,13 @@ type App struct {
 
 	Library   *library.Service
 	Scheduler *scheduler.Service
+	Spots     *spots.Service
+	Reports   *reports.Service
+	Weather   *weather.Client
+
+	// OnLogChange se llama (en otra goroutine) cuando cambia la playlist de un día
+	// y sus tandas ya se replanificaron. La usa la interfaz para refrescarse.
+	OnLogChange func(day string)
 
 	mu       sync.RWMutex
 	settings config.Settings
@@ -81,6 +92,23 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		sqlite.NewTrackRepo(a.DB), sqlite.NewCategoryRepo(a.DB), sqlite.NewPlayRepo(a.DB), a.schedulerConfig)
 	if err := a.Scheduler.EnsureDefaults(ctx); err != nil {
 		return nil, err
+	}
+	loc := func() *time.Location { return a.Settings().Location() }
+	a.Spots = spots.New(sqlite.NewSpotRepo(a.DB), sqlite.NewTandaRepo(a.DB), sqlite.NewPlayRepo(a.DB),
+		sqlite.NewCategoryRepo(a.DB), sqlite.NewTrackRepo(a.DB), a.Scheduler, a.Tools, loc, log)
+	a.Reports = reports.New(sqlite.NewPlayRepo(a.DB), sqlite.NewSpotRepo(a.DB), loc)
+	a.Weather = weather.New()
+	// Al cambiar una playlist se replanifican sus tandas. En otra goroutine: OnChange
+	// se llama con el programador bloqueado y Replan necesita editar el día.
+	a.Scheduler.OnChange = func(day string) {
+		go func() {
+			if _, err := a.Spots.Replan(context.Background(), day); err != nil {
+				a.Log.Error("replanificar tandas", "day", day, "err", err)
+			}
+			if a.OnLogChange != nil {
+				a.OnLogChange(day)
+			}
+		}()
 	}
 	log.Info("Club25 Estudio iniciado", "datos", dataDir)
 	return a, nil
@@ -132,6 +160,10 @@ func (a *App) Start(ctx context.Context) {
 			if err := a.Scheduler.EnsureDays(ctx, a.Settings().Schedule.DaysAhead); err != nil && ctx.Err() == nil {
 				a.Log.Error("generar playlist", "err", err)
 			}
+			// las cuñas pueden haber cambiado (sincronización, vigencias): replanificar hoy
+			if _, err := a.Spots.Replan(ctx, a.Scheduler.DayOf(time.Now())); err != nil && ctx.Err() == nil {
+				a.Log.Error("replanificar tandas", "err", err)
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -139,6 +171,12 @@ func (a *App) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// Locutions devuelve la ubicación de las locuciones de hora y temperatura según los ajustes.
+func (a *App) Locutions() timeannounce.Files {
+	l := a.Settings().Locutions
+	return timeannounce.Files{Dir: l.Dir, HourPrefix: l.HourPrefix, MinutePrefix: l.MinutePrefix, TempPrefix: l.TempPrefix}
 }
 
 // Close detiene todo y cierra la base y el log.

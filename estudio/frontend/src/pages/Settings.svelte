@@ -1,7 +1,7 @@
 <!-- Ajustes: dispositivos, mezcla, Icecast, panel web, emisora, rotación, locuciones y seguridad. -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Settings, SaveSettings, Devices, PickFolder } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, Devices, PickFolder, CheckLocutions, CurrentTemperature } from '../../wailsjs/go/ui/App'
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -29,6 +29,19 @@
       await SaveSettings(config.Settings.createFrom(s))
       dirty = false
       toast.show('Ajustes guardados. Algunos cambios de audio se aplican al reiniciar el motor.')
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+
+  async function checkLocutions() {
+    const missing = await CheckLocutions()
+    toast.show(missing.length ? `Faltan ${missing.length} locuciones (p. ej. ${missing.slice(0, 4).join(', ')})` : 'Están todas las locuciones', missing.length > 0)
+  }
+
+  async function testTemperature() {
+    try {
+      toast.show(`Temperatura actual: ${(await CurrentTemperature()).toFixed(1)} °C`)
     } catch (e) {
       toast.error(e)
     }
@@ -129,6 +142,10 @@
           <label class="field">Hora<input bind:value={s.locutions.hour_prefix} /></label>
           <label class="field">Minutos<input bind:value={s.locutions.minute_prefix} /></label>
           <label class="field">Temp.<input bind:value={s.locutions.temp_prefix} /></label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="small ghost" onclick={checkLocutions}>Verificar archivos</button>
+          <button class="small ghost" onclick={testTemperature}>Probar temperatura</button>
         </div>
       </div>
       <div>
