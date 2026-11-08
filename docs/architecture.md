@@ -94,3 +94,4 @@ Ver [docs/adr/](adr/). Resumen:
 - 0002 SQLite (modernc, sin CGO) en lugar de PostgreSQL.
 - 0003 Arquitectura en capas con composition root.
 - 0004 Usar el nginx del host (ya existente) en lugar de Caddy.
+- 0005 "Club25 Estudio" (automatización en la PC) + API `/api/studio/*`; cuñas FM en tablas propias.

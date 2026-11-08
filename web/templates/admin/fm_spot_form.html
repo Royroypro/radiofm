@@ -1,0 +1,61 @@
+{{/* Alta/edición de cuña FM. .Data: Spot *domain.FMSpot, MaxUploadMB int, DurationSec int64 */}}
+{{define "content"}}
+{{$s := .Data.Spot}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/admin/fm-spots{{if $s.ID}}/{{$s.ID}}{{end}}">
+  {{template "csrf" .}}
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "advertiser"}}has-error{{end}}">Anunciante
+      <input type="text" name="advertiser" value="{{$s.Advertiser}}" required maxlength="120" placeholder="Ej.: Ferretería El Sol">
+      <span class="hint">Se usa para agrupar el comprobante de emisión y para no repetir anunciante en la misma tanda.</span>
+      {{with .FieldError "advertiser"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+    <label class="{{if .FieldError "name"}}has-error{{end}}">Nombre de la cuña
+      <input type="text" name="name" value="{{$s.Name}}" required maxlength="120" placeholder="Ej.: Campaña verano — 20 s">
+      {{with .FieldError "name"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+  </div>
+
+  <label class="{{if .FieldError "file"}}has-error{{end}}">Audio {{if $s.FileURL}}(deje vacío para mantener el actual){{end}}
+    <input type="file" name="file" {{if not $s.FileURL}}required{{end}} accept="audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav">
+    <span class="hint">MP3, AAC, OGG, M4A o WAV. Máximo {{.Data.MaxUploadMB}} MB. La PC verifica el archivo con su huella SHA-256.</span>
+    {{with .FieldError "file"}}<span class="err">{{.}}</span>{{end}}
+  </label>
+  {{with $s.FileURL}}<div><audio src="{{.}}" controls preload="none"></audio>{{with $s.SHA256}}<div class="small muted">SHA-256: <code>{{.}}</code></div>{{end}}</div>{{end}}
+
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "duration"}}has-error{{end}}">Duración (segundos, opcional)
+      <input type="number" name="duration" min="0" max="600" value="{{.Data.DurationSec}}">
+      <span class="hint">0 = la mide la PC al descargarla.</span>
+      {{with .FieldError "duration"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+    <label class="{{if .FieldError "plays_per_day"}}has-error{{end}}">Veces por día
+      <input type="number" name="plays_per_day" min="1" max="96" value="{{$s.PlaysPerDay}}" required>
+      <span class="hint">La PC las reparte de forma equitativa entre las tandas de la franja.</span>
+      {{with .FieldError "plays_per_day"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+  </div>
+
+  <div class="grid grid-2">
+    <label>Desde la hora
+      <select name="hour_from">{{range seq 24}}<option value="{{.}}" {{if eq . $s.HourFrom}}selected{{end}}>{{printf "%02d:00" .}}</option>{{end}}</select>
+    </label>
+    <label class="{{if .FieldError "hour_to"}}has-error{{end}}">Hasta la hora (sin incluir)
+      <select name="hour_to">{{range seq 24}}{{$h := add . 1}}<option value="{{$h}}" {{if eq $h $s.HourTo}}selected{{end}}>{{printf "%02d:00" $h}}</option>{{end}}</select>
+      {{with .FieldError "hour_to"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+  </div>
+
+  <div class="grid grid-2">
+    <label>Desde (opcional)<input type="datetime-local" name="starts_at" value="{{datetimeInput $s.StartsAt}}"></label>
+    <label class="{{if .FieldError "ends_at"}}has-error{{end}}">Hasta (opcional)<input type="datetime-local" name="ends_at" value="{{datetimeInput $s.EndsAt}}">
+      {{with .FieldError "ends_at"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+
+  <label class="check"><input type="checkbox" name="active" {{if $s.Active}}checked{{end}}> Activa</label>
+
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="/admin/fm-spots">Cancelar</a>
+  </div>
+</form>
+{{end}}

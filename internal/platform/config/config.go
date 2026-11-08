@@ -48,6 +48,10 @@ type Config struct {
 	RTMPPublicPort  int    // 1935
 	SRTPublicPort   int    // 8890
 
+	// Ubicación de la emisora: la PC del estudio la usa para la temperatura locutada.
+	StationLat float64
+	StationLon float64
+
 	// Superadmin inicial (opcional): si no existe ningún superadmin se crea con estos datos.
 	BootstrapSuperEmail string
 	BootstrapSuperPass  string
@@ -86,6 +90,8 @@ func Load() (Config, error) {
 		IcecastPublicPt:     envInt("ICECAST_PUBLIC_PORT", 8010),
 		RTMPPublicPort:      envInt("RTMP_PUBLIC_PORT", 1935),
 		SRTPublicPort:       envInt("SRT_PUBLIC_PORT", 8890),
+		StationLat:          envFloat("STATION_LAT", -11.1067), // Huacho
+		StationLon:          envFloat("STATION_LON", -77.6050),
 		BootstrapSuperEmail: env("SUPERADMIN_EMAIL", ""),
 		BootstrapSuperPass:  env("SUPERADMIN_PASSWORD", ""),
 	}
@@ -119,6 +125,9 @@ func (c Config) validate() error {
 	if c.SessionTTL <= 0 {
 		errs = append(errs, errors.New("SESSION_TTL_HOURS debe ser mayor que 0"))
 	}
+	if c.StationLat < -90 || c.StationLat > 90 || c.StationLon < -180 || c.StationLon > 180 {
+		errs = append(errs, errors.New("STATION_LAT/STATION_LON fuera de rango"))
+	}
 	if !strings.HasPrefix(c.IcecastMount, "/") {
 		errs = append(errs, errors.New("ICECAST_MOUNT debe empezar con /"))
 	}
@@ -139,6 +148,15 @@ func envInt(key string, def int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
+		}
+	}
+	return def
+}
+
+func envFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
 		}
 	}
 	return def

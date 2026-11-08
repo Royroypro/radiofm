@@ -1,0 +1,53 @@
+{{/* Estudio (PC). .Data: State *domain.StudioState, Online bool, NewToken string, APIBase string, Ingest string */}}
+{{define "content"}}
+{{$d := .Data}}{{$st := $d.State}}
+{{with $d.NewToken}}
+<div class="alert alert-warn">
+  <p><strong>Copie este token ahora: no se volverá a mostrar.</strong> Péguelo en Club25 Estudio → Ajustes → Sincronización. Si lo pierde, genere otro.</p>
+  <span class="copy-row"><input type="text" readonly value="{{.}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span>
+</div>
+{{end}}
+
+<div class="grid grid-2">
+  <section class="box">
+    <h2>PC del estudio {{if $d.Online}}<span class="pill live">Conectada</span>{{else}}<span class="pill">Sin conexión</span>{{end}}</h2>
+    <table>
+      <tbody>
+        <tr><th>Última conexión</th><td>{{with $st.LastSeen}}{{datetime .}}{{else}}<span class="muted">nunca</span>{{end}}</td></tr>
+        <tr><th>Versión</th><td>{{with $st.Version}}{{.}}{{else}}—{{end}}</td></tr>
+        <tr><th>Modo</th><td>{{$st.Mode.Label}}</td></tr>
+        <tr><th>Sonando</th><td>{{with $st.NowPlaying}}<strong>{{.Display}}</strong>{{with .Kind}} <span class="pill">{{.}}</span>{{end}}{{else}}—{{end}}
+          {{with $st.NowPlayingAt}}<div class="small muted">informado {{datetime .}}</div>{{end}}</td></tr>
+        <tr><th>Codificador</th><td><code class="small">{{$st.EncoderJSON}}</code></td></tr>
+      </tbody>
+    </table>
+    <p class="small muted">La PC envía una señal cada minuto. Si no hay señal en 3 minutos aparece «Sin conexión»; la emisión FM no depende de internet.</p>
+  </section>
+
+  <section class="box">
+    <h2>Token de acceso</h2>
+    {{if $st.HasToken}}
+      <p>Hay un token activo, creado {{with $st.TokenCreatedAt}}{{datetime .}}{{end}}.</p>
+    {{else}}
+      <p class="muted">No hay token: la PC no puede sincronizar cuñas ni informar lo que suena.</p>
+    {{end}}
+    <div class="form-actions">
+      <form method="post" action="/admin/studio/token" {{if $st.HasToken}}data-confirm="Se generará un token nuevo y el actual dejará de funcionar. ¿Continuar?"{{end}}>
+        {{template "csrf" $}}<button class="btn" type="submit">{{if $st.HasToken}}Generar token nuevo{{else}}Generar token{{end}}</button>
+      </form>
+      {{if $st.HasToken}}
+      <form method="post" action="/admin/studio/token/revoke" data-confirm="La PC dejará de sincronizar hasta que configure un token nuevo. ¿Revocar?">
+        {{template "csrf" $}}<button class="btn btn-danger" type="submit">Revocar</button>
+      </form>
+      {{end}}
+    </div>
+    <h3>Datos para configurar la PC</h3>
+    <table>
+      <tbody>
+        <tr><th>API</th><td><code>{{$d.APIBase}}</code></td></tr>
+        <tr><th>Icecast</th><td><code>{{$d.Ingest}}</code> · usuario <code>source</code> (la contraseña está en «Streams y emisión»)</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+{{end}}

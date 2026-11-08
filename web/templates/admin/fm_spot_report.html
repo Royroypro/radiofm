@@ -1,0 +1,44 @@
+{{/* Comprobante de emisión de cuñas FM. .Data: From, To (YYYY-MM-DD), Advertiser string, Advertisers []string, Plays []domain.Airplay, Summary []admin.advertiserSummary */}}
+{{define "content"}}
+{{$d := .Data}}
+<form class="box toolbar" method="get" action="/admin/fm-spots/report">
+  <div class="filters">
+    <label class="field">Desde<input type="date" name="from" value="{{$d.From}}"></label>
+    <label class="field">Hasta<input type="date" name="to" value="{{$d.To}}"></label>
+    <label class="field">Anunciante
+      <select name="advertiser">
+        <option value="">Todos</option>
+        {{range $d.Advertisers}}<option value="{{.}}" {{if eq . $d.Advertiser}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-dark" type="submit">Ver</button>
+    <a class="btn btn-ghost" href="/admin/fm-spots/report.csv?from={{$d.From}}&to={{$d.To}}&advertiser={{$d.Advertiser}}">Descargar CSV</a>
+  </div>
+</form>
+
+{{if $d.Summary}}
+<div class="table-wrap" style="margin-bottom:18px">
+  <table>
+    <thead><tr><th>Anunciante</th><th class="num">Emisiones</th><th class="num">Completas</th><th class="num">Segundos al aire</th></tr></thead>
+    <tbody>{{range $d.Summary}}<tr><td>{{.Advertiser}}</td><td class="num">{{.Plays}}</td><td class="num">{{.Complete}}</td><td class="num">{{.Seconds}}</td></tr>{{end}}</tbody>
+  </table>
+</div>
+{{end}}
+
+<div class="table-wrap">
+  {{if $d.Plays}}
+  <table>
+    <thead><tr><th>Fecha y hora</th><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th>Completa</th></tr></thead>
+    <tbody>
+    {{range $d.Plays}}
+      <tr><td>{{datetime .AiredAt}}</td><td>{{.Advertiser}}</td><td>{{.SpotName}}</td><td class="num">{{.DurationLabel}}</td>
+        <td>{{if .Complete}}<span class="pill ok">Sí</span>{{else}}<span class="pill warn">No</span>{{end}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<div class="empty">No hay emisiones registradas en este rango.</div>{{end}}
+</div>
+<p class="small muted">Cada fila es una emisión real informada por la PC del estudio (hora de inicio y lo que sonó). «Completa» significa que la cuña sonó entera. El CSV incluye el identificador único de cada emisión.</p>
+{{end}}

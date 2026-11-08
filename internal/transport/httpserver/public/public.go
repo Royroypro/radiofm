@@ -23,6 +23,7 @@ import (
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
+	"radioclub25/internal/service/studio"
 	"radioclub25/internal/transport/httpserver/form"
 	"radioclub25/internal/transport/httpserver/middleware"
 	"radioclub25/internal/transport/httpserver/views"
@@ -37,6 +38,7 @@ type Handler struct {
 	Media         *media.Service
 	License       *license.Service
 	Gate          *gate.Service
+	Studio        *studio.Service
 	Log           *slog.Logger
 	InternalToken string
 }
@@ -113,6 +115,13 @@ func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
 // APIStatus devuelve el estado en vivo: GET /api/status
 func (h *Handler) APIStatus(w http.ResponseWriter, r *http.Request) {
 	st := h.Media.Status(r.Context())
+	// Si la PC del estudio informó hace poco lo que suena, es más fiable que la
+	// metadata de Icecast (que puede no actualizarse con cuñas o jingles).
+	if st.Radio.Online {
+		if np := h.Studio.CurrentNowPlaying(r.Context(), 2*time.Minute); np != nil {
+			st.Radio.Title = np.Display()
+		}
+	}
 	resp := map[string]any{"radio": st.Radio, "tv": st.TV, "on_air": nil}
 	if p, err := h.Programs.OnAir(r.Context(), time.Now()); err == nil && p != nil {
 		resp["on_air"] = map[string]string{"title": p.Title, "host": p.Host, "start": p.StartTime, "end": p.EndTime,

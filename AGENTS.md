@@ -36,12 +36,21 @@ internal/transport/httpserver/
     public/ admin/ superadmin/   handlers por área
     views/               render de plantillas, funciones de plantilla, flash
     form/                lectura de formularios
+internal/transport/httpserver/studioapi/  API /api/studio/* para la PC del estudio (token Bearer)
 internal/testutil/       base temporal, config y fuentes de medios falsas para tests
 web/templates/           layouts/, partials/, public/, admin/, superadmin/, auth/, errors/
 web/static/              css/site.css (web), css/panel.css (paneles), js/site.js (reproductor), js/panel.js
 deploy/                  mediamtx.yml, icecast.xml, nginx/
 docs/                    documentación (ver README)
+estudio/                 programa de Windows "Club25 Estudio" (módulo Go aparte; ver estudio/AGENTS.md)
 ```
+
+## Integración con la PC del estudio
+
+- Contrato de la API en `docs/api.md` → "API del estudio". Si cambia un campo, actualice el
+  handler (`studioapi`), el documento y el cliente de `estudio/` en el mismo cambio.
+- Lógica en `internal/service/studio` (token, cuñas FM, emisiones idempotentes por `play_uuid`).
+- Cuñas FM = tablas `fm_spots` / `fm_spot_airplays` (no `ads`; ver `docs/adr/0005-estudio-windows.md`).
 
 ## Reglas (no romper)
 
