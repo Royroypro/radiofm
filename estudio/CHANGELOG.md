@@ -2,6 +2,17 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 1 — motor de audio
+
+- `internal/audio`: motor con 2 decks y 24 carts, ring buffers SPSC sin bloqueos, comandos por canal
+  no bloqueante, rampas de volumen (crossfade), ducking con ataque/relajación/retención, limitador
+  look-ahead (−1 dBFS), medidores pico/RMS, detector de silencio y salida al codificador que descarta
+  si se atasca. Reloj de software (`RunClock`) y render offline.
+- E/S real con malgo: `OpenOutput` y `OpenCapture` (por ID o nombre de dispositivo).
+- `platform/ffmpeg`: `Locate`, `Decode` (PCM en streaming, sin ventana de consola) y `Probe` (ffprobe).
+- `estudio-cli play` (tarjeta, crossfade) y `estudio-cli render` (WAV sin tarjeta).
+- Tests renderizados sin tarjeta; `-race` limpio. Documentación: `docs/audio-engine.md`.
+
 ## Fase 0 — esqueleto (2026-11-08)
 
 - Módulo Go `radioclub25/estudio` dentro del monorepo, con la estructura de carpetas del plan y un

@@ -14,5 +14,6 @@
 //   - Este paquete no conoce la base de datos ni los servicios: recibe pistas
 //     ya resueltas (ruta, cue-in, cue-out, ganancia) y emite eventos.
 //
-// Estado actual (fase 0): solo ListDevices. El motor llega en la fase 1.
+// Uso: NewEngine, Load/Play/Fade/Stop por slot (DeckA, DeckB, CartSlot(i)),
+// eventos por Events() y estado por Status(). Detalle en docs/audio-engine.md.
 package audio

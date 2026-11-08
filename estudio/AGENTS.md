@@ -31,7 +31,7 @@ task dev       # wails dev: ventana con recarga en caliente del frontend
 task build     # build/bin/club25-estudio.exe (con la versión de VERSION en Taskfile.yml)
 task test      # go test ./... (CGO activado)
 task lint      # gofmt, go vet, staticcheck y svelte-check
-task cli -- devices   # ejecutar estudio-cli con argumentos
+task cli -- devices   # ejecutar estudio-cli con argumentos (version, devices, play, render…)
 task ffmpeg    # descargar ffmpeg fijado y verificado (third_party/ffmpeg)
 task locutions # generar locuciones provisionales con la voz de Windows
 ```
