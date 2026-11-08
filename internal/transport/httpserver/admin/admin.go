@@ -22,6 +22,7 @@ import (
 	"radioclub25/internal/platform/storage"
 	"radioclub25/internal/service/ads"
 	"radioclub25/internal/service/auth"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/license"
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/service/programs"
@@ -32,17 +33,18 @@ import (
 
 // Handler agrupa las dependencias del panel admin.
 type Handler struct {
-	Views    *views.Renderer
-	Auth     *auth.Service
-	Settings *settings.Service
-	Programs *programs.Service
-	Ads      *ads.Service
-	Media    *media.Service
-	License  *license.Service
-	Studio   *studio.Service
-	Store    *storage.Store
-	Cfg      config.Config
-	Log      *slog.Logger
+	Views       *views.Renderer
+	Auth        *auth.Service
+	Settings    *settings.Service
+	Programs    *programs.Service
+	Frequencies *frequencies.Service
+	Ads         *ads.Service
+	Media       *media.Service
+	License     *license.Service
+	Studio      *studio.Service
+	Store       *storage.Store
+	Cfg         config.Config
+	Log         *slog.Logger
 }
 
 // Dashboard es la portada del panel: estado en vivo, licencia y resumen.

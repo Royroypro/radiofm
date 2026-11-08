@@ -24,6 +24,7 @@ import (
 
 	"radioclub25/internal/domain"
 	"radioclub25/internal/platform/config"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
 	"radioclub25/internal/service/studio"
@@ -31,11 +32,12 @@ import (
 
 // Handler agrupa las dependencias de la API del estudio.
 type Handler struct {
-	Studio   *studio.Service
-	Settings *settings.Service
-	Programs *programs.Service
-	Cfg      config.Config
-	Log      *slog.Logger
+	Studio      *studio.Service
+	Settings    *settings.Service
+	Programs    *programs.Service
+	Frequencies *frequencies.Service
+	Cfg         config.Config
+	Log         *slog.Logger
 }
 
 // Config devuelve los datos de la radio que la PC necesita: GET /api/studio/config
@@ -45,9 +47,20 @@ func (h *Handler) Config(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
+	// Frecuencias por ciudad (Admin → Frecuencias). La primera es la principal
+	// y reemplaza a "frequency"; si no hay ninguna queda la de Ajustes.
+	freqs := []map[string]any{}
+	if list, err := h.Frequencies.Active(r.Context()); err == nil {
+		for i, f := range list {
+			if i == 0 {
+				set.Frequency = f.Label()
+			}
+			freqs = append(freqs, map[string]any{"city": f.City, "frequency": f.Frequency, "band": f.Band, "label": f.Label()})
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"station": map[string]any{
-			"name": set.SiteName, "frequency": set.Frequency, "slogan": set.Slogan,
+			"name": set.SiteName, "frequency": set.Frequency, "frequencies": freqs, "slogan": set.Slogan,
 			"timezone": h.Cfg.Location.String(),
 			"latitude": h.Cfg.StationLat, "longitude": h.Cfg.StationLon,
 		},

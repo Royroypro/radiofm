@@ -107,7 +107,7 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	// config
 	code, body, _ := e.studioReq(http.MethodGet, "/api/studio/config", token, "")
 	if code != http.StatusOK || !strings.Contains(body, `"mount":"/radio"`) || !strings.Contains(body, `"timezone":"America/Lima"`) ||
-		strings.Contains(body, "fuente123") {
+		!strings.Contains(body, `"frequencies":[]`) || strings.Contains(body, "fuente123") {
 		t.Fatalf("config = %d %s", code, body)
 	}
 

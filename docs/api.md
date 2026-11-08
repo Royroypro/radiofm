@@ -56,13 +56,18 @@ Handlers en `internal/transport/httpserver/studioapi`, lógica en `internal/serv
 ### `GET /api/studio/config`
 ```json
 {
-  "station": {"name": "Radio Club 25", "frequency": "93.3 FM", "slogan": "La música que va contigo",
+  "station": {"name": "Radio Club 25", "frequency": "93.3 FM",
+              "frequencies": [{"city": "Huacho", "frequency": "93.3", "band": "FM", "label": "93.3 FM"},
+                              {"city": "Barranca", "frequency": "103.2", "band": "FM", "label": "103.2 FM"}],
+              "slogan": "La música que va contigo",
               "timezone": "America/Lima", "latitude": -11.1067, "longitude": -77.605},
   "icecast": {"host": "radioclub25.sehuacho.com", "port": 8010, "mount": "/radio",
               "user": "source", "radio_enabled": true},
   "server_time": "2026-11-08T17:00:00Z"
 }
 ```
+`frequencies` son las activas de Admin → Frecuencias en orden (puede ser `[]`); `frequency` es la
+principal (la primera) o, si no hay ninguna, la de Marca y contacto.
 La contraseña de fuente **no** se envía: se escribe una vez en la PC (que la guarda cifrada).
 Coordenadas: variables `STATION_LAT` / `STATION_LON`.
 

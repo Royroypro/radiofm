@@ -44,6 +44,7 @@ type Page struct {
 	Error       string            // error general del formulario
 	FieldErrors map[string]string // errores por campo
 	Banners     map[domain.AdPosition]*domain.Ad
+	Frequencies []domain.Frequency // activas, en orden (la primera es la principal)
 	Data        any
 	Now         time.Time
 	BaseURL     string

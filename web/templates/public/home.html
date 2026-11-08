@@ -12,6 +12,10 @@
     <h1 class="sr-only">{{.Site.SiteName}} {{.Site.Frequency}}</h1>
     <img class="hero-logo" src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}} {{.Site.Frequency}}">
     <p class="hero-slogan">{{.Site.Slogan}}</p>
+    {{/* Frecuencias por ciudad (Admin → Frecuencias) */}}
+    {{if gt (len .Frequencies) 1}}<ul class="freq-list" aria-label="Frecuencias">
+      {{range .Frequencies}}<li><strong>{{.Label}}</strong> {{.City}}</li>{{end}}
+    </ul>{{end}}
     <ul class="chips">{{range split .Site.Categories ","}}<li>{{.}}</li>{{end}}</ul>
   </div>
 </section>
@@ -26,6 +30,7 @@
           <span class="badge {{if $d.Status.Radio.Online}}on{{end}}" data-radio-badge>{{if $d.Status.Radio.Online}}En vivo{{else}}Fuera del aire{{end}}</span>
         </div>
         <p class="freq">{{.Site.Frequency}}</p>
+        {{with .Frequencies}}<p class="freq-cities">{{range $i, $f := .}}{{if $i}} · {{end}}{{if $i}}{{$f.Label}} {{end}}{{$f.City}}{{end}}</p>{{end}}
         <button class="play-btn" type="button" data-radio-toggle aria-label="Escuchar la radio">
           <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
           <svg class="icon i-pause" aria-hidden="true"><use href="#i-pause"/></svg>

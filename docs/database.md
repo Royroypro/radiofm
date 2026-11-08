@@ -15,6 +15,7 @@ booleanos 0/1.
 | `users` | personas que entran a los paneles | `role`: superadmin, admin, editor. Email único sin distinguir mayúsculas |
 | `sessions` | sesiones abiertas | se guarda el SHA-256 del token, no el token |
 | `settings` | ajustes de la radio (clave/valor) | claves en `domain.SiteSettings` |
+| `frequencies` | frecuencias por ciudad (93.3 FM Huacho, 103.2 FM Barranca…) | `band` FM/AM; orden `sort_order`; la primera activa es la principal y reemplaza a `settings.frequency`. La migración 0003 siembra la de Ajustes como «Huacho» |
 | `programs` | programación semanal | `weekday` 0=domingo; horas `HH:MM`; puede cruzar medianoche |
 | `ads` | anuncios | `type`: banner, preroll_video, audio_spot; `position` solo banners |
 | `ad_events` | medición | `type`: impression, click, complete, skip; `ip_hash` diario |

@@ -10,7 +10,7 @@
       <label class="{{if .FieldError "site_name"}}has-error{{end}}">Nombre de la radio
         <input type="text" name="site_name" value="{{$s.SiteName}}" required maxlength="80">
         {{with .FieldError "site_name"}}<span class="err">{{.}}</span>{{end}}</label>
-      <label>Frecuencia<input type="text" name="frequency" value="{{$s.Frequency}}" maxlength="20" placeholder="93.3 FM"></label>
+      <label>Frecuencia <span class="hint">solo si no hay ninguna en <a href="/admin/frequencies">Frecuencias</a></span><input type="text" name="frequency" value="{{$s.Frequency}}" maxlength="20" placeholder="93.3 FM"></label>
       <label>Eslogan<input type="text" name="slogan" value="{{$s.Slogan}}" maxlength="120"></label>
     </div>
     <label>Categorías <span class="hint">separadas por coma; se muestran bajo el logo</span>

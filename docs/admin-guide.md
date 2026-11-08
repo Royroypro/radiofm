@@ -51,6 +51,13 @@ completados y saltados. **Descargar CSV** abre en Excel.
 Programas por día y hora. El que esté en horario aparece como **Al aire** en el reproductor.
 Si un programa termina después de medianoche (22:00 a 02:00), póngalo en el día en que empieza.
 
+## Frecuencias
+Las frecuencias de la radio por ciudad, por ejemplo **93.3 FM** en Huacho, **103.2 FM** en Barranca
+y **105.4 FM** en Huaral. Escriba la ciudad, solo el número de la frecuencia y la banda (FM o AM).
+Con las flechas ↑ ↓ cambia el orden en que se muestran. La **primera activa es la principal**: sale
+en el título de la web, junto al logo y en el reproductor. Desmarque «Mostrar en la web» para ocultar
+una sin borrarla. Si no hay ninguna, la web usa la frecuencia de «Marca y contacto».
+
 ## Marca y contacto (administrador)
 Nombre, frecuencia, eslogan, categorías, texto "quiénes somos", **logo**, **isotipo** (favicon),
 imagen de fondo, **colores** (con enlace para volver al original), teléfono, WhatsApp, email,

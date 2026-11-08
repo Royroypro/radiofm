@@ -158,6 +158,12 @@ button { font: inherit; cursor: pointer; }
 .now-title { font-weight: 700; font-size: 1.02rem; min-height: 1.5em; margin: 0; overflow-wrap: anywhere; }
 .now-sub { color: var(--ink-soft); font-size: .85rem; margin: 2px 0 14px; }
 .freq { font-family: var(--font-display); font-style: italic; font-weight: 900; font-size: 2.1rem; margin: 0; line-height: 1; }
+/* Frecuencias por ciudad: lista en el hero, ciudades en la tarjeta de radio y en el pie */
+.freq-list { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin: .9rem 0 .9rem; padding: 0; }
+.freq-list li { padding: .3rem .8rem; border-radius: 999px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: .95rem; backdrop-filter: blur(4px); }
+.freq-list strong { font-family: var(--font-display); font-style: italic; font-weight: 900; margin-right: .2rem; }
+.freq-cities { margin: .25rem 0 0; font-size: .85rem; opacity: .8; }
+.footer-freqs { font-size: .9rem; opacity: .85; }
 .volume { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 10px; color: var(--ink-soft); }
 .volume input { width: 150px; accent-color: var(--orange); }
 .on-air {

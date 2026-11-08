@@ -1,0 +1,33 @@
+{{/* Frecuencias por ciudad. .Data: []domain.Frequency (en orden de la web) */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0">Se muestran en la web en este orden. La primera activa es la principal (título, logo y reproductor).</p>
+  <a class="btn" href="/admin/frequencies/new">Nueva frecuencia</a>
+</div>
+<div class="table-wrap">
+{{if .Data}}
+<table>
+  <thead><tr><th>Orden</th><th>Ciudad</th><th>Frecuencia</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {{range $i, $f := .Data}}
+  <tr>
+    <td class="actions">
+      <form method="post" action="/admin/frequencies/{{$f.ID}}/up">{{template "csrf" $}}<button class="btn btn-sm btn-ghost" type="submit" title="Subir" aria-label="Subir">↑</button></form>
+      <form method="post" action="/admin/frequencies/{{$f.ID}}/down">{{template "csrf" $}}<button class="btn btn-sm btn-ghost" type="submit" title="Bajar" aria-label="Bajar">↓</button></form>
+    </td>
+    <td><a href="/admin/frequencies/{{$f.ID}}">{{$f.City}}</a></td>
+    <td><strong>{{$f.Label}}</strong></td>
+    <td>{{if $f.Active}}<span class="pill ok">En la web</span>{{else}}<span class="pill">Oculta</span>{{end}}</td>
+    <td class="actions">
+      <a class="btn btn-sm btn-ghost" href="/admin/frequencies/{{$f.ID}}">Editar</a>
+      <form method="post" action="/admin/frequencies/{{$f.ID}}/delete" data-confirm="¿Eliminar {{$f.Label}} de {{$f.City}}?">
+        {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+      </form>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Aún no hay frecuencias. Mientras tanto la web usa la de «Marca y contacto».</div>{{end}}
+</div>
+{{end}}

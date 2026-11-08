@@ -26,6 +26,7 @@ import (
 	"radioclub25/internal/service/audit"
 	"radioclub25/internal/service/auth"
 	"radioclub25/internal/service/billing"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/gate"
 	"radioclub25/internal/service/license"
 	"radioclub25/internal/service/media"
@@ -65,6 +66,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	sessionRepo := sqlite.NewSessionRepo(database)
 	settingsRepo := sqlite.NewSettingsRepo(database)
 	programRepo := sqlite.NewProgramRepo(database)
+	frequencyRepo := sqlite.NewFrequencyRepo(database)
 	adRepo := sqlite.NewAdRepo(database)
 	adEventRepo := sqlite.NewAdEventRepo(database)
 	billingRepo := sqlite.NewBillingRepo(database)
@@ -91,6 +93,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	authSvc := auth.New(userRepo, sessionRepo, auditSvc, cfg.SessionTTL)
 	settingsSvc := settings.New(settingsRepo, auditSvc)
 	programsSvc := programs.New(programRepo, auditSvc, cfg.Location)
+	frequenciesSvc := frequencies.New(frequencyRepo, auditSvc)
 	mediaSvc := media.New(opt.Radio, opt.TV, log)
 	licenseSvc := license.New(licenseRepo, billingRepo, mediaSvc, auditSvc, log, cfg.Location)
 	billingSvc := billing.New(billingRepo, auditSvc, cfg.Location)
@@ -120,7 +123,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	router := httpserver.NewRouter(httpserver.Deps{
 		Cfg: cfg, Log: log, Views: renderer, StaticFS: staticFS, Store: store,
 		Auth: authSvc, Settings: settingsSvc, Programs: programsSvc, Ads: adsSvc, Media: mediaSvc,
-		License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc, Studio: studioSvc,
+		Frequencies: frequenciesSvc, License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc, Studio: studioSvc,
 	})
 	return &App{Cfg: cfg, Log: log, DB: database, Auth: authSvc, Settings: settingsSvc, License: licenseSvc,
 		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Router: router}, nil

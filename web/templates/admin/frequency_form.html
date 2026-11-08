@@ -1,0 +1,30 @@
+{{/* Alta/edición de frecuencia. .Data: *domain.Frequency */}}
+{{define "content"}}
+{{$f := .Data}}
+<form class="box form" method="post" action="/admin/frequencies{{if $f.ID}}/{{$f.ID}}{{end}}">
+  {{template "csrf" .}}
+  <div class="grid grid-3">
+    <label class="{{if .FieldError "city"}}has-error{{end}}">Ciudad
+      <input type="text" name="city" value="{{$f.City}}" required maxlength="60" placeholder="Barranca">
+      {{with .FieldError "city"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "frequency"}}has-error{{end}}">Frecuencia
+      <input type="text" name="frequency" value="{{$f.Frequency}}" required maxlength="7" inputmode="decimal" placeholder="103.2">
+      <span class="hint">Solo el número.</span>
+      {{with .FieldError "frequency"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "band"}}has-error{{end}}">Banda
+      <select name="band">
+        <option value="FM" {{if ne $f.Band "AM"}}selected{{end}}>FM</option>
+        <option value="AM" {{if eq $f.Band "AM"}}selected{{end}}>AM</option>
+      </select>
+      {{with .FieldError "band"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+  <label class="{{if .FieldError "sort_order"}}has-error{{end}}">Orden <span class="hint">menor primero; también puede usar las flechas de la lista</span>
+    <input type="number" name="sort_order" value="{{$f.SortOrder}}" min="0" max="10000" step="1">
+    {{with .FieldError "sort_order"}}<span class="err">{{.}}</span>{{end}}</label>
+  <label class="check"><input type="checkbox" name="active" {{if $f.Active}}checked{{end}}> Mostrar en la web</label>
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="/admin/frequencies">Cancelar</a>
+  </div>
+</form>
+{{end}}

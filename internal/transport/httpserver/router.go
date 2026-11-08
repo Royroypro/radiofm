@@ -23,6 +23,7 @@ import (
 	"radioclub25/internal/service/audit"
 	"radioclub25/internal/service/auth"
 	"radioclub25/internal/service/billing"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/gate"
 	"radioclub25/internal/service/license"
 	"radioclub25/internal/service/media"
@@ -45,16 +46,17 @@ type Deps struct {
 	StaticFS fs.FS // contenido de web/static
 	Store    *storage.Store
 
-	Auth     *auth.Service
-	Settings *settings.Service
-	Programs *programs.Service
-	Ads      *ads.Service
-	Media    *media.Service
-	License  *license.Service
-	Gate     *gate.Service
-	Billing  *billing.Service
-	Audit    *audit.Service
-	Studio   *studio.Service
+	Auth        *auth.Service
+	Settings    *settings.Service
+	Programs    *programs.Service
+	Frequencies *frequencies.Service
+	Ads         *ads.Service
+	Media       *media.Service
+	License     *license.Service
+	Gate        *gate.Service
+	Billing     *billing.Service
+	Audit       *audit.Service
+	Studio      *studio.Service
 }
 
 // NewRouter devuelve el http.Handler con todas las rutas.
@@ -62,14 +64,19 @@ func NewRouter(d Deps) http.Handler {
 	pub := &public.Handler{Views: d.Views, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads, Media: d.Media,
 		License: d.License, Gate: d.Gate, Studio: d.Studio, Log: d.Log, InternalToken: d.Cfg.InternalToken}
 	adm := &admin.Handler{Views: d.Views, Auth: d.Auth, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads,
-		Media: d.Media, License: d.License, Studio: d.Studio, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
-	stu := &studioapi.Handler{Studio: d.Studio, Settings: d.Settings, Programs: d.Programs, Cfg: d.Cfg, Log: d.Log}
+		Frequencies: d.Frequencies, Media: d.Media, License: d.License, Studio: d.Studio, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
+	stu := &studioapi.Handler{Studio: d.Studio, Settings: d.Settings, Frequencies: d.Frequencies, Programs: d.Programs, Cfg: d.Cfg, Log: d.Log}
 	sup := &superadmin.Handler{Views: d.Views, Billing: d.Billing, License: d.License, Audit: d.Audit, Media: d.Media,
 		Store: d.Store, Cfg: d.Cfg, Log: d.Log}
 
 	// Datos comunes de todas las páginas.
 	d.Views.SetCommon(func(w http.ResponseWriter, r *http.Request, p *views.Page) {
 		p.Site, _ = d.Settings.Get(r.Context())
+		// Frecuencias por ciudad: la primera activa es la principal (títulos, logo, reproductor).
+		p.Frequencies, _ = d.Frequencies.Active(r.Context())
+		if len(p.Frequencies) > 0 {
+			p.Site.Frequency = p.Frequencies[0].Label()
+		}
 		p.User = mw.UserFrom(r.Context())
 		p.License = d.License.Current()
 		p.CSRF = mw.CSRFTokenFrom(r.Context())
@@ -143,6 +150,15 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/fm-spots/{id}", adm.FMSpotEdit)
 		r.Post("/fm-spots/{id}", adm.FMSpotSave)
 		r.Post("/fm-spots/{id}/delete", adm.FMSpotDelete)
+
+		r.Get("/frequencies", adm.FrequenciesList)
+		r.Get("/frequencies/new", adm.FrequencyNew)
+		r.Post("/frequencies", adm.FrequencySave)
+		r.Get("/frequencies/{id}", adm.FrequencyEdit)
+		r.Post("/frequencies/{id}", adm.FrequencySave)
+		r.Post("/frequencies/{id}/up", adm.FrequencyMove(-1))
+		r.Post("/frequencies/{id}/down", adm.FrequencyMove(+1))
+		r.Post("/frequencies/{id}/delete", adm.FrequencyDelete)
 
 		r.Get("/programs", adm.ProgramsList)
 		r.Get("/programs/new", adm.ProgramNew)
