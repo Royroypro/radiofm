@@ -2,6 +2,16 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## Fase 2 — emisión a Icecast
+
+- `platform/ffmpeg.Encoder`: PCM del motor → ffmpeg → `icecast://` (MP3 128 kbps o AAC), contraseña
+  escapada, descarte del audio viejo al reconectar, reconexión con espera exponencial (1 s → 60 s) y
+  estado (conectado, desde, reintentos, último error, bytes).
+- `platform/icecast.Client.UpdateSong`: metadata con `/admin/metadata` y usuario de fuente.
+- `estudio-cli encode`: lista con crossfade hacia Icecast, con o sin tarjeta, y metadata por pista.
+- Tests con un Icecast simulado (conexión cruda con `Expect: 100-continue`, como el real).
+- Documentación: `docs/icecast.md`.
+
 ## Fase 1 — motor de audio
 
 - `internal/audio`: motor con 2 decks y 24 carts, ring buffers SPSC sin bloqueos, comandos por canal

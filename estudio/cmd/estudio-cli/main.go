@@ -8,8 +8,9 @@
 //	estudio-cli devices   lista las tarjetas de sonido (salida y captura)
 //	estudio-cli play [-device X] [-xfade 3s] a.mp3 b.mp3 ...   reproduce con crossfade por la tarjeta
 //	estudio-cli render [-xfade 3s] salida.wav a.mp3 b.mp3 ...   mezcla sin tarjeta y escribe un WAV
+//	estudio-cli encode -host H -port 8010 -mount /radio -password X a.mp3 ...   emite a Icecast con metadata
 //
-// Próximas fases: encode (Icecast), analyze (biblioteca), generate-log (playlist del día).
+// Próximas fases: analyze (biblioteca), generate-log (playlist del día).
 package main
 
 import (
@@ -40,6 +41,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdPlay(args[1:], stdout, stderr)
 	case "render":
 		return cmdRender(args[1:], stdout, stderr)
+	case "encode":
+		return cmdEncode(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		usage(stdout)
 	default:
@@ -79,4 +82,5 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  devices   lista las tarjetas de sonido (salida y captura)")
 	fmt.Fprintln(w, "  play      reproduce archivos con crossfade por la tarjeta de sonido")
 	fmt.Fprintln(w, "  render    mezcla archivos sin tarjeta y escribe un WAV")
+	fmt.Fprintln(w, "  encode    emite archivos a Icecast (con metadata), con o sin tarjeta")
 }

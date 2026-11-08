@@ -29,11 +29,14 @@ type sequencer struct {
 	loaded  int // slot cargado esperando turno (-1 = ninguno)
 	out     io.Writer
 	done    chan struct{}
+	names   map[uint64]string // tag → "Artista - Título"
+	// onStarted se llama cuando empieza a sonar una pista (p. ej. para la metadata de Icecast).
+	onStarted func(name string)
 }
 
 func newSequencer(e *audio.Engine, tl ffmpeg.Tools, files []string, xfade time.Duration, out io.Writer) *sequencer {
 	return &sequencer{e: e, tools: tl, files: files, xfade: xfade, current: -1, loaded: -1, out: out,
-		done: make(chan struct{})}
+		done: make(chan struct{}), names: map[uint64]string{}}
 }
 
 // loadNext carga el siguiente archivo en el deck libre.
@@ -68,6 +71,7 @@ func (s *sequencer) loadNext() error {
 	if name == "" || name == " - " {
 		name = path
 	}
+	s.names[uint64(s.next+1)] = name
 	fmt.Fprintf(s.out, "[%d/%d] %s (%s)\n", s.next+1, len(s.files), name, info.Duration.Round(time.Second))
 	s.loaded = slot
 	s.next++
@@ -91,6 +95,10 @@ func (s *sequencer) startLoaded() {
 
 func (s *sequencer) handle(ev audio.Event) {
 	switch ev.Type {
+	case audio.EventStarted:
+		if s.onStarted != nil && ev.Slot < audio.NumDecks {
+			s.onStarted(s.names[ev.Tag])
+		}
 	case audio.EventSegue:
 		if ev.Slot == s.current {
 			s.startLoaded()
