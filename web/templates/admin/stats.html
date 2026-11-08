@@ -1,0 +1,42 @@
+{{/* Estadísticas de publicidad. .Data: From, To (YYYY-MM-DD), Stats []domain.AdStats, Total domain.AdStats, Disabled bool, Message */}}
+{{define "content"}}
+{{$d := .Data}}
+<form class="box toolbar" method="get" action="/admin/stats">
+  <div class="filters">
+    <label class="field">Desde<input type="date" name="from" value="{{$d.From}}"></label>
+    <label class="field">Hasta<input type="date" name="to" value="{{$d.To}}"></label>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-dark" type="submit">Ver</button>
+    {{if not $d.Disabled}}<a class="btn btn-ghost" href="/admin/stats.csv?from={{$d.From}}&to={{$d.To}}">Descargar CSV</a>{{end}}
+  </div>
+</form>
+
+{{if $d.Disabled}}
+  <div class="alert alert-warn">{{$d.Message}}</div>
+{{else}}
+<div class="grid grid-4" style="margin-bottom:18px">
+  <div class="stat"><div class="label">Impresiones</div><div class="value">{{$d.Total.Impressions}}</div></div>
+  <div class="stat"><div class="label">Clics</div><div class="value">{{$d.Total.Clicks}}</div><div class="sub">CTR {{pct $d.Total.CTR}}</div></div>
+  <div class="stat"><div class="label">Completados</div><div class="value">{{$d.Total.Completes}}</div><div class="sub">pre-roll y cuñas</div></div>
+  <div class="stat"><div class="label">Saltados</div><div class="value">{{$d.Total.Skips}}</div></div>
+</div>
+<div class="table-wrap">
+  {{if $d.Stats}}
+  <table>
+    <thead><tr><th>Anuncio</th><th>Tipo</th><th class="num">Impresiones</th><th class="num">Clics</th><th class="num">CTR</th><th class="num">Completados</th><th class="num">% completo</th><th class="num">Saltados</th></tr></thead>
+    <tbody>
+    {{range $d.Stats}}
+      <tr>
+        <td><a href="/admin/ads/{{.AdID}}">{{.Name}}</a></td><td>{{.Type.Label}}</td>
+        <td class="num">{{.Impressions}}</td><td class="num">{{.Clicks}}</td><td class="num">{{pct .CTR}}</td>
+        <td class="num">{{.Completes}}</td><td class="num">{{if eq .Type "banner"}}—{{else}}{{pct .CompletionRate}}{{end}}</td><td class="num">{{.Skips}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<div class="empty">No hay anuncios.</div>{{end}}
+</div>
+<p class="small muted">Una impresión se cuenta cuando el banner aparece en pantalla o cuando el pre-roll/cuña empieza a reproducirse. Las IPs no se guardan: solo un código anónimo que cambia cada día.</p>
+{{end}}
+{{end}}

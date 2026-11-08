@@ -1,0 +1,31 @@
+{{/* Usuarios del panel. .Data: []domain.User */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0"><strong>Administrador</strong>: todo el panel de la radio. <strong>Editor</strong>: publicidad, estadísticas y programación.</p>
+  <a class="btn" href="/admin/users/new">Nuevo usuario</a>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr>
+    <td>{{.Name}}</td><td>{{.Email}}</td><td>{{.Role.Label}}</td>
+    <td>{{if .Active}}<span class="pill ok">Activo</span>{{else}}<span class="pill">Inactivo</span>{{end}}</td>
+    <td class="small">{{with .LastLoginAt}}{{datetime .}}{{else}}—{{end}}</td>
+    <td class="actions">
+      {{if ne .Role "superadmin"}}
+      <a class="btn btn-sm btn-ghost" href="/admin/users/{{.ID}}">Editar</a>
+      {{if ne .ID $.User.ID}}
+      <form method="post" action="/admin/users/{{.ID}}/delete" data-confirm="¿Eliminar al usuario {{.Email}}?">
+        {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+      </form>
+      {{end}}
+      {{end}}
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

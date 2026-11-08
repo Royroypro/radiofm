@@ -1,0 +1,46 @@
+{{/* Detalle de contrato con sus pagos. .Data: Contract *domain.Contract, Payments []domain.Payment, PaidUntil *time.Time */}}
+{{define "content"}}
+{{$c := .Data.Contract}}
+<section class="box">
+  <div class="toolbar">
+    <h2 style="margin:0">{{$c.PlanName}} · <span class="pill {{if eq $c.Status "active"}}ok{{end}}">{{$c.Status.Label}}</span></h2>
+    <div class="form-actions">
+      <a class="btn btn-sm" href="/superadmin/payments/new?contract={{$c.ID}}">Registrar pago</a>
+      <a class="btn btn-sm btn-ghost" href="/superadmin/contracts/{{$c.ID}}/edit">Editar</a>
+      <form method="post" action="/superadmin/contracts/{{$c.ID}}/delete" data-confirm="¿Eliminar el contrato y TODOS sus pagos?">{{template "csrf" .}}<button class="btn btn-sm btn-danger">Eliminar</button></form>
+    </div>
+  </div>
+  <div class="grid grid-4">
+    <div><div class="small muted">Inicio</div><strong>{{day $c.StartDate}}</strong></div>
+    <div><div class="small muted">Fin</div><strong>{{with $c.EndDate}}{{day .}}{{else}}Indefinido{{end}}</strong></div>
+    <div><div class="small muted">Importe por periodo</div><strong>{{money $c.Amount $c.Currency}}</strong></div>
+    <div><div class="small muted">Pagado hasta</div><strong>{{with .Data.PaidUntil}}{{day .}}{{else}}—{{end}}</strong></div>
+  </div>
+  {{with $c.Notes}}<p class="small">{{.}}</p>{{end}}
+  {{with $c.DocumentURL}}<p><a href="{{.}}" target="_blank" rel="noopener">Ver documento del contrato</a></p>{{end}}
+</section>
+
+<h2 style="color:var(--navy);font-size:1.05rem">Pagos</h2>
+<div class="table-wrap">
+{{if .Data.Payments}}
+<table>
+  <thead><tr><th>Periodo cubierto</th><th class="num">Importe</th><th>Estado</th><th>Método</th><th>Referencia</th><th>Pagado el</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Payments}}
+  <tr>
+    <td>{{day .PeriodStart}} → {{day .PeriodEnd}}</td>
+    <td class="num">{{money .Amount .Currency}}</td>
+    <td><span class="pill {{if eq .Status "paid"}}ok{{else if eq .Status "pending"}}warn{{end}}">{{.Status.Label}}</span></td>
+    <td>{{if .Method}}{{.Method.Label}}{{end}}</td><td class="small">{{.Reference}}</td>
+    <td class="small">{{with .PaidAt}}{{datetime .}}{{end}}</td>
+    <td class="actions">
+      {{with .ReceiptURL}}<a class="btn btn-sm btn-ghost" href="{{.}}" target="_blank" rel="noopener">Comprobante</a>{{end}}
+      <a class="btn btn-sm btn-ghost" href="/superadmin/payments/{{.ID}}">Editar</a>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Sin pagos registrados.</div>{{end}}
+</div>
+{{end}}

@@ -1,0 +1,41 @@
+{{/* Alta/edición de pago. .Data: Payment *domain.Payment, Contracts []domain.Contract */}}
+{{define "content"}}
+{{$p := .Data.Payment}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/superadmin/payments{{if $p.ID}}/{{$p.ID}}{{end}}" style="max-width:820px">
+  {{template "csrf" .}}
+  <label class="{{if .FieldError "contract_id"}}has-error{{end}}">Contrato
+    <select name="contract_id" required>
+      <option value="">Seleccione…</option>
+      {{range .Data.Contracts}}<option value="{{.ID}}" {{if eq .ID $p.ContractID}}selected{{end}}>#{{.ID}} · {{.PlanName}} · desde {{day .StartDate}} · {{.Status.Label}}</option>{{end}}
+    </select>
+    {{with .FieldError "contract_id"}}<span class="err">{{.}}</span>{{end}}</label>
+  <div class="grid grid-2">
+    <label>Periodo desde<input type="date" name="period_start" value="{{dateInput $p.PeriodStart}}" required></label>
+    <label class="{{if .FieldError "period_end"}}has-error{{end}}">Periodo hasta (inclusive)<input type="date" name="period_end" value="{{dateInput $p.PeriodEnd}}" required>
+      {{with .FieldError "period_end"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+  <div class="grid grid-3">
+    <label class="{{if .FieldError "amount"}}has-error{{end}}">Importe<input type="text" name="amount" value="{{moneyInput $p.Amount}}" inputmode="decimal" required>
+      {{with .FieldError "amount"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Moneda<select name="currency"><option value="PEN" {{if eq $p.Currency "PEN"}}selected{{end}}>Soles (S/)</option><option value="USD" {{if eq $p.Currency "USD"}}selected{{end}}>Dólares (US$)</option></select></label>
+    <label>Estado
+      <select name="status">
+        <option value="paid" {{if eq $p.Status "paid"}}selected{{end}}>Pagado</option>
+        <option value="pending" {{if eq $p.Status "pending"}}selected{{end}}>Pendiente</option>
+        <option value="void" {{if eq $p.Status "void"}}selected{{end}}>Anulado</option>
+      </select></label>
+  </div>
+  <div class="grid grid-3">
+    <label class="{{if .FieldError "method"}}has-error{{end}}">Método
+      <select name="method"><option value="">—</option>{{range payMethods}}<option value="{{.Value}}" {{if eq .Value $p.Method}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+      {{with .FieldError "method"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Nº de operación / referencia<input type="text" name="reference" value="{{$p.Reference}}" maxlength="80"></label>
+    <label>Fecha y hora del pago<input type="datetime-local" name="paid_at" value="{{datetimeInput $p.PaidAt}}"><span class="hint">Vacío = ahora</span></label>
+  </div>
+  <label class="{{if .FieldError "receipt"}}has-error{{end}}">Comprobante (opcional)<input type="file" name="receipt" accept="application/pdf,image/jpeg,image/png,image/webp">
+    {{with .FieldError "receipt"}}<span class="err">{{.}}</span>{{end}}</label>
+  {{with $p.ReceiptURL}}<p class="small"><a href="{{.}}" target="_blank" rel="noopener">Comprobante actual</a></p>{{end}}
+  <label>Notas<textarea name="notes">{{$p.Notes}}</textarea></label>
+  <div class="form-actions"><button class="btn" type="submit">Guardar</button><a class="btn btn-ghost" href="javascript:history.back()">Cancelar</a></div>
+</form>
+{{end}}

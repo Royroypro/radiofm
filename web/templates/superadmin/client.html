@@ -1,0 +1,18 @@
+{{/* Datos del cliente. .Data: *domain.Client */}}
+{{define "content"}}
+{{$c := .Data}}
+<form class="box form" method="post" action="/superadmin/client" style="max-width:820px">
+  {{template "csrf" .}}
+  <div class="grid grid-2">
+    <label>Razón social<input type="text" name="business_name" value="{{$c.BusinessName}}" maxlength="160"></label>
+    <label class="{{if .FieldError "tax_id"}}has-error{{end}}">RUC<input type="text" name="tax_id" value="{{$c.TaxID}}" maxlength="11" inputmode="numeric">
+      {{with .FieldError "tax_id"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Persona de contacto<input type="text" name="contact_name" value="{{$c.ContactName}}" maxlength="120"></label>
+    <label>Teléfono<input type="tel" name="phone" value="{{$c.Phone}}" maxlength="40"></label>
+    <label>Email<input type="email" name="email" value="{{$c.Email}}" maxlength="120"></label>
+    <label>Dirección fiscal<input type="text" name="address" value="{{$c.Address}}" maxlength="200"></label>
+  </div>
+  <label>Notas internas<textarea name="notes">{{$c.Notes}}</textarea></label>
+  <div class="form-actions"><button class="btn" type="submit">Guardar</button></div>
+</form>
+{{end}}

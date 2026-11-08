@@ -1,0 +1,37 @@
+{{/* Alta/edición de programa. .Data: *domain.Program */}}
+{{define "content"}}
+{{$p := .Data}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/admin/programs{{if $p.ID}}/{{$p.ID}}{{end}}">
+  {{template "csrf" .}}
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "title"}}has-error{{end}}">Título
+      <input type="text" name="title" value="{{$p.Title}}" required maxlength="120">
+      {{with .FieldError "title"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+    <label>Conductor(es)<input type="text" name="host" value="{{$p.Host}}" maxlength="120"></label>
+  </div>
+  <div class="grid grid-3">
+    <label>Día
+      <select name="weekday">
+        {{range $i, $n := weekdays}}<option value="{{$i}}" {{if eq $i (int $p.Weekday)}}selected{{end}}>{{$n}}</option>{{end}}
+      </select>
+    </label>
+    <label class="{{if .FieldError "start_time"}}has-error{{end}}">Inicio<input type="time" name="start_time" value="{{$p.StartTime}}" required>
+      {{with .FieldError "start_time"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "end_time"}}has-error{{end}}">Fin<input type="time" name="end_time" value="{{$p.EndTime}}" required>
+      <span class="hint">Si termina después de medianoche, ponga la hora del día siguiente (p. ej. 01:00).</span>
+      {{with .FieldError "end_time"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+  <label>Descripción<textarea name="description" maxlength="1000">{{$p.Description}}</textarea></label>
+  <label class="{{if .FieldError "image"}}has-error{{end}}">Imagen (opcional)
+    <input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+    {{with .FieldError "image"}}<span class="err">{{.}}</span>{{end}}
+  </label>
+  {{with $p.ImageURL}}<div><img class="thumb" src="{{.}}" alt=""><label class="check"><input type="checkbox" name="remove_image"> Quitar imagen</label></div>{{end}}
+  <label class="check"><input type="checkbox" name="active" {{if $p.Active}}checked{{end}}> Activo</label>
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="/admin/programs">Cancelar</a>
+  </div>
+</form>
+{{end}}

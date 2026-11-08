@@ -1,0 +1,26 @@
+{{/* Auditoría paginada. .Data: Entries []domain.AuditEntry, Page int, HasNext bool */}}
+{{define "content"}}
+<div class="table-wrap">
+{{if .Data.Entries}}
+<table>
+  <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th><th>IP</th></tr></thead>
+  <tbody>
+  {{range .Data.Entries}}
+  <tr>
+    <td class="small">{{datetime .CreatedAt}}</td>
+    <td class="small">{{if .UserEmail}}{{.UserEmail}}{{else}}sistema{{end}}</td>
+    <td><strong>{{.Action}}</strong></td>
+    <td class="small">{{.Entity}}{{if .EntityID}} #{{.EntityID}}{{end}}</td>
+    <td class="small">{{.Details}}</td>
+    <td class="small mono">{{.IP}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Sin registros.</div>{{end}}
+</div>
+<div class="pagination">
+  {{if gt .Data.Page 1}}<a class="btn btn-sm btn-ghost" href="/superadmin/audit?page={{add .Data.Page -1}}">← Más recientes</a>{{end}}
+  {{if .Data.HasNext}}<a class="btn btn-sm btn-ghost" href="/superadmin/audit?page={{add .Data.Page 1}}">Más antiguos →</a>{{end}}
+</div>
+{{end}}

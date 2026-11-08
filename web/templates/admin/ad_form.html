@@ -1,0 +1,69 @@
+{{/* Alta/edición de anuncio. .Data: Ad *domain.Ad, MaxUploadMB int */}}
+{{define "content"}}
+{{$a := .Data.Ad}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/admin/ads{{if $a.ID}}/{{$a.ID}}{{end}}">
+  {{template "csrf" .}}
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "name"}}has-error{{end}}">Nombre interno
+      <input type="text" name="name" value="{{$a.Name}}" required maxlength="120" placeholder="Ej.: Ferretería El Sol — verano">
+      {{with .FieldError "name"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+    <label>Tipo
+      <select name="type" data-ad-type>
+        {{range adTypes}}<option value="{{.}}" {{if eq . $a.Type}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </label>
+  </div>
+
+  <label class="{{if .FieldError "position"}}has-error{{end}}" data-show-for="banner">Posición del banner
+    <select name="position">
+      {{range adPositions}}<option value="{{.}}" {{if eq . $a.Position}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    <span class="hint">Cabecera / entre secciones / pie: 970×250 px recomendado. Lateral: 300×600 o 300×250 px.</span>
+  </label>
+
+  <label class="{{if .FieldError "file"}}has-error{{end}}">Archivo {{if $a.FileURL}}(deje vacío para mantener el actual){{end}}
+    <input type="file" name="file" {{if not $a.FileURL}}required{{end}}
+      accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav">
+    <span class="hint">Banner: JPG, PNG, WEBP o GIF. Pre-roll: MP4 (H.264) o WEBM, idealmente 10–30 s. Cuña: MP3/AAC. Máximo {{.Data.MaxUploadMB}} MB.</span>
+    {{with .FieldError "file"}}<span class="err">{{.}}</span>{{end}}
+  </label>
+  {{with $a.FileURL}}
+  <div>
+    {{if eq $a.Type "banner"}}<img class="preview" src="{{.}}" alt="Vista previa">
+    {{else if eq $a.Type "preroll_video"}}<video class="preview" src="{{.}}" controls preload="metadata"></video>
+    {{else}}<audio src="{{.}}" controls preload="none"></audio>{{end}}
+  </div>
+  {{end}}
+
+  <label class="{{if .FieldError "link_url"}}has-error{{end}}">Enlace del anunciante (opcional)
+    <input type="url" name="link_url" value="{{$a.LinkURL}}" placeholder="https://...">
+    {{with .FieldError "link_url"}}<span class="err">{{.}}</span>{{end}}
+  </label>
+
+  <div class="grid grid-2">
+    <label>Desde (opcional)<input type="datetime-local" name="starts_at" value="{{datetimeInput $a.StartsAt}}"></label>
+    <label class="{{if .FieldError "ends_at"}}has-error{{end}}">Hasta (opcional)<input type="datetime-local" name="ends_at" value="{{datetimeInput $a.EndsAt}}">
+      {{with .FieldError "ends_at"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "weight"}}has-error{{end}}">Peso (1–100)
+      <input type="number" name="weight" min="1" max="100" value="{{$a.Weight}}">
+      <span class="hint">Si hay varios anuncios en el mismo lugar, uno con peso 3 sale 3 veces más que uno con peso 1.</span>
+      {{with .FieldError "weight"}}<span class="err">{{.}}</span>{{end}}
+    </label>
+    <label class="{{if .FieldError "skip_after_sec"}}has-error{{end}}" data-show-for="preroll_video audio_spot">Se puede saltar a los (segundos)
+      <input type="number" name="skip_after_sec" min="0" max="120" value="{{$a.SkipAfterSec}}">
+      <span class="hint">0 = no se puede saltar.</span>
+    </label>
+  </div>
+
+  <label class="check"><input type="checkbox" name="active" {{if $a.Active}}checked{{end}}> Activo</label>
+
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="/admin/ads">Cancelar</a>
+  </div>
+</form>
+{{end}}

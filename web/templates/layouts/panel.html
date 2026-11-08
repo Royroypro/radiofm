@@ -1,0 +1,73 @@
+{{/* Esqueleto de los paneles admin y superadmin. Recibe *views.Page. */}}
+{{define "layout"}}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{.Title}} · Panel {{.Site.SiteName}}</title>
+  <link rel="icon" href="{{.Site.FaviconURL}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,900&display=swap">
+  <link rel="stylesheet" href="/static/css/panel.css">
+  {{template "theme" .}}
+</head>
+<body class="panel">
+  {{template "icons"}}
+  <aside class="side">
+    <div class="side-top">
+      <a class="side-brand" href="/admin"><img src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}"></a>
+      <button class="side-toggle" type="button" data-nav-toggle aria-label="Menú" aria-expanded="false">
+        <svg class="icon"><use href="#i-menu"/></svg>
+      </button>
+    </div>
+    <nav class="side-nav" data-nav>
+      <p class="side-label">Radio</p>
+      <a href="/admin" {{if eq .Path "/admin" "/admin/"}}class="active"{{end}}>Resumen</a>
+      <a href="/admin/ads" {{if hasPrefix .Path "/admin/ads"}}class="active"{{end}}>Publicidad</a>
+      <a href="/admin/stats" {{if hasPrefix .Path "/admin/stats"}}class="active"{{end}}>Estadísticas</a>
+      <a href="/admin/programs" {{if hasPrefix .Path "/admin/programs"}}class="active"{{end}}>Programación</a>
+      {{if isAdmin .User}}
+      <a href="/admin/settings" {{if hasPrefix .Path "/admin/settings"}}class="active"{{end}}>Marca y contacto</a>
+      <a href="/admin/streams" {{if hasPrefix .Path "/admin/streams"}}class="active"{{end}}>Streams y emisión</a>
+      <a href="/admin/users" {{if hasPrefix .Path "/admin/users"}}class="active"{{end}}>Usuarios</a>
+      {{end}}
+      {{if isSuperAdmin .User}}
+      <p class="side-label">Superadmin</p>
+      <a href="/superadmin" {{if eq .Path "/superadmin" "/superadmin/"}}class="active"{{end}}>Resumen comercial</a>
+      <a href="/superadmin/client" {{if hasPrefix .Path "/superadmin/client"}}class="active"{{end}}>Cliente</a>
+      <a href="/superadmin/plans" {{if hasPrefix .Path "/superadmin/plans"}}class="active"{{end}}>Planes</a>
+      <a href="/superadmin/contracts" {{if hasPrefix .Path "/superadmin/contracts"}}class="active"{{end}}>Contratos</a>
+      <a href="/superadmin/payments" {{if hasPrefix .Path "/superadmin/payments"}}class="active"{{end}}>Pagos</a>
+      <a href="/superadmin/license" {{if hasPrefix .Path "/superadmin/license"}}class="active"{{end}}>Licencia y bloqueos</a>
+      <a href="/superadmin/audit" {{if hasPrefix .Path "/superadmin/audit"}}class="active"{{end}}>Auditoría</a>
+      {{end}}
+      <p class="side-label">Cuenta</p>
+      <a href="/" target="_blank" rel="noopener">Ver la web ↗</a>
+      <a href="/admin/password" {{if eq .Path "/admin/password"}}class="active"{{end}}>Cambiar contraseña</a>
+      <form method="post" action="/logout">{{template "csrf" .}}<button class="linklike" type="submit">Cerrar sesión</button></form>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>{{.Title}}</h1>
+      <div class="who">{{with .User}}{{.Name}} · <span class="role">{{.Role.Label}}</span>{{end}}</div>
+    </header>
+
+    {{if and .License.Level.IsBlock (not (isSuperAdmin .User))}}
+      <div class="alert alert-error"><strong>Servicio restringido.</strong> {{.License.Level.Label}}. Contacte al proveedor para regularizar su cuenta.</div>
+    {{else if eq .License.Level "overdue"}}
+      <div class="alert alert-warn"><strong>Pago pendiente.</strong> {{.License.Reason}}. Regularice para evitar el bloqueo del servicio.</div>
+    {{end}}
+    {{if and (isSuperAdmin .User) .License.Level.IsBlock}}
+      <div class="alert alert-error">Licencia en <strong>{{.License.Level.Label}}</strong>: {{.License.Reason}}. <a href="/superadmin/license">Gestionar</a></div>
+    {{end}}
+
+    {{template "flash" .}}
+    {{template "content" .}}
+  </div>
+  <script src="/static/js/panel.js" defer></script>
+</body>
+</html>{{end}}

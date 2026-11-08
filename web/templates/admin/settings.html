@@ -1,0 +1,110 @@
+{{/* Marca, contacto y redes. .Data: S domain.SiteSettings, Defaults domain.SiteSettings, MaxUploadMB int */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$def := .Data.Defaults}}
+<form class="form" method="post" enctype="multipart/form-data" action="/admin/settings">
+  {{template "csrf" .}}
+
+  <fieldset class="box">
+    <legend>Marca</legend>
+    <div class="grid grid-3">
+      <label class="{{if .FieldError "site_name"}}has-error{{end}}">Nombre de la radio
+        <input type="text" name="site_name" value="{{$s.SiteName}}" required maxlength="80">
+        {{with .FieldError "site_name"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label>Frecuencia<input type="text" name="frequency" value="{{$s.Frequency}}" maxlength="20" placeholder="93.3 FM"></label>
+      <label>Eslogan<input type="text" name="slogan" value="{{$s.Slogan}}" maxlength="120"></label>
+    </div>
+    <label>Categorías <span class="hint">separadas por coma; se muestran bajo el logo</span>
+      <input type="text" name="categories" value="{{$s.Categories}}" maxlength="200"></label>
+    <label>Texto «Quiénes somos»<textarea name="about" maxlength="1000">{{$s.About}}</textarea></label>
+
+    <h3>Imágenes</h3>
+    <div class="grid grid-3">
+      <div class="field">
+        <span>Logo</span>
+        <img class="preview-logo" src="{{$s.LogoURL}}" alt="Logo actual">
+        <input type="file" name="logo_file" accept="image/png,image/svg+xml,image/webp,image/jpeg">
+        <input type="text" name="logo_url" value="{{$s.LogoURL}}" aria-label="URL del logo">
+        <span class="hint">PNG o SVG con fondo transparente. Provisional: <code>{{$def.LogoURL}}</code></span>
+      </div>
+      <div class="field">
+        <span>Isotipo / favicon</span>
+        <img class="preview-logo" src="{{$s.FaviconURL}}" alt="Isotipo actual" style="max-height:56px">
+        <input type="file" name="favicon_file" accept="image/png,image/svg+xml">
+        <input type="text" name="favicon_url" value="{{$s.FaviconURL}}" aria-label="URL del favicon">
+        <span class="hint">Cuadrado, mínimo 192×192 px. Provisional: <code>{{$def.FaviconURL}}</code></span>
+      </div>
+      <div class="field">
+        <span>Imagen de fondo del inicio (opcional)</span>
+        {{with $s.HeroImageURL}}<img class="preview" src="{{.}}" alt="">{{end}}
+        <input type="file" name="hero_file" accept="image/jpeg,image/png,image/webp">
+        <input type="text" name="hero_image_url" value="{{$s.HeroImageURL}}" aria-label="URL de la imagen de fondo">
+        <span class="hint">Vacío = solo los círculos de la marca.</span>
+      </div>
+    </div>
+    {{with .FieldError "logo_file"}}<span class="err">{{.}}</span>{{end}}
+    {{with .FieldError "favicon_file"}}<span class="err">{{.}}</span>{{end}}
+    {{with .FieldError "hero_file"}}<span class="err">{{.}}</span>{{end}}
+    <p class="hint small">Máximo {{.Data.MaxUploadMB}} MB por archivo.</p>
+
+    <h3>Colores</h3>
+    <div class="grid grid-4">
+      {{template "colorfield" (colorArgs "color_navy" "Azul marino (fondo)" $s.ColorNavy $def.ColorNavy (.FieldError "color_navy"))}}
+      {{template "colorfield" (colorArgs "color_royal" "Azul rey (tarjetas)" $s.ColorRoyal $def.ColorRoyal (.FieldError "color_royal"))}}
+      {{template "colorfield" (colorArgs "color_red" "Rojo (acento)" $s.ColorRed $def.ColorRed (.FieldError "color_red"))}}
+      {{template "colorfield" (colorArgs "color_orange" "Naranja (secundario)" $s.ColorOrange $def.ColorOrange (.FieldError "color_orange"))}}
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Contacto</legend>
+    <div class="grid grid-3">
+      <label>Teléfono<input type="tel" name="phone" value="{{$s.Phone}}" maxlength="40"></label>
+      <label>WhatsApp<input type="tel" name="whatsapp" value="{{$s.WhatsApp}}" maxlength="40" placeholder="+51 999 999 999"></label>
+      <label class="{{if .FieldError "email"}}has-error{{end}}">Email<input type="email" name="email" value="{{$s.Email}}" maxlength="120">
+        {{with .FieldError "email"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
+    <div class="grid grid-2">
+      <label>Dirección<input type="text" name="address" value="{{$s.Address}}" maxlength="200"></label>
+      <label>Horario de atención<input type="text" name="office_hours" value="{{$s.OfficeHours}}" maxlength="120" placeholder="Lun a Sáb, 8:00 a 18:00"></label>
+    </div>
+    <label class="{{if .FieldError "map_url"}}has-error{{end}}">Mapa (URL de inserción de Google Maps)
+      <input type="url" name="map_url" value="{{$s.MapURL}}" placeholder="https://www.google.com/maps/embed?pb=...">
+      <span class="hint">En Google Maps: Compartir → Insertar un mapa → copie solo la URL de src="...".</span>
+      {{with .FieldError "map_url"}}<span class="err">{{.}}</span>{{end}}</label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Redes sociales</legend>
+    <div class="grid grid-3">
+      <label>Facebook<input type="url" name="facebook" value="{{$s.Facebook}}" placeholder="https://facebook.com/..."></label>
+      <label>Instagram<input type="url" name="instagram" value="{{$s.Instagram}}" placeholder="https://instagram.com/..."></label>
+      <label>TikTok<input type="url" name="tiktok" value="{{$s.TikTok}}" placeholder="https://tiktok.com/@..."></label>
+      <label>YouTube<input type="url" name="youtube" value="{{$s.YouTube}}" placeholder="https://youtube.com/@..."></label>
+      <label>X (Twitter)<input type="url" name="x" value="{{$s.X}}" placeholder="https://x.com/..."></label>
+    </div>
+    {{range $f := split "facebook,instagram,tiktok,youtube,x" ","}}{{with $.FieldError $f}}<p class="err">{{.}}</p>{{end}}{{end}}
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Publicidad</legend>
+    <label class="{{if .FieldError "preroll_interval_min"}}has-error{{end}}">Minutos entre pre-roll/cuñas para el mismo oyente
+      <input type="number" name="preroll_interval_min" min="0" max="1440" value="{{$s.PrerollIntervalMin}}" style="max-width:160px">
+      <span class="hint">0 = mostrar publicidad cada vez que se pulsa reproducir.</span>
+      {{with .FieldError "preroll_interval_min"}}<span class="err">{{.}}</span>{{end}}</label>
+  </fieldset>
+
+  <div class="form-actions"><button class="btn" type="submit">Guardar ajustes</button></div>
+</form>
+{{end}}
+
+{{/* "colorfield": selector de color con texto y botón para restaurar. */}}
+{{define "colorfield"}}
+<label class="{{if .Err}}has-error{{end}}">{{.Label}}
+  <span class="color-row">
+    <input type="color" value="{{.Value}}" data-color-for="{{.Name}}" aria-label="{{.Label}}">
+    <input type="text" name="{{.Name}}" value="{{.Value}}" maxlength="7" pattern="#[0-9A-Fa-f]{6}" data-color-text>
+  </span>
+  <span class="hint">Original: <a href="#" data-color-reset="{{.Name}}" data-value="{{.Default}}">{{.Default}}</a></span>
+  {{with .Err}}<span class="err">{{.}}</span>{{end}}
+</label>
+{{end}}

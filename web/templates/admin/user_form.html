@@ -1,0 +1,22 @@
+{{/* Alta/edición de usuario. .Data: *domain.User */}}
+{{define "content"}}
+{{$u := .Data}}
+<form class="box form" method="post" action="/admin/users{{if $u.ID}}/{{$u.ID}}{{end}}" style="max-width:640px">
+  {{template "csrf" .}}
+  <label class="{{if .FieldError "name"}}has-error{{end}}">Nombre<input type="text" name="name" value="{{$u.Name}}" required maxlength="80">
+    {{with .FieldError "name"}}<span class="err">{{.}}</span>{{end}}</label>
+  <label class="{{if .FieldError "email"}}has-error{{end}}">Email<input type="email" name="email" value="{{$u.Email}}" required>
+    {{with .FieldError "email"}}<span class="err">{{.}}</span>{{end}}</label>
+  <label class="{{if .FieldError "role"}}has-error{{end}}">Rol
+    <select name="role">{{range roles}}<option value="{{.}}" {{if eq . $u.Role}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    {{with .FieldError "role"}}<span class="err">{{.}}</span>{{end}}</label>
+  <label class="{{if .FieldError "password"}}has-error{{end}}">Contraseña {{if $u.ID}}<span class="hint">(vacío = no cambiar)</span>{{end}}
+    <input type="password" name="password" autocomplete="new-password" minlength="8" {{if not $u.ID}}required{{end}}>
+    {{with .FieldError "password"}}<span class="err">{{.}}</span>{{end}}</label>
+  <label class="check"><input type="checkbox" name="active" {{if $u.Active}}checked{{end}}> Activo</label>
+  <div class="form-actions">
+    <button class="btn" type="submit">Guardar</button>
+    <a class="btn btn-ghost" href="/admin/users">Cancelar</a>
+  </div>
+</form>
+{{end}}

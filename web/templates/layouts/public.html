@@ -1,0 +1,75 @@
+{{/* Esqueleto de la web pública. Recibe *views.Page. Cada página define "title" y "content"; opcionales "head" y "scripts". */}}
+{{define "layout"}}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if .Title}}{{.Title}} · {{end}}{{.Site.SiteName}} {{.Site.Frequency}}</title>
+  <meta name="description" content="{{.Site.SiteName}} {{.Site.Frequency}} — {{.Site.Slogan}}. Escucha la radio y mira la TV en vivo.">
+  <meta property="og:title" content="{{.Site.SiteName}} {{.Site.Frequency}}">
+  <meta property="og:description" content="{{.Site.Slogan}}">
+  <meta property="og:image" content="{{.BaseURL}}{{.Site.LogoURL}}">
+  <meta name="theme-color" content="{{.Site.ColorNavy}}">
+  <link rel="icon" href="{{.Site.FaviconURL}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,800&family=Playfair+Display:ital,wght@1,800;1,900&display=swap">
+  <link rel="stylesheet" href="/static/css/site.css">
+  {{template "theme" .}}
+  {{block "head" .}}{{end}}
+</head>
+<body>
+  {{template "icons"}}
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/" aria-label="{{.Site.SiteName}} — inicio"><img src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}"></a>
+      <span class="live-pill" id="live-pill" title="Estado de la radio"><span class="dot"></span><span>En vivo</span></span>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" data-nav-toggle>
+        <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+      <nav class="nav" data-nav>
+        <a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Inicio</a>
+        <a href="/programacion" {{if eq .Path "/programacion"}}aria-current="page"{{end}}>Programación</a>
+        <a href="/contacto" {{if eq .Path "/contacto"}}aria-current="page"{{end}}>Contacto</a>
+      </nav>
+    </div>
+  </header>
+
+  {{with .Banner "header"}}<div class="ad-slot-header"><div class="container">{{template "banner" .}}</div></div>{{end}}
+
+  <main>{{template "content" .}}</main>
+
+  {{with .Banner "footer"}}<div class="ad-slot-footer"><div class="container">{{template "banner" .}}</div></div>{{end}}
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>
+        <strong>{{.Site.SiteName}} · {{.Site.Frequency}}</strong><br>
+        {{.Site.Slogan}}
+      </div>
+      {{template "socials" .Site}}
+      <div>© {{.Now.Year}} {{.Site.SiteName}}</div>
+    </div>
+  </footer>
+
+  {{/* Reproductor fijo: controla la misma radio que la tarjeta principal */}}
+  <div class="dock" data-radio-root>
+    <div class="container">
+      <button class="dock-btn" type="button" data-radio-toggle aria-label="Reproducir / pausar radio">
+        <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
+        <svg class="icon i-pause" aria-hidden="true"><use href="#i-pause"/></svg>
+      </button>
+      <div class="dock-info">
+        <strong>{{.Site.SiteName}} {{.Site.Frequency}}</strong>
+        <span data-now-title>{{.Site.Slogan}}</span>
+      </div>
+      <img src="{{.Site.FaviconURL}}" alt="" aria-hidden="true">
+    </div>
+  </div>
+
+  <audio id="radio-audio" preload="none" data-src="{{.Site.RadioStreamURL}}"></audio>
+  <script>window.RC = {{json (playerConfig .Site)}};</script>
+  <script src="/static/js/site.js" defer></script>
+  {{block "scripts" .}}{{end}}
+</body>
+</html>{{end}}

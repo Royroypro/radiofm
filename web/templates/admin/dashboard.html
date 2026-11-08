@@ -1,0 +1,50 @@
+{{/* Resumen del panel admin. .Data: Status, AdsTotal, AdsLive, Programs, OnAir, TopAds, AdsActive */}}
+{{define "content"}}
+{{$d := .Data}}
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="label">Radio</div>
+    <div class="value">{{if $d.Status.Radio.Online}}<span class="pill live">En vivo</span>{{else}}<span class="pill">Fuera del aire</span>{{end}}</div>
+    <div class="sub">{{$d.Status.Radio.Listeners}} oyentes{{with $d.Status.Radio.Title}} · {{.}}{{end}}</div>
+  </div>
+  <div class="stat">
+    <div class="label">TV</div>
+    <div class="value">{{if $d.Status.TV.Online}}<span class="pill live">En vivo</span>{{else}}<span class="pill">Fuera del aire</span>{{end}}</div>
+    <div class="sub">{{$d.Status.TV.Viewers}} espectadores</div>
+  </div>
+  <div class="stat">
+    <div class="label">Anuncios vigentes</div>
+    <div class="value">{{$d.AdsLive}} <span class="small muted">de {{$d.AdsTotal}}</span></div>
+    <div class="sub">{{if $d.AdsActive}}Publicidad activa{{else}}Publicidad desactivada por licencia{{end}}</div>
+  </div>
+  <div class="stat">
+    <div class="label">Al aire</div>
+    <div class="value" style="font-size:1.1rem">{{with $d.OnAir}}{{.Title}}{{else}}Música continua{{end}}</div>
+    <div class="sub">{{$d.Programs}} programas en la grilla</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:18px">
+  <section class="box">
+    <h2>Accesos rápidos</h2>
+    <div class="form-actions">
+      <a class="btn" href="/admin/ads/new?type=banner">Nuevo banner</a>
+      <a class="btn btn-ghost" href="/admin/ads/new?type=preroll_video">Nuevo pre-roll de video</a>
+      <a class="btn btn-ghost" href="/admin/ads/new?type=audio_spot">Nueva cuña de audio</a>
+      <a class="btn btn-ghost" href="/admin/programs/new">Nuevo programa</a>
+      {{if isAdmin .User}}<a class="btn btn-ghost" href="/admin/streams">Cómo emitir</a>{{end}}
+    </div>
+    {{with $d.Status.Radio.Error}}<p class="small muted">No se pudo consultar Icecast: {{.}}</p>{{end}}
+    {{with $d.Status.TV.Error}}<p class="small muted">No se pudo consultar MediaMTX: {{.}}</p>{{end}}
+  </section>
+  <section class="box">
+    <h2>Anuncios más vistos (7 días)</h2>
+    {{if $d.TopAds}}
+    <table>
+      <thead><tr><th>Anuncio</th><th class="num">Impresiones</th><th class="num">Clics</th></tr></thead>
+      <tbody>{{range $d.TopAds}}<tr><td>{{.Name}}</td><td class="num">{{.Impressions}}</td><td class="num">{{.Clicks}}</td></tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">Aún no hay impresiones registradas.</p>{{end}}
+  </section>
+</div>
+{{end}}

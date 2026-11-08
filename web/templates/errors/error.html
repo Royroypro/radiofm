@@ -1,0 +1,9 @@
+{{/* Página de error genérica. .Data: map con Status (int) y Message (string). */}}
+{{define "content"}}
+<div class="bare-card">
+  <a href="/"><img class="bare-logo" src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}"></a>
+  <h1>{{if eq .Data.Status 404}}Página no encontrada{{else}}Algo salió mal{{end}}</h1>
+  <p>{{.Data.Message}}</p>
+  <p><a class="btn" href="javascript:history.back()">Volver</a> <a class="btn btn-ghost" href="/">Ir al inicio</a></p>
+</div>
+{{end}}

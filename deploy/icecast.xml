@@ -1,0 +1,79 @@
+<!--
+  Icecast 2.4 — servidor de radio de RadioClub25.
+  Imagen: libretime/icecast:2.4.4 (ver docker-compose.yml).
+
+  Las contraseñas NO se escriben aquí: el entrypoint de la imagen las toma de
+  las variables ICECAST_SOURCE_PASSWORD / ICECAST_ADMIN_PASSWORD /
+  ICECAST_RELAY_PASSWORD del archivo .env. El marcador @INTERNAL_TOKEN@ lo
+  reemplaza docker-compose al arrancar.
+
+  La PC emisora (BUTT, Mixxx, RadioDJ...) se conecta al puerto público 8010
+  (mapeado al 8000 del contenedor), mount /radio, usuario "source".
+  Antes de aceptarla, Icecast pregunta a la app (stream_auth) si la licencia
+  lo permite.
+-->
+<icecast>
+    <location>Peru</location>
+    <admin>admin@localhost</admin>
+
+    <limits>
+        <clients>1000</clients>
+        <sources>4</sources>
+        <queue-size>524288</queue-size>
+        <client-timeout>30</client-timeout>
+        <header-timeout>15</header-timeout>
+        <source-timeout>15</source-timeout>
+        <burst-on-connect>1</burst-on-connect>
+        <burst-size>65535</burst-size>
+    </limits>
+
+    <authentication>
+        <source-password>CAMBIAR</source-password>
+        <relay-password>CAMBIAR</relay-password>
+        <admin-user>admin</admin-user>
+        <admin-password>CAMBIAR</admin-password>
+    </authentication>
+
+    <hostname>localhost</hostname>
+
+    <listen-socket>
+        <port>8000</port>
+    </listen-socket>
+
+    <http-headers>
+        <header name="Access-Control-Allow-Origin" value="*" />
+    </http-headers>
+
+    <mount type="normal">
+        <mount-name>/radio</mount-name>
+        <max-listeners>1000</max-listeners>
+        <public>0</public>
+        <stream-name>Radio Club 25</stream-name>
+        <stream-description>La música que va contigo</stream-description>
+        <authentication type="url">
+            <option name="stream_auth" value="http://app:8120/internal/icecast/source?token=@INTERNAL_TOKEN@"/>
+            <option name="timeout" value="5"/>
+        </authentication>
+    </mount>
+
+    <fileserve>1</fileserve>
+
+    <paths>
+        <basedir>/usr/share/icecast</basedir>
+        <logdir>/var/log/icecast</logdir>
+        <webroot>/usr/share/icecast/web</webroot>
+        <adminroot>/usr/share/icecast/admin</adminroot>
+        <alias source="/" destination="/status.xsl"/>
+    </paths>
+
+    <logging>
+        <accesslog>access.log</accesslog>
+        <errorlog>error.log</errorlog>
+        <loglevel>3</loglevel>
+        <logsize>10000</logsize>
+    </logging>
+
+    <security>
+        <chroot>0</chroot>
+    </security>
+</icecast>

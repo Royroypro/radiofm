@@ -1,0 +1,32 @@
+{{/* Programación semanal. .Data: []programs.DaySchedule (lunes a domingo) */}}
+{{define "content"}}
+<section class="page-head">
+  {{template "circles"}}
+  <div class="container">
+    <p class="section-kicker">{{.Site.Frequency}}</p>
+    <h1 class="section-title">Programación</h1>
+    <p class="muted">Horarios en hora local.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <div class="week">
+      {{range .Data}}
+      <div class="day {{if .IsToday}}today{{end}}">
+        <h3>{{.Name}}</h3>
+        {{if .Programs}}
+        <ul class="schedule">
+          {{range .Programs}}
+          <li class="{{if .IsOnAir $.Now}}current{{end}}">
+            <span class="time">{{.StartTime}} – {{.EndTime}}</span>
+            <div><p class="ptitle">{{.Title}}</p>{{with .Host}}<p class="phost">{{.}}</p>{{end}}</div>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}<p class="muted">Música continua.</p>{{end}}
+      </div>
+      {{end}}
+    </div>
+  </div>
+</section>
+{{end}}

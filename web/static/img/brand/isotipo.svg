@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Club 25">
+  <!-- Isotipo provisional (favicon y móvil). Reemplazable desde Admin → Marca y contacto. -->
+  <circle cx="60" cy="60" r="58" fill="#223CB8"/>
+  <path d="M62 14 C88 16 108 40 106 66 C104 92 82 106 62 104 C42 102 30 86 31 64 C32 40 40 13 62 14 Z" fill="#FF1E1E"/>
+  <ellipse cx="66" cy="66" rx="52" ry="10" transform="rotate(-24 66 66)" fill="none" stroke="#FF1E1E" stroke-width="4"/>
+  <text x="25" y="86" font-family="'Playfair Display', Georgia, serif" font-style="italic" font-weight="900" font-size="62" fill="#FFFFFF" letter-spacing="-4">25</text>
+</svg>

@@ -1,0 +1,123 @@
+{{/* Página principal: hero de marca + reproductores de radio y TV + programación de hoy.
+     .Data: OnAir *domain.Program, Today []domain.Program, Status media.Status, TVAllowed bool */}}
+{{define "content"}}
+{{$d := .Data}}
+<section class="hero">
+  {{with .Site.HeroImageURL}}<img class="hero-bg-img" src="{{.}}" alt="" aria-hidden="true">{{end}}
+  <div class="hero-disc" aria-hidden="true"></div>
+  {{template "circles"}}
+  {{/* Espectro animado: simulado en reposo, real (Web Audio) cuando suena la radio. Ver site.js §8 */}}
+  <canvas class="hero-spectrum" data-spectrum aria-hidden="true"></canvas>
+  <div class="container">
+    <h1 class="sr-only">{{.Site.SiteName}} {{.Site.Frequency}}</h1>
+    <img class="hero-logo" src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}} {{.Site.Frequency}}">
+    <p class="hero-slogan">{{.Site.Slogan}}</p>
+    <ul class="chips">{{range split .Site.Categories ","}}<li>{{.}}</li>{{end}}</ul>
+  </div>
+</section>
+
+<section class="section" id="en-vivo">
+  <div class="container">
+    <div class="players">
+      {{if .Site.RadioEnabled}}
+      <article class="card radio-card" data-radio-root aria-labelledby="radio-h">
+        <div class="card-head">
+          <h2 id="radio-h">Radio</h2>
+          <span class="badge {{if $d.Status.Radio.Online}}on{{end}}" data-radio-badge>{{if $d.Status.Radio.Online}}En vivo{{else}}Fuera del aire{{end}}</span>
+        </div>
+        <p class="freq">{{.Site.Frequency}}</p>
+        <button class="play-btn" type="button" data-radio-toggle aria-label="Escuchar la radio">
+          <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
+          <svg class="icon i-pause" aria-hidden="true"><use href="#i-pause"/></svg>
+        </button>
+        <p class="now-title" data-now-title>{{with $d.Status.Radio.Title}}{{.}}{{else}}{{$.Site.Slogan}}{{end}}</p>
+        <p class="now-sub"><svg class="icon" aria-hidden="true"><use href="#i-headphones"/></svg>
+          <span data-listeners>{{$d.Status.Radio.Listeners}}</span> oyentes</p>
+        <label class="volume"><svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg>
+          <span class="sr-only">Volumen</span><input type="range" min="0" max="1" step="0.05" value="0.9" data-radio-volume></label>
+        <div class="ad-run" data-spot hidden>
+          <span class="tag">Publicidad</span>
+          <a href="#" target="_blank" rel="noopener sponsored" data-spot-link hidden>Visitar</a>
+          <button type="button" data-spot-skip disabled>Saltar</button>
+        </div>
+        <p class="player-msg" data-radio-msg aria-live="polite"></p>
+        <div class="on-air" data-on-air {{if not $d.OnAir}}hidden{{end}}>
+          <img src="{{with $d.OnAir}}{{with .ImageURL}}{{.}}{{else}}{{$.Site.FaviconURL}}{{end}}{{else}}{{$.Site.FaviconURL}}{{end}}" alt="" data-on-air-img>
+          <div>
+            <div class="label">Al aire</div>
+            <div class="title" data-on-air-title>{{with $d.OnAir}}{{.Title}}{{end}}</div>
+            <div class="muted" data-on-air-host>{{with $d.OnAir}}{{.Host}} · {{.StartTime}}–{{.EndTime}}{{end}}</div>
+          </div>
+        </div>
+      </article>
+      {{end}}
+
+      {{if and .Site.TVEnabled $d.TVAllowed}}
+      <article class="card tv-card" aria-labelledby="tv-h">
+        <div class="card-head">
+          <h2 id="tv-h">TV en vivo</h2>
+          <span class="badge {{if $d.Status.TV.Online}}on{{end}}" data-tv-badge>{{if $d.Status.TV.Online}}En vivo{{else}}Fuera del aire{{end}}</span>
+        </div>
+        <div class="tv-frame">
+          <video id="tv-video" playsinline controls preload="none" data-src="{{.Site.TVStreamURL}}"></video>
+          <div class="tv-overlay" data-tv-overlay>
+            <div>
+              <button class="play-btn" type="button" data-tv-play aria-label="Ver la TV en vivo"
+                {{if not $d.Status.TV.Online}}hidden{{end}}>
+                <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
+              </button>
+              <p data-tv-overlay-title>{{if $d.Status.TV.Online}}Toca para ver la señal en vivo{{else}}La TV está fuera del aire{{end}}</p>
+              <small data-tv-overlay-sub>{{if not $d.Status.TV.Online}}Vuelve pronto o escucha la radio mientras tanto.{{end}}</small>
+            </div>
+          </div>
+          <div class="ad-run" data-preroll hidden>
+            <span class="tag">Publicidad</span>
+            <a href="#" target="_blank" rel="noopener sponsored" data-preroll-link hidden>Visitar</a>
+            <button type="button" data-preroll-skip disabled>Saltar</button>
+          </div>
+        </div>
+        <div class="tv-meta">
+          <span><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg> <span data-viewers>{{$d.Status.TV.Viewers}}</span> viendo</span>
+          <span>{{.Site.SiteName}} TV</span>
+        </div>
+        <p class="player-msg" data-tv-msg aria-live="polite"></p>
+      </article>
+      {{end}}
+
+      <aside class="sidebar" aria-label="Publicidad">
+        {{with .Banner "sidebar"}}{{template "banner" .}}{{end}}
+        {{if not (.Banner "sidebar")}}
+        <div class="card">
+          <p class="section-kicker">{{.Site.Frequency}}</p>
+          <p style="margin:0;font-weight:700">{{.Site.About}}</p>
+        </div>
+        {{end}}
+      </aside>
+    </div>
+  </div>
+</section>
+
+{{with .Banner "between"}}<div class="ad-slot-between"><div class="container">{{template "banner" .}}</div></div>{{end}}
+
+<section class="section">
+  <div class="container">
+    <p class="section-kicker">Programación</p>
+    <h2 class="section-title">Hoy en {{.Site.SiteName}}</h2>
+    {{if $d.Today}}
+    <ul class="schedule">
+      {{range $d.Today}}
+      <li class="{{if .IsOnAir $.Now}}current{{end}}">
+        <span class="time">{{.StartTime}} – {{.EndTime}}</span>
+        <div><p class="ptitle">{{.Title}}</p>{{with .Host}}<p class="phost">{{.}}</p>{{end}}</div>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="muted">Música las 24 horas. Pronto publicaremos la programación del día.</p>
+    {{end}}
+    <p><a href="/programacion">Ver la programación de la semana →</a></p>
+  </div>
+</section>
+{{end}}
+
+{{define "scripts"}}<script src="/static/js/vendor/hls.min.js" defer></script>{{end}}

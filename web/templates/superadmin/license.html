@@ -1,0 +1,60 @@
+{{/* Licencia y bloqueos. .Data: Policy domain.LicensePolicy, State domain.LicenseState */}}
+{{define "content"}}
+{{$pol := .Data.Policy}}{{$st := .Data.State}}
+<section class="box">
+  <div class="toolbar">
+    <h2 style="margin:0">Estado actual: <span class="pill {{levelClass $st.Level}}">{{$st.Level.Label}}</span></h2>
+    <form method="post" action="/superadmin/license/refresh">{{template "csrf" .}}<button class="btn btn-sm btn-ghost">Recalcular ahora</button></form>
+  </div>
+  <p>{{$st.Reason}}</p>
+  <div class="grid grid-4">
+    <div><div class="small muted">Pagado hasta</div><strong>{{with $st.PaidUntil}}{{day .}}{{else}}—{{end}}</strong></div>
+    <div><div class="small muted">Fin de la gracia</div><strong>{{with $st.GraceUntil}}{{day .}}{{else}}—{{end}}</strong></div>
+    <div><div class="small muted">Plan aplicado</div><strong>{{$st.Limits.PlanName}}</strong></div>
+    <div><div class="small muted">Evaluado</div><strong>{{datetime $st.EvaluatedAt}}</strong></div>
+  </div>
+  <p class="small muted">El estado se recalcula cada hora y tras cada cambio en contratos, pagos o esta página.</p>
+</section>
+
+<div class="grid grid-2">
+  <form class="box form" method="post" action="/superadmin/license/block">
+    {{template "csrf" .}}
+    <h2>Bloqueo manual</h2>
+    {{if $pol.ManualLevel}}
+      <div class="alert alert-error">Bloqueo manual activo: <strong>{{$pol.ManualLevel.Label}}</strong> — {{$pol.ManualReason}}</div>
+    {{end}}
+    <label>Nivel
+      <select name="level">{{range blockLevels}}<option value="{{.}}" {{if eq . $pol.ManualLevel}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    </label>
+    <ul class="small muted" style="margin:0;padding-left:18px">
+      <li><strong>Panel en solo lectura</strong>: la web sigue funcionando; el admin no puede guardar cambios.</li>
+      <li><strong>Panel y publicidad</strong>: además deja de mostrarse la publicidad.</li>
+      <li><strong>Bloqueo total</strong>: la web muestra «servicio suspendido» y se cortan la radio y la TV.</li>
+    </ul>
+    <label>Motivo<input type="text" name="reason" required maxlength="200" placeholder="Ej.: falta de pago de octubre"></label>
+    <div class="form-actions">
+      <button class="btn" type="submit" data-confirm-click="¿Aplicar el bloqueo?">Aplicar bloqueo</button>
+    </div>
+  </form>
+
+  <form class="box form" method="post" action="/superadmin/license/policy">
+    {{template "csrf" .}}
+    <h2>Bloqueo automático por falta de pago</h2>
+    <label>Días de gracia tras vencer lo pagado<input type="number" name="grace_days" min="0" max="90" value="{{$pol.GraceDays}}" style="max-width:140px"></label>
+    <label>Al terminar la gracia aplicar
+      <select name="auto_block_level">{{range blockLevels}}<option value="{{.}}" {{if eq . $pol.AutoBlockLevel}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    </label>
+    <label>Mensaje público en bloqueo total<textarea name="suspended_message" maxlength="300">{{$pol.SuspendedMessage}}</textarea></label>
+    <div class="form-actions"><button class="btn btn-dark" type="submit">Guardar política</button></div>
+    <p class="small muted">Sin contrato vigente no se aplica ningún bloqueo automático.</p>
+  </form>
+</div>
+
+{{if $pol.ManualLevel}}
+<form class="box" method="post" action="/superadmin/license/unblock">
+  {{template "csrf" .}}
+  <div class="toolbar"><span>Quitar el bloqueo manual y volver a la evaluación automática por pagos.</span>
+    <button class="btn" type="submit">Desbloquear</button></div>
+</form>
+{{end}}
+{{end}}

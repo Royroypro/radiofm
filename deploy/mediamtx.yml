@@ -1,0 +1,71 @@
+# =====================================================================
+# MediaMTX — servidor de TV de RadioClub25
+# Documentación: https://github.com/bluenviron/mediamtx (versión 1.21.x)
+#
+# Recibe el video+audio de OBS por RTMP (1935/tcp) o SRT (8890/udp) en el
+# path "tv" y lo publica como HLS (8888, solo accesible por nginx en /hls/).
+#
+# La autorización la decide la app Go (authMethod: http):
+#   publish → usuario/clave de Admin → Streams y emisión
+#   read    → permitido salvo bloqueo total de licencia o TV desactivada
+# La URL de autorización (con el token interno) se inyecta desde
+# docker-compose con la variable MTX_AUTHHTTPADDRESS.
+# =====================================================================
+
+logLevel: info
+logDestinations: [stdout]
+
+readTimeout: 10s
+writeTimeout: 10s
+writeQueueSize: 1024
+
+# ---------- Autenticación delegada en la app ----------
+authMethod: http
+authHTTPAddress: http://app:8120/internal/mediamtx/auth   # reemplazada por MTX_AUTHHTTPADDRESS
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# ---------- API de control (solo red interna de docker) ----------
+api: yes
+apiAddress: :9997
+metrics: no
+pprof: no
+playback: no
+
+# ---------- Protocolos ----------
+rtsp: no
+webrtc: no
+moq: no
+
+rtmp: yes
+rtmpAddress: :1935
+
+srt: yes
+srtAddress: :8890
+
+hls: yes
+hlsAddress: :8888
+# lowLatency: segmentos cortos (LL-HLS). Con keyframe cada 2 s en OBS la
+# latencia típica es de 3–6 s.
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+hlsAlwaysRemux: no
+hlsTrustedProxies: ['127.0.0.1', '172.16.0.0/12']
+
+# ---------- Paths ----------
+# Solo existe "tv". Cualquier otro path se rechaza.
+paths:
+  tv:
+    source: publisher
+    # Si la PC envía un códec que el navegador no reproduce (p. ej. HEVC),
+    # use la imagen bluenviron/mediamtx:<versión>-ffmpeg y descomente para
+    # transcodificar a H.264 + AAC en el path "tv_h264" (y apunte la web a él):
+    # runOnReady: >
+    #   ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH -c:v libx264 -preset veryfast
+    #   -b:v 2500k -g 60 -c:a aac -b:a 128k -f rtsp rtsp://localhost:$RTSP_PORT/tv_h264
+    # runOnReadyRestart: yes

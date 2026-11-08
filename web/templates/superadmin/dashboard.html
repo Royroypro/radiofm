@@ -1,0 +1,56 @@
+{{/* Resumen comercial. .Data: Summary billing.Summary, Client *domain.Client, Recent []domain.AuditEntry, Status media.Status */}}
+{{define "content"}}
+{{$s := .Data.Summary}}{{$lic := .License}}
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="label">Licencia</div>
+    <div class="value"><span class="pill {{levelClass $lic.Level}}">{{$lic.Level.Label}}</span></div>
+    <div class="sub">{{$lic.Reason}}</div>
+  </div>
+  <div class="stat">
+    <div class="label">Pagado hasta</div>
+    <div class="value">{{with $s.PaidUntil}}{{day .}}{{else}}—{{end}}</div>
+    <div class="sub">{{if $s.HasDueDate}}{{if lt $s.DaysToDue 0}}Vencido hace {{neg $s.DaysToDue}} días{{else}}Faltan {{$s.DaysToDue}} días{{end}}{{else}}Sin contrato vigente{{end}}</div>
+  </div>
+  <div class="stat">
+    <div class="label">Deuda pendiente</div>
+    <div class="value">{{with $s.Contract}}{{money $s.PendingTotal .Currency}}{{else}}—{{end}}</div>
+    <div class="sub">{{$s.PendingCount}} cuotas pendientes</div>
+  </div>
+  <div class="stat">
+    <div class="label">Plan</div>
+    <div class="value" style="font-size:1.2rem">{{with $s.Plan}}{{.Name}}{{else}}Sin plan{{end}}</div>
+    <div class="sub">{{with $s.Contract}}{{money .Amount .Currency}} / {{with $s.Plan}}{{.Period.Label}}{{end}}{{end}}</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:18px">
+  <section class="box">
+    <h2>Cliente</h2>
+    {{with .Data.Client}}
+      <p style="margin:0"><strong>{{if .BusinessName}}{{.BusinessName}}{{else}}(sin razón social){{end}}</strong>{{with .TaxID}} · RUC {{.}}{{end}}</p>
+      <p class="muted small">{{.ContactName}} {{with .Phone}}· {{.}}{{end}} {{with .Email}}· {{.}}{{end}}</p>
+    {{end}}
+    <div class="form-actions">
+      <a class="btn btn-ghost btn-sm" href="/superadmin/client">Editar cliente</a>
+      {{with $s.Contract}}
+        <a class="btn btn-sm" href="/superadmin/payments/new?contract={{.ID}}">Registrar pago</a>
+        <a class="btn btn-ghost btn-sm" href="/superadmin/contracts/{{.ID}}">Ver contrato</a>
+      {{else}}
+        <a class="btn btn-sm" href="/superadmin/contracts/new">Crear contrato</a>
+      {{end}}
+      <a class="btn btn-ghost btn-sm" href="/superadmin/license">Licencia y bloqueos</a>
+    </div>
+    {{with $s.LastPayment}}<p class="small muted">Último pago: {{money .Amount .Currency}} el {{datetime .PaidAt}} ({{.Method.Label}})</p>{{end}}
+  </section>
+  <section class="box">
+    <h2>Actividad reciente</h2>
+    {{if .Data.Recent}}
+    <table><tbody>
+      {{range .Data.Recent}}<tr><td class="small">{{datetime .CreatedAt}}</td><td class="small">{{.UserEmail}}</td><td class="small"><strong>{{.Action}}</strong> {{.Entity}}{{if .EntityID}} #{{.EntityID}}{{end}}</td></tr>{{end}}
+    </tbody></table>
+    <p><a class="small" href="/superadmin/audit">Ver toda la auditoría →</a></p>
+    {{else}}<p class="muted">Sin actividad.</p>{{end}}
+  </section>
+</div>
+{{end}}

@@ -1,0 +1,41 @@
+{{/* Lista de anuncios. .Data: Ads []domain.Ad, Filter domain.AdType, Now time.Time, Limits domain.PlanLimits, MaxUploadMB int */}}
+{{define "content"}}
+{{$d := .Data}}
+<div class="toolbar">
+  <div class="filters">
+    <a class="btn btn-sm btn-ghost" href="/admin/ads" {{if not $d.Filter}}aria-pressed="true"{{end}}>Todos</a>
+    {{range adTypes}}<a class="btn btn-sm btn-ghost" href="/admin/ads?type={{.}}" {{if eq $d.Filter .}}aria-pressed="true"{{end}}>{{.Label}}</a>{{end}}
+  </div>
+  <div class="form-actions">
+    <a class="btn" href="/admin/ads/new?type={{with $d.Filter}}{{.}}{{else}}banner{{end}}">Nuevo anuncio</a>
+  </div>
+</div>
+{{with $d.Limits.MaxActiveAds}}<p class="small muted">Su plan permite hasta {{.}} anuncios activos a la vez.</p>{{end}}
+
+<div class="table-wrap">
+{{if $d.Ads}}
+<table>
+  <thead><tr><th></th><th>Nombre</th><th>Tipo</th><th>Posición</th><th>Vigencia</th><th class="num">Peso</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {{range $d.Ads}}
+    <tr>
+      <td>{{if eq .Type "banner"}}<img class="thumb" src="{{.FileURL}}" alt="">{{else if eq .Type "preroll_video"}}<video class="thumb" src="{{.FileURL}}" muted preload="metadata"></video>{{else}}<span class="pill">Audio</span>{{end}}</td>
+      <td><a href="/admin/ads/{{.ID}}">{{.Name}}</a>{{with .LinkURL}}<div class="small muted">{{.}}</div>{{end}}</td>
+      <td>{{.Type.Label}}</td>
+      <td>{{if .Position}}{{.Position.Label}}{{else}}—{{end}}</td>
+      <td class="small">{{with .StartsAt}}{{datetime .}}{{else}}Siempre{{end}}<br>{{with .EndsAt}}→ {{datetime .}}{{else}}→ sin fin{{end}}</td>
+      <td class="num">{{.Weight}}</td>
+      <td>{{if .IsLive $d.Now}}<span class="pill ok">Al aire</span>{{else if .Active}}<span class="pill warn">Fuera de fecha</span>{{else}}<span class="pill">Pausado</span>{{end}}</td>
+      <td class="actions">
+        <a class="btn btn-sm btn-ghost" href="/admin/ads/{{.ID}}">Editar</a>
+        <form method="post" action="/admin/ads/{{.ID}}/delete" data-confirm="¿Eliminar el anuncio «{{.Name}}» y sus estadísticas?">
+          {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+        </form>
+      </td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">No hay anuncios. Cree el primero con «Nuevo anuncio».</div>{{end}}
+</div>
+{{end}}

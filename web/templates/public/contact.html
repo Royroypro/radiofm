@@ -1,0 +1,30 @@
+{{/* Contacto: datos editables en Admin → Marca y contacto. */}}
+{{define "content"}}
+<section class="page-head">
+  {{template "circles"}}
+  <div class="container">
+    <p class="section-kicker">{{.Site.SiteName}}</p>
+    <h1 class="section-title">Contacto</h1>
+    <p class="muted">{{.Site.Slogan}}</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container about">
+    <div>
+      <p>{{.Site.About}}</p>
+      <ul class="contact-list">
+        {{with .Site.Phone}}<li><a href="{{telURL .}}"><svg class="icon"><use href="#i-phone"/></svg>{{.}}</a></li>{{end}}
+        {{with .Site.WhatsApp}}<li><a href="{{whatsappURL .}}" target="_blank" rel="noopener"><svg class="icon"><use href="#i-whatsapp"/></svg>WhatsApp {{.}}</a></li>{{end}}
+        {{with .Site.Email}}<li><a href="mailto:{{.}}"><svg class="icon"><use href="#i-mail"/></svg>{{.}}</a></li>{{end}}
+        {{with .Site.Address}}<li><span><svg class="icon"><use href="#i-pin"/></svg>{{.}}</span></li>{{end}}
+        {{with .Site.OfficeHours}}<li><span><svg class="icon"><use href="#i-clock"/></svg>{{.}}</span></li>{{end}}
+      </ul>
+      <div style="margin-top:20px">{{template "socials" .Site}}</div>
+    </div>
+    <div>
+      {{with .Site.MapURL}}<iframe class="map-frame" src="{{.}}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa"></iframe>
+      {{else}}<img src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}">{{end}}
+    </div>
+  </div>
+</section>
+{{end}}

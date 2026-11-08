@@ -1,0 +1,54 @@
+{{/* Streams y emisión. .Data: S domain.SiteSettings, Info admin.StreamInfo, Status media.Status, TVPlanEnabled bool */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$i := .Data.Info}}{{$st := .Data.Status}}
+<div class="grid grid-2">
+  <section class="box">
+    <h2>Radio (audio) — Icecast {{if $st.Radio.Online}}<span class="pill live">En vivo</span>{{else}}<span class="pill">Sin señal</span>{{end}}</h2>
+    <p class="muted small">Configure así su software de emisión (BUTT, Mixxx, RadioDJ, SAM, Zara…), tipo de servidor <strong>Icecast 2</strong>:</p>
+    <table>
+      <tbody>
+        <tr><th>Servidor</th><td><code>{{$i.IcecastHost}}</code></td></tr>
+        <tr><th>Puerto</th><td><code>{{$i.IcecastPort}}</code></td></tr>
+        <tr><th>Punto de montaje</th><td><code>{{$i.IcecastMount}}</code></td></tr>
+        <tr><th>Usuario</th><td><code>{{$i.IcecastUser}}</code></td></tr>
+        <tr><th>Contraseña</th><td>{{if $i.IcecastPass}}<code data-secret>{{$i.IcecastPass}}</code>{{else}}<span class="muted">definida en el servidor (ICECAST_SOURCE_PASSWORD)</span>{{end}}</td></tr>
+        <tr><th>Formato</th><td>MP3 128 kbps (o AAC 64–96 kbps), 44.1 kHz, estéreo</td></tr>
+      </tbody>
+    </table>
+    <p class="small">URL pública para oyentes: <code>{{$i.PublicRadioURL}}</code></p>
+    {{with $st.Radio.Title}}<p class="small">Sonando ahora: <strong>{{.}}</strong> · {{$st.Radio.Listeners}} oyentes</p>{{end}}
+  </section>
+
+  <section class="box">
+    <h2>TV (video + audio) — MediaMTX {{if $st.TV.Online}}<span class="pill live">En vivo</span>{{else}}<span class="pill">Sin señal</span>{{end}}</h2>
+    {{if not .Data.TVPlanEnabled}}<div class="alert alert-warn">Su plan no incluye TV. Contacte al proveedor.</div>{{end}}
+    <p class="muted small">En OBS: Ajustes → Emisión → Servicio <strong>Personalizado</strong>.</p>
+    <label class="field">Servidor
+      <span class="copy-row"><input type="text" readonly value="{{$i.RTMPServer}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span></label>
+    <label class="field">Clave de retransmisión
+      <span class="copy-row"><input type="text" readonly value="{{$i.RTMPKey}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span></label>
+    <p class="small muted">Salida recomendada: video H.264 1280×720, 30 fps, 2500 kbps, keyframe cada 2 s, perfil main/high; audio AAC 128 kbps 44.1 kHz.</p>
+    <details>
+      <summary class="small">Alternativa SRT (redes inestables) y URL completa RTMP</summary>
+      <p class="small">RTMP (ffmpeg): <code>{{$i.RTMPFull}}</code></p>
+      <p class="small">SRT (OBS 30+/vMix/ffmpeg): <code>{{$i.SRTURL}}</code></p>
+    </details>
+    <p class="small">URL pública HLS: <code>{{$i.PublicTVURL}}</code></p>
+    {{if $st.TV.Online}}<p class="small">Pistas: {{range $st.TV.Tracks}}<span class="pill">{{.}}</span> {{end}} · {{$st.TV.Viewers}} espectadores</p>{{end}}
+  </section>
+</div>
+
+<form class="box form" method="post" action="/admin/streams">
+  {{template "csrf" .}}
+  <h2>Ajustes de emisión</h2>
+  <label class="check"><input type="checkbox" name="radio_enabled" {{if $s.RadioEnabled}}checked{{end}}> Mostrar la radio en la web</label>
+  <label class="check"><input type="checkbox" name="tv_enabled" {{if $s.TVEnabled}}checked{{end}}> Mostrar la TV en la web y aceptar la señal de OBS</label>
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "tv_publish_pass"}}has-error{{end}}">Usuario de publicación de TV
+      <input type="text" name="tv_publish_user" value="{{$s.TVPublishUser}}" maxlength="40" pattern="[A-Za-z0-9_\-\.]+">
+      {{with .FieldError "tv_publish_pass"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="check" style="align-self:end"><input type="checkbox" name="regenerate_key"> Generar una clave nueva (la anterior deja de funcionar)</label>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit">Guardar</button></div>
+</form>
+{{end}}

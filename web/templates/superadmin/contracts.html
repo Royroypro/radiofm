@@ -1,0 +1,25 @@
+{{/* Lista de contratos. .Data: []domain.Contract */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0">El contrato <strong>vigente</strong> más reciente es el que controla la licencia.</p>
+  <a class="btn" href="/superadmin/contracts/new">Nuevo contrato</a>
+</div>
+<div class="table-wrap">
+{{if .Data}}
+<table>
+  <thead><tr><th>#</th><th>Plan</th><th>Inicio</th><th>Fin</th><th class="num">Importe</th><th>Renovación</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr>
+    <td><a href="/superadmin/contracts/{{.ID}}">#{{.ID}}</a></td><td>{{.PlanName}}</td>
+    <td>{{day .StartDate}}</td><td>{{with .EndDate}}{{day .}}{{else}}Indefinido{{end}}</td>
+    <td class="num">{{money .Amount .Currency}}</td><td>{{if .AutoRenew}}Automática{{else}}Manual{{end}}</td>
+    <td><span class="pill {{if eq .Status "active"}}ok{{end}}">{{.Status.Label}}</span></td>
+    <td class="actions"><a class="btn btn-sm btn-ghost" href="/superadmin/contracts/{{.ID}}">Ver</a></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Sin contratos. Mientras no haya un contrato vigente, el servicio no se controla.</div>{{end}}
+</div>
+{{end}}

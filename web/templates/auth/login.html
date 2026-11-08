@@ -1,0 +1,19 @@
+{{/* Inicio de sesión de los paneles. .Data: map con Next y Email. */}}
+{{define "content"}}
+<div class="bare-card">
+  <a href="/"><img class="bare-logo" src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}"></a>
+  <h1>Ingresar al panel</h1>
+  {{template "flash" .}}
+  <form method="post" action="/login" class="form">
+    {{template "csrf" .}}
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label>Email
+      <input type="email" name="email" value="{{.Data.Email}}" autocomplete="username" required autofocus>
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-block" type="submit">Ingresar</button>
+  </form>
+</div>
+{{end}}

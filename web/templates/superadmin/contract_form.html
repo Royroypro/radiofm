@@ -1,0 +1,39 @@
+{{/* Alta/edición de contrato. .Data: Contract *domain.Contract, Plans []domain.Plan */}}
+{{define "content"}}
+{{$c := .Data.Contract}}
+{{if not .Data.Plans}}<div class="alert alert-warn">Primero cree un plan en <a href="/superadmin/plans/new">Planes</a>.</div>{{end}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/superadmin/contracts{{if $c.ID}}/{{$c.ID}}/edit{{end}}" style="max-width:820px">
+  {{template "csrf" .}}
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "plan_id"}}has-error{{end}}">Plan
+      <select name="plan_id" required data-plan-select>
+        <option value="">Seleccione…</option>
+        {{range .Data.Plans}}<option value="{{.ID}}" data-amount="{{moneyInput .Price}}" data-currency="{{.Currency}}" {{if eq .ID $c.PlanID}}selected{{end}}>{{.Name}} — {{money .Price .Currency}} / {{.Period.Label}}{{if not .Active}} (inactivo){{end}}</option>{{end}}
+      </select>
+      {{with .FieldError "plan_id"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Estado
+      <select name="status">
+        <option value="active" {{if eq $c.Status "active"}}selected{{end}}>Vigente</option>
+        <option value="expired" {{if eq $c.Status "expired"}}selected{{end}}>Vencido</option>
+        <option value="cancelled" {{if eq $c.Status "cancelled"}}selected{{end}}>Cancelado</option>
+      </select></label>
+  </div>
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "start_date"}}has-error{{end}}">Fecha de inicio<input type="date" name="start_date" value="{{dateInput $c.StartDate}}" required>
+      {{with .FieldError "start_date"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "end_date"}}has-error{{end}}">Fecha de fin (opcional)<input type="date" name="end_date" value="{{dateInput $c.EndDate}}">
+      {{with .FieldError "end_date"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+  <div class="grid grid-2">
+    <label class="{{if .FieldError "amount"}}has-error{{end}}">Importe por periodo<input type="text" name="amount" value="{{moneyInput $c.Amount}}" inputmode="decimal" data-amount>
+      <span class="hint">Se copia del plan; puede pactar otro importe.</span>{{with .FieldError "amount"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Moneda<select name="currency" data-currency><option value="PEN" {{if eq $c.Currency "PEN"}}selected{{end}}>Soles (S/)</option><option value="USD" {{if eq $c.Currency "USD"}}selected{{end}}>Dólares (US$)</option></select></label>
+  </div>
+  <label class="check"><input type="checkbox" name="auto_renew" {{if $c.AutoRenew}}checked{{end}}> Renovación automática</label>
+  <label class="{{if .FieldError "document"}}has-error{{end}}">Documento firmado (PDF o imagen, opcional)<input type="file" name="document" accept="application/pdf,image/jpeg,image/png">
+    {{with .FieldError "document"}}<span class="err">{{.}}</span>{{end}}</label>
+  {{with $c.DocumentURL}}<p class="small"><a href="{{.}}" target="_blank" rel="noopener">Documento actual</a></p>{{end}}
+  <label>Notas<textarea name="notes">{{$c.Notes}}</textarea></label>
+  <div class="form-actions"><button class="btn" type="submit">Guardar</button><a class="btn btn-ghost" href="/superadmin/contracts">Cancelar</a></div>
+</form>
+{{end}}

@@ -1,0 +1,51 @@
+{{/* Parciales comunes a todas las áreas. */}}
+
+{{/* "theme": variables de color desde Admin → Marca y contacto. Recibe *views.Page. */}}
+{{define "theme"}}<style>
+  :root {
+    --navy: {{.Site.ColorNavy | safeColor}};
+    --royal: {{.Site.ColorRoyal | safeColor}};
+    --red: {{.Site.ColorRed | safeColor}};
+    --orange: {{.Site.ColorOrange | safeColor}};
+    --navy-deep: color-mix(in srgb, {{.Site.ColorNavy | safeColor}} 80%, #000);
+  }
+</style>{{end}}
+
+{{/* "csrf": campo oculto obligatorio en todo formulario POST. Recibe *views.Page. */}}
+{{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}
+
+{{/* "flash": mensaje tras una redirección y error general del formulario. Recibe *views.Page. */}}
+{{define "flash"}}
+  {{with .Flash}}<div class="alert alert-{{.Kind}}" role="status">{{.Message}}</div>{{end}}
+  {{with .Error}}<div class="alert alert-error" role="alert">{{.}}</div>{{end}}
+{{end}}
+
+{{/* "banner": un anuncio de tipo banner. Recibe *domain.Ad. */}}
+{{define "banner"}}
+<div class="ad-banner" data-ad-id="{{.ID}}">
+  {{if .LinkURL}}<a href="/ad/click/{{.ID}}" target="_blank" rel="noopener sponsored">{{end}}
+  <img src="{{.FileURL}}" alt="{{.Name}}" loading="lazy">
+  {{if .LinkURL}}</a>{{end}}
+  <span class="ad-label">Publicidad</span>
+</div>
+{{end}}
+
+{{/* "socials": iconos de redes. Recibe domain.SiteSettings. */}}
+{{define "socials"}}
+<div class="socials">
+  {{with .Facebook}}<a href="{{.}}" target="_blank" rel="noopener" aria-label="Facebook"><svg class="icon"><use href="#i-facebook"/></svg></a>{{end}}
+  {{with .Instagram}}<a href="{{.}}" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-instagram"/></svg></a>{{end}}
+  {{with .TikTok}}<a href="{{.}}" target="_blank" rel="noopener" aria-label="TikTok"><svg class="icon"><use href="#i-tiktok"/></svg></a>{{end}}
+  {{with .YouTube}}<a href="{{.}}" target="_blank" rel="noopener" aria-label="YouTube"><svg class="icon"><use href="#i-youtube"/></svg></a>{{end}}
+  {{with .X}}<a href="{{.}}" target="_blank" rel="noopener" aria-label="X"><svg class="icon"><use href="#i-x"/></svg></a>{{end}}
+  {{with .WhatsApp}}<a href="{{whatsappURL .}}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg class="icon"><use href="#i-whatsapp"/></svg></a>{{end}}
+</div>
+{{end}}
+
+{{/* "circles": decoración de círculos de la marca (CSS en site.css). */}}
+{{define "circles"}}
+<div class="circles" aria-hidden="true">
+  <span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span><span class="c5"></span>
+  <span class="dot-o"></span><span class="dot-r"></span><span class="dot-w"></span>
+</div>
+{{end}}

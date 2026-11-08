@@ -1,0 +1,64 @@
+# =====================================================================
+# RadioClub25 — servicios
+#   app       web, paneles y API (Go)            127.0.0.1:8120 → nginx del host
+#   mediamtx  TV: ingesta RTMP/SRT → HLS          1935/tcp, 8890/udp públicos; HLS 127.0.0.1:8888
+#   icecast   radio: ingesta y salida de audio    8010/tcp público
+#
+# Uso:  cp .env.example .env  (y cambiar TODAS las contraseñas)
+#       docker compose up -d --build
+# Detalles en docs/deployment.md
+# =====================================================================
+name: radioclub25
+
+services:
+  app:
+    build: .
+    image: radioclub25/app:latest
+    restart: unless-stopped
+    # Mismo UID/GID que el dueño de ./data en el host (para poder escribir y respaldar).
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      HTTP_ADDR: ":8120"
+      ICECAST_URL: http://icecast:8000
+      MEDIAMTX_API_URL: http://mediamtx:9997
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:${APP_PORT:-8120}:8120"
+    depends_on:
+      - icecast
+      - mediamtx
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.3
+    restart: unless-stopped
+    environment:
+      MTX_AUTHHTTPADDRESS: http://app:8120/internal/mediamtx/auth?token=${INTERNAL_TOKEN}
+    volumes:
+      - ./deploy/mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "${RTMP_PUBLIC_PORT:-1935}:1935"
+      - "${SRT_PUBLIC_PORT:-8890}:8890/udp"
+      - "127.0.0.1:${HLS_LOCAL_PORT:-8888}:8888"
+
+  icecast:
+    image: libretime/icecast:2.4.4
+    restart: unless-stopped
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
+      ICECAST_ADMIN_USERNAME: ${ICECAST_ADMIN_USER:-admin}
+      ICECAST_HOSTNAME: ${INGEST_HOST:-localhost}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    # Copia la configuración base, inserta el token interno y arranca con el entrypoint de la imagen.
+    entrypoint:
+      - sh
+      - -c
+      - sed "s|@INTERNAL_TOKEN@|$$INTERNAL_TOKEN|g" /etc/icecast-base.xml > /etc/icecast.xml && exec docker-entrypoint icecast -c /etc/icecast.xml
+    volumes:
+      - ./deploy/icecast.xml:/etc/icecast-base.xml:ro
+    ports:
+      - "${ICECAST_PUBLIC_PORT:-8010}:8000"

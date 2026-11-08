@@ -1,0 +1,9 @@
+{{/* Página pública con bloqueo total de licencia. .Data: mensaje (string) definido por el superadmin. */}}
+{{define "content"}}
+<div class="bare-card">
+  <img class="bare-logo" src="{{.Site.LogoURL}}" alt="{{.Site.SiteName}}">
+  <h1>Servicio suspendido</h1>
+  <p>{{.Data}}</p>
+  {{with .Site.Phone}}<p>Contacto: <a href="{{telURL .}}">{{.}}</a></p>{{end}}
+</div>
+{{end}}

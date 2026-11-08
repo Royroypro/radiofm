@@ -1,0 +1,30 @@
+{{/* Planes / membresías. .Data: []domain.Plan */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0">El plan del contrato vigente define los límites del panel de la radio. 0 = sin límite.</p>
+  <a class="btn" href="/superadmin/plans/new">Nuevo plan</a>
+</div>
+<div class="table-wrap">
+{{if .Data}}
+<table>
+  <thead><tr><th>Plan</th><th class="num">Precio</th><th>Periodo</th><th class="num">Anuncios activos</th><th class="num">Subida máx.</th><th>TV</th><th>Estadísticas</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr>
+    <td><a href="/superadmin/plans/{{.ID}}">{{.Name}}</a></td>
+    <td class="num">{{money .Price .Currency}}</td><td>{{.Period.Label}}</td>
+    <td class="num">{{if .MaxActiveAds}}{{.MaxActiveAds}}{{else}}∞{{end}}</td>
+    <td class="num">{{if .MaxUploadMB}}{{.MaxUploadMB}} MB{{else}}∞{{end}}</td>
+    <td>{{if .TVEnabled}}Sí{{else}}No{{end}}</td><td>{{if .StatsEnabled}}Sí{{else}}No{{end}}</td>
+    <td>{{if .Active}}<span class="pill ok">Activo</span>{{else}}<span class="pill">Inactivo</span>{{end}}</td>
+    <td class="actions">
+      <a class="btn btn-sm btn-ghost" href="/superadmin/plans/{{.ID}}">Editar</a>
+      <form method="post" action="/superadmin/plans/{{.ID}}/delete" data-confirm="¿Eliminar el plan {{.Name}}?">{{template "csrf" $}}<button class="btn btn-sm btn-danger">Eliminar</button></form>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">No hay planes. Cree uno para poder registrar contratos.</div>{{end}}
+</div>
+{{end}}

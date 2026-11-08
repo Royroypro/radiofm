@@ -1,0 +1,30 @@
+{{/* Todos los pagos. .Data: []domain.Payment */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0">Un pago «Pagado» extiende la fecha «pagado hasta» del contrato. Los pendientes solo informan deuda.</p>
+  <a class="btn" href="/superadmin/payments/new">Registrar pago</a>
+</div>
+<div class="table-wrap">
+{{if .Data}}
+<table>
+  <thead><tr><th>Contrato</th><th>Periodo cubierto</th><th class="num">Importe</th><th>Estado</th><th>Método</th><th>Referencia</th><th>Pagado el</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr>
+    <td><a href="/superadmin/contracts/{{.ContractID}}">#{{.ContractID}}</a></td>
+    <td>{{day .PeriodStart}} → {{day .PeriodEnd}}</td>
+    <td class="num">{{money .Amount .Currency}}</td>
+    <td><span class="pill {{if eq .Status "paid"}}ok{{else if eq .Status "pending"}}warn{{end}}">{{.Status.Label}}</span></td>
+    <td>{{if .Method}}{{.Method.Label}}{{end}}</td><td class="small">{{.Reference}}</td>
+    <td class="small">{{with .PaidAt}}{{datetime .}}{{end}}</td>
+    <td class="actions">
+      <a class="btn btn-sm btn-ghost" href="/superadmin/payments/{{.ID}}">Editar</a>
+      <form method="post" action="/superadmin/payments/{{.ID}}/delete" data-confirm="¿Eliminar este pago?">{{template "csrf" $}}<button class="btn btn-sm btn-danger">Eliminar</button></form>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Sin pagos.</div>{{end}}
+</div>
+{{end}}

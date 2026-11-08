@@ -1,0 +1,15 @@
+# Secretos y datos de producción
+.env
+data/
+backups/
+
+# Binarios
+bin/
+*.exe
+
+# Editor / SO
+.DS_Store
+.idea/
+.vscode/
+*.swp
+data-dev/

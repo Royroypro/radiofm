@@ -1,0 +1,31 @@
+{{/* Lista de la programación. .Data: []domain.Program (lunes primero) */}}
+{{define "content"}}
+<div class="toolbar">
+  <p class="muted" style="margin:0">La programación aparece en la web pública y define el «Al aire» del reproductor.</p>
+  <a class="btn" href="/admin/programs/new">Nuevo programa</a>
+</div>
+<div class="table-wrap">
+{{if .Data}}
+<table>
+  <thead><tr><th>Día</th><th>Horario</th><th>Programa</th><th>Conductor</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr>
+    <td>{{.WeekdayName}}</td>
+    <td>{{.StartTime}} – {{.EndTime}}</td>
+    <td><a href="/admin/programs/{{.ID}}">{{.Title}}</a></td>
+    <td>{{.Host}}</td>
+    <td>{{if .IsOnAir $.Now}}<span class="pill live">Al aire</span>{{else if .Active}}<span class="pill ok">Activo</span>{{else}}<span class="pill">Inactivo</span>{{end}}</td>
+    <td class="actions">
+      <a class="btn btn-sm btn-ghost" href="/admin/programs/{{.ID}}">Editar</a>
+      <form method="post" action="/admin/programs/{{.ID}}/delete" data-confirm="¿Eliminar «{{.Title}}» de la programación?">
+        {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+      </form>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<div class="empty">Aún no hay programas.</div>{{end}}
+</div>
+{{end}}
