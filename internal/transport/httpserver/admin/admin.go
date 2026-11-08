@@ -26,6 +26,7 @@ import (
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
+	"radioclub25/internal/service/studio"
 	"radioclub25/internal/transport/httpserver/views"
 )
 
@@ -38,6 +39,7 @@ type Handler struct {
 	Ads      *ads.Service
 	Media    *media.Service
 	License  *license.Service
+	Studio   *studio.Service
 	Store    *storage.Store
 	Cfg      config.Config
 	Log      *slog.Logger

@@ -135,3 +135,27 @@ func AdminWriteGuard(lic LicenseReader, blocked http.HandlerFunc, allow ...strin
 		})
 	}
 }
+
+// StudioAuthenticator valida el token de la PC del estudio (lo implementa service/studio).
+type StudioAuthenticator interface {
+	Authenticate(ctx context.Context, token string) error
+}
+
+// StudioToken exige "Authorization: Bearer <token>" con el token del estudio.
+// Responde 401 en JSON si falta o no es válido. La comparación en tiempo
+// constante la hace el servicio sobre el hash guardado.
+func StudioToken(auth StudioAuthenticator) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if !ok || auth.Authenticate(r.Context(), strings.TrimSpace(token)) != nil {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="studio"`)
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"unauthorized"}` + "\n"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}

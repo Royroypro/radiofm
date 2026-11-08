@@ -26,6 +26,20 @@ Settings → Stream → "Update song name" para enviar el título de la canción
 
 Pulse ▶ (Play). En el panel la radio pasa a **En vivo** en menos de 15 segundos.
 
+### Alternativa: Club25 Estudio (automatización)
+
+En lugar de BUTT, la PC puede usar **Club25 Estudio** (carpeta `estudio/` de este repositorio):
+programa la radio (biblioteca, relojes, tandas de cuñas, hora locutada), saca el audio a la consola
+y a Icecast con los mismos datos de arriba, y se sincroniza con el panel:
+
+1. Admin → **Estudio (PC)** → *Generar token* y copiarlo (se muestra una sola vez).
+2. En Club25 Estudio → Ajustes → Sincronización: URL del sitio y token; en Salidas → Icecast:
+   servidor, puerto `8010`, punto de montaje `/radio`, usuario `source` y la contraseña.
+3. Las cuñas se suben en Admin → **Cuñas FM**; la PC las descarga sola. El comprobante de emisión
+   está en Cuñas FM → *Comprobante de emisión* (CSV por anunciante y fechas).
+
+No use BUTT y Club25 Estudio a la vez: Icecast acepta una sola fuente en `/radio`.
+
 ## 2. TV con OBS Studio
 
 Ajustes → **Emisión**:

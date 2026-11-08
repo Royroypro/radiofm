@@ -28,9 +28,11 @@ import (
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
+	"radioclub25/internal/service/studio"
 	"radioclub25/internal/transport/httpserver/admin"
 	mw "radioclub25/internal/transport/httpserver/middleware"
 	"radioclub25/internal/transport/httpserver/public"
+	"radioclub25/internal/transport/httpserver/studioapi"
 	"radioclub25/internal/transport/httpserver/superadmin"
 	"radioclub25/internal/transport/httpserver/views"
 )
@@ -52,14 +54,16 @@ type Deps struct {
 	Gate     *gate.Service
 	Billing  *billing.Service
 	Audit    *audit.Service
+	Studio   *studio.Service
 }
 
 // NewRouter devuelve el http.Handler con todas las rutas.
 func NewRouter(d Deps) http.Handler {
 	pub := &public.Handler{Views: d.Views, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads, Media: d.Media,
-		License: d.License, Gate: d.Gate, Log: d.Log, InternalToken: d.Cfg.InternalToken}
+		License: d.License, Gate: d.Gate, Studio: d.Studio, Log: d.Log, InternalToken: d.Cfg.InternalToken}
 	adm := &admin.Handler{Views: d.Views, Auth: d.Auth, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads,
-		Media: d.Media, License: d.License, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
+		Media: d.Media, License: d.License, Studio: d.Studio, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
+	stu := &studioapi.Handler{Studio: d.Studio, Settings: d.Settings, Programs: d.Programs, Cfg: d.Cfg, Log: d.Log}
 	sup := &superadmin.Handler{Views: d.Views, Billing: d.Billing, License: d.License, Audit: d.Audit, Media: d.Media,
 		Store: d.Store, Cfg: d.Cfg, Log: d.Log}
 
@@ -103,6 +107,17 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/ad/click/{id}", pub.AdClick)
 	})
 
+	// --- API de la PC del estudio (Club25 Estudio): token Bearer; con bloqueo total, 503 ---
+	r.Route("/api/studio", func(r chi.Router) {
+		r.Use(mw.PublicLicenseGuard(d.License, pub.Suspended), mw.StudioToken(d.Studio))
+		r.Get("/config", stu.Config)
+		r.Get("/spots", stu.Spots)
+		r.Get("/programs", stu.Schedule)
+		r.Post("/heartbeat", stu.Heartbeat)
+		r.Post("/nowplaying", stu.NowPlaying)
+		r.Post("/airplays", stu.Airplays)
+	})
+
 	// --- Panel admin (editor o superior) ---
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(mw.RequireRole(domain.RoleEditor))
@@ -120,6 +135,15 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/stats", adm.Stats)
 		r.Get("/stats.csv", adm.StatsCSV)
 
+		r.Get("/fm-spots", adm.FMSpotsList)
+		r.Get("/fm-spots/new", adm.FMSpotNew)
+		r.Post("/fm-spots", adm.FMSpotSave)
+		r.Get("/fm-spots/report", adm.FMSpotReport)
+		r.Get("/fm-spots/report.csv", adm.FMSpotReportCSV)
+		r.Get("/fm-spots/{id}", adm.FMSpotEdit)
+		r.Post("/fm-spots/{id}", adm.FMSpotSave)
+		r.Post("/fm-spots/{id}/delete", adm.FMSpotDelete)
+
 		r.Get("/programs", adm.ProgramsList)
 		r.Get("/programs/new", adm.ProgramNew)
 		r.Post("/programs", adm.ProgramSave)
@@ -134,6 +158,9 @@ func NewRouter(d Deps) http.Handler {
 			r.Post("/settings", adm.SettingsSave)
 			r.Get("/streams", adm.Streams)
 			r.Post("/streams", adm.StreamsSave)
+			r.Get("/studio", adm.StudioPage)
+			r.Post("/studio/token", adm.StudioTokenNew)
+			r.Post("/studio/token/revoke", adm.StudioTokenRevoke)
 			r.Get("/users", adm.UsersList)
 			r.Get("/users/new", adm.UserNew)
 			r.Post("/users", adm.UserSave)

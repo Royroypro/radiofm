@@ -31,6 +31,7 @@ import (
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
+	"radioclub25/internal/service/studio"
 	"radioclub25/internal/transport/httpserver"
 	"radioclub25/internal/transport/httpserver/views"
 	"radioclub25/web"
@@ -47,6 +48,7 @@ type App struct {
 	Billing  *billing.Service
 	Ads      *ads.Service
 	Media    *media.Service
+	Studio   *studio.Service
 	Router   http.Handler
 }
 
@@ -68,6 +70,9 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	billingRepo := sqlite.NewBillingRepo(database)
 	licenseRepo := sqlite.NewLicenseRepo(database)
 	auditRepo := sqlite.NewAuditRepo(database)
+	fmSpotRepo := sqlite.NewFMSpotRepo(database)
+	airplayRepo := sqlite.NewAirplayRepo(database)
+	studioRepo := sqlite.NewStudioRepo(database)
 
 	// Plataforma
 	store, err := storage.New(cfg.UploadsDir(), "/uploads")
@@ -95,6 +100,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 		}
 	})
 	adsSvc := ads.New(adRepo, adEventRepo, licenseSvc, store, auditSvc, cfg.IPHashSalt)
+	studioSvc := studio.New(fmSpotRepo, airplayRepo, studioRepo, store, auditSvc, cfg.Location)
 	gateSvc := gate.New(licenseSvc, settingsSvc, cfg.MediaMTXPath, cfg.IcecastSourcePass)
 
 	// Vistas: embebidas en el binario o leídas del disco (WEB_DIR) en desarrollo
@@ -114,10 +120,10 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	router := httpserver.NewRouter(httpserver.Deps{
 		Cfg: cfg, Log: log, Views: renderer, StaticFS: staticFS, Store: store,
 		Auth: authSvc, Settings: settingsSvc, Programs: programsSvc, Ads: adsSvc, Media: mediaSvc,
-		License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc,
+		License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc, Studio: studioSvc,
 	})
 	return &App{Cfg: cfg, Log: log, DB: database, Auth: authSvc, Settings: settingsSvc, License: licenseSvc,
-		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Router: router}, nil
+		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Router: router}, nil
 }
 
 // Prepare deja los datos iniciales listos: ajustes por defecto, clave de TV,

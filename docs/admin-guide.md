@@ -32,6 +32,17 @@ Estados en la lista: **Al aire**, **Fuera de fecha** (activo pero fuera de su ra
 En **Marca y contacto → Publicidad** se fija cada cuántos minutos, como mínimo, un mismo oyente
 vuelve a ver/oír publicidad previa.
 
+## Cuñas FM
+Cuñas que suenan **en la emisión de radio (93.3 FM)**, no en la web. Las programa la PC del
+estudio (Club25 Estudio), que las descarga sola. Por cada cuña: **anunciante**, nombre, audio,
+**veces por día**, **franja horaria** (p. ej. 07:00–13:00) y vigencia opcional. La PC reparte las
+veces por día entre las tandas de la franja y no repite anunciante en la misma tanda.
+La columna **Hoy** muestra cuántas veces sonó hoy.
+
+**Comprobante de emisión**: elija fechas y anunciante; lista cada emisión con fecha, hora,
+duración y si sonó completa. **Descargar CSV** lo abre en Excel para enviarlo al anunciante.
+Borrar una cuña no borra su historial.
+
 ## Estadísticas
 Elija el rango de fechas. Por anuncio: impresiones, clics, CTR (clics ÷ impresiones),
 completados y saltados. **Descargar CSV** abre en Excel.
@@ -48,6 +59,11 @@ dirección, mapa de Google, horario y redes sociales. Los cambios se ven al inst
 ## Streams y emisión (administrador)
 Datos para configurar la PC emisora (ver `docs/streaming.md`), estado de las señales,
 activar/desactivar radio o TV en la web y generar una clave nueva para OBS.
+
+## Estudio (PC) (administrador)
+Estado de la PC de la radio (conectada, versión, modo, lo que suena) y su **token de acceso**:
+*Generar token* lo muestra **una sola vez** para pegarlo en Club25 Estudio. Generar uno nuevo o
+**Revocar** deja sin acceso al anterior (por ejemplo, si cambia de PC).
 
 ## Usuarios (administrador)
 Crear administradores y editores, desactivarlos o cambiar su contraseña.

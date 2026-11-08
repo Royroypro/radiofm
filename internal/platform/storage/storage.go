@@ -11,6 +11,7 @@ package storage
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -109,15 +110,11 @@ func (s *Store) Save(fh *multipart.FileHeader, kind Kind, category string, maxBy
 
 // Delete borra un archivo a partir de su URL pública. Ignora URLs que no son de este Store.
 func (s *Store) Delete(publicURL string) error {
-	if !strings.HasPrefix(publicURL, s.publicURL+"/") {
+	path, ok := s.localPath(publicURL)
+	if !ok {
 		return nil
 	}
-	rel := strings.TrimPrefix(publicURL, s.publicURL+"/")
-	clean := filepath.Clean(rel)
-	if strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
-		return nil
-	}
-	err := os.Remove(filepath.Join(s.root, clean))
+	err := os.Remove(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -149,4 +146,35 @@ func randomName() string {
 	b := make([]byte, 12)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// SHA256 calcula el hash SHA-256 (hex) de un archivo a partir de su URL pública.
+// Lo usa el estudio para que la PC verifique que descargó la cuña completa.
+func (s *Store) SHA256(publicURL string) (string, error) {
+	path, ok := s.localPath(publicURL)
+	if !ok {
+		return "", fmt.Errorf("storage: %s no pertenece a este almacenamiento", publicURL)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("storage: abrir: %w", err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("storage: leer: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// localPath traduce una URL pública a la ruta en disco, rechazando rutas que salgan de la raíz.
+func (s *Store) localPath(publicURL string) (string, bool) {
+	if !strings.HasPrefix(publicURL, s.publicURL+"/") {
+		return "", false
+	}
+	clean := filepath.Clean(strings.TrimPrefix(publicURL, s.publicURL+"/"))
+	if strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
+		return "", false
+	}
+	return filepath.Join(s.root, clean), true
 }
