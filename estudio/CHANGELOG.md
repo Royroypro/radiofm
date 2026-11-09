@@ -2,6 +2,12 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.4.1 — biblioteca de Al aire
+
+- La biblioteca de Al aire muestra primero el **título** (ordenada por título) y luego el artista.
+- **Buscador** arriba de la biblioteca (título, artista o álbum), con botón para limpiar; Esc limpia y
+  Enter inserta si queda una sola canción.
+
 ## 1.4.0 — operación y cumplimiento
 
 - **Grabador de la emisión**: graba lo que sale al aire en MP3 por hora; borra lo más viejo según el

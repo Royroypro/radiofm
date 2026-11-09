@@ -74,7 +74,7 @@
   async function loadLibrary() {
     const ids = libKind === 'all' ? [0] : cats.filter((c) => c.kind === libKind).map((c) => c.id)
     const lists = await Promise.all(ids.map((id) => Tracks(domain.TrackFilter.createFrom({ CategoryID: id, Query: libQuery, OnlyActive: true, Limit: 300 }))))
-    libTracks = lists.flatMap((p) => p.items).sort((a, b) => (a.artist + a.title).localeCompare(b.artist + b.title))
+    libTracks = lists.flatMap((p) => p.items).sort((a, b) => (a.title + a.artist).localeCompare(b.title + b.artist, 'es'))
   }
   function onLibQuery() {
     clearTimeout(libTimer)
@@ -230,6 +230,13 @@
     <!-- biblioteca -->
     <section class="pane lib">
       <div class="pane-h">Biblioteca</div>
+      <div class="libsearch">
+        <span class="lupa">🔍</span>
+        <input placeholder="Buscar título, artista o álbum…" bind:value={libQuery} oninput={onLibQuery}
+          onkeydown={(e) => { if (e.key === 'Escape') { libQuery = ''; loadLibrary() } else if (e.key === 'Enter' && libTracks.length === 1) insertNext(libTracks[0].id) }} />
+        {#if libQuery}<button class="small ghost" title="Limpiar" onclick={() => { libQuery = ''; loadLibrary() }}>✕</button>{/if}
+        <span class="small muted">{libTracks.length}</span>
+      </div>
       <div class="libtabs">
         {#each libKinds as k}
           <button class="ltab" class:active={libKind === k.id} title={k.label} onclick={() => { libKind = k.id; loadLibrary() }}>
@@ -243,20 +250,17 @@
         </div>
         <div class="scroll libtable">
           <table>
-            <thead><tr><th>Artista</th><th>Título</th><th class="num">Dur.</th></tr></thead>
+            <thead><tr><th>Título</th><th>Artista</th><th class="num">Dur.</th></tr></thead>
             <tbody>
               {#each libTracks as t (t.id)}
                 <tr class:sel={libSel === t.id} onclick={() => (libSel = t.id)} ondblclick={() => insertNext(t.id)}>
-                  <td>{t.artist}</td><td>{t.title}</td><td class="num">{dur(t.duration)}</td></tr>
+                  <td class="ttl" title={t.title}>{t.title}</td><td class="art" title={t.artist}>{t.artist || '—'}</td><td class="num">{dur(t.duration)}</td></tr>
               {/each}
             </tbody>
           </table>
         </div>
       </div>
-      <div class="libsearch">
-        <input placeholder="Buscar artista, título o álbum…" bind:value={libQuery} oninput={onLibQuery} />
-        <span class="small muted">{libTracks.length} pistas · doble clic = insertar</span>
-      </div>
+      <div class="libfoot small muted">{libTracks.length} pistas · doble clic = insertar · Esc limpia la búsqueda</div>
     </section>
 
     <!-- botonera -->
@@ -399,8 +403,12 @@
   .act.add { background: var(--ok-btn); color: #fff; }
   .libtable { min-width: 0; }
   .libtable tr.sel td { background: var(--sel); }
-  .libsearch { display: flex; gap: 8px; align-items: center; padding: 6px; border-top: 1px solid var(--line); }
-  .libsearch input { flex: 1; }
+  .libsearch { display: flex; gap: 6px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .libsearch input { flex: 1; min-width: 0; }
+  .libsearch .lupa { opacity: .7; }
+  .libfoot { padding: 3px 6px; border-top: 1px solid var(--line); }
+  .libtable .ttl { max-width: 60%; font-weight: 600; }
+  .libtable .art { max-width: 35%; color: var(--muted); }
 
   .fxgrid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 4px; padding: 4px; min-height: 0; }
   .cart { position: relative; border: 1px solid var(--line); padding: 2px; font-size: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; }
