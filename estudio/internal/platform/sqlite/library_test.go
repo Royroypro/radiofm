@@ -71,8 +71,29 @@ func TestTracksAndCategories(t *testing.T) {
 	if !got.Analyzed || got.GainDB != -4.5 || got.CueIn != 120*time.Millisecond || got.Title != "Motor y Motivo" || got.CategoryID != c.ID {
 		t.Fatalf("pista = %+v", got)
 	}
+	// analizada pero sin tempo: sigue pendiente solo para estimarlo
+	if pend, _ := tracks.PendingAnalysis(ctx, 10); len(pend) != 1 || pend[0].TempoDone {
+		t.Fatal("debe quedar pendiente el tempo")
+	}
+	if err := tracks.SetTempo(ctx, tr.ID, 124.5, 4); err != nil {
+		t.Fatal(err)
+	}
 	if pend, _ := tracks.PendingAnalysis(ctx, 10); len(pend) != 0 {
 		t.Fatal("no debe quedar pendiente")
+	}
+	// la energía puesta a mano no la pisa una nueva estimación
+	got, _ = tracks.Get(ctx, tr.ID)
+	got.Energy = 2
+	_ = tracks.Update(ctx, got)
+	_ = tracks.SetTempo(ctx, tr.ID, 130, 5)
+	if got, _ = tracks.Get(ctx, tr.ID); got.BPM != 124.5 || got.Energy != 2 {
+		t.Fatalf("tempo/energía = %v / %d", got.BPM, got.Energy)
+	}
+	if n, err := tracks.SetAttributes(ctx, []int64{tr.ID}, domain.TrackAttributes{Voice: "male", Language: "es"}); err != nil || n != 1 {
+		t.Fatalf("edición masiva = %d, %v", n, err)
+	}
+	if got, _ = tracks.Get(ctx, tr.ID); got.Voice != "male" || got.Language != "es" || got.Energy != 2 {
+		t.Fatalf("atributos = %+v", got)
 	}
 	list, total, err := tracks.List(ctx, domain.TrackFilter{Query: "motor", CategoryID: c.ID})
 	if err != nil || total != 1 || len(list) != 1 {

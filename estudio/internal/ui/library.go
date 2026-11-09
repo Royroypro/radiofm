@@ -97,3 +97,18 @@ func (a *App) CheckMissing() (int, error) { return a.core.Library.CheckMissing(c
 
 // AnalyzerStatus devuelve el estado de la cola de análisis.
 func (a *App) AnalyzerStatus() library.AnalyzerStatus { return a.core.Library.AnalyzerState() }
+
+// SetTrackAttributes aplica atributos (los no vacíos) a todas las pistas del
+// filtro actual de la Biblioteca. Devuelve cuántas cambió.
+func (a *App) SetTrackAttributes(f domain.TrackFilter, attrs domain.TrackAttributes) (int, error) {
+	return a.core.Library.SetAttributes(context.Background(), f, attrs)
+}
+
+// TrackByID devuelve una pista (para el voice tracking).
+func (a *App) TrackByID(id int64) (domain.Track, error) {
+	t, err := a.core.Library.Track(context.Background(), id)
+	if err != nil {
+		return domain.Track{}, err
+	}
+	return *t, nil
+}

@@ -224,6 +224,12 @@
         <h2>Rotación</h2>
         <label class="field">Separación de artista (min)<input type="number" min="0" bind:value={s.rotation.artist_separation_min} /></label>
         <label class="field">Separación de título (h)<input type="number" min="0" bind:value={s.rotation.title_separation_hours} /></label>
+        <p class="muted small" style="margin:6px 0 2px">Flujo (usa los atributos de la Biblioteca; 0 = no aplicar). Si ninguna canción cumple, se relajan de abajo hacia arriba.</p>
+        <label class="check"><input type="checkbox" bind:checked={s.rotation.no_same_voice} /> No dos voces femeninas (o masculinas) seguidas</label>
+        <label class="field">Salto máx. de energía (1–4)<input type="number" min="0" max="4" bind:value={s.rotation.max_energy_jump} /></label>
+        <label class="field">Salto máx. de tempo (%)<input type="number" min="0" max="200" step="5" bind:value={s.rotation.max_tempo_jump_pct} /></label>
+        <label class="field">Máx. seguidas del mismo género<input type="number" min="0" max="20" bind:value={s.rotation.max_genre_run} /></label>
+        <label class="field">Máx. seguidas de la misma década<input type="number" min="0" max="20" bind:value={s.rotation.max_era_run} /></label>
         <h2 style="margin-top:10px">Tandas</h2>
         <label class="field" title="La PC no pone más cuñas que esto en una tanda; lo que no entra se repone en otra">Máx. cuñas por tanda (0 = sin tope)<input type="number" min="0" max="40" bind:value={s.schedule.break_max_spots} /></label>
         <label class="field" title="Duración máxima de las cuñas de una tanda, sin contar cortinas">Máx. segundos por tanda (0 = sin tope)<input type="number" min="0" max="1800" step="10" bind:value={s.schedule.break_max_seconds} /></label>

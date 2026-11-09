@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ import (
 	"radioclub25/estudio/internal/service/streaming"
 	syncsvc "radioclub25/estudio/internal/service/sync"
 	"radioclub25/estudio/internal/service/timeannounce"
+	"radioclub25/estudio/internal/service/voicetrack"
 	"radioclub25/estudio/internal/version"
 )
 
@@ -59,6 +61,7 @@ type App struct {
 	Secrets   *secrets.Store
 	Engine    *audio.Engine
 	OnAir     *onair.Service
+	Voice     *voicetrack.Service // voice tracking (grabar intervenciones entre canciones)
 	Streaming *streaming.Service
 	Sync      *syncsvc.Service
 
@@ -137,6 +140,8 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	a.Engine = audio.NewEngine(ecfg)
 	a.Streaming = streaming.New(a.Tools, a.Engine, a.Settings,
 		func() (string, error) { return a.Secrets.Get(secrets.IcecastPassword) }, log)
+	a.Voice = voicetrack.New(a.Engine, a.Library, a.Scheduler, filepath.Join(dataDir, "voicetracks"),
+		func() bool { a.audioMu.Lock(); defer a.audioMu.Unlock(); return a.mic != nil })
 	a.OnAir = onair.New(onair.Deps{
 		Engine: a.Engine, Log: a.Scheduler, Tracks: sqlite.NewTrackRepo(a.DB), Categories: sqlite.NewCategoryRepo(a.DB),
 		Spots: a.Spots, Plays: sqlite.NewPlayRepo(a.DB), Decode: a.decode, Voice: a.Locutions,
@@ -222,7 +227,9 @@ func (a *App) schedulerConfig() (scheduler.Config, *time.Location) {
 	c.Crossfade = s.Audio.Crossfade()
 	c.Tolerance = time.Duration(s.Schedule.FillToleranceMs) * time.Millisecond
 	c.Rules = rotation.Rules{ArtistSeparation: time.Duration(s.Rotation.ArtistSeparationMin) * time.Minute,
-		TitleSeparation: time.Duration(s.Rotation.TitleSeparationHours) * time.Hour}
+		TitleSeparation: time.Duration(s.Rotation.TitleSeparationHours) * time.Hour,
+		NoSameVoice:     s.Rotation.NoSameVoice, MaxEnergyJump: s.Rotation.MaxEnergyJump,
+		MaxTempoJump: float64(s.Rotation.MaxTempoJumpPct), MaxGenreRun: s.Rotation.MaxGenreRun, MaxEraRun: s.Rotation.MaxEraRun}
 	return c, s.Location()
 }
 

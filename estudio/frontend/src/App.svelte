@@ -14,6 +14,7 @@
   import Clocks from './pages/Clocks.svelte'
   import Grid from './pages/Grid.svelte'
   import Spots from './pages/Spots.svelte'
+  import VoiceTrack from './pages/VoiceTrack.svelte'
   import Reports from './pages/Reports.svelte'
   import OnAir from './pages/OnAir.svelte'
   import Carts from './pages/Carts.svelte'
@@ -30,6 +31,7 @@
     { id: 'library', label: 'Biblioteca' },
     { id: 'clocks', label: 'Relojes' },
     { id: 'grid', label: 'Parrilla' },
+    { id: 'voicetrack', label: 'Voice tracking' },
     { id: 'spots', label: 'Cuñas' },
     { id: 'carts', label: 'Botonera' },
     { id: 'reports', label: 'Reportes' },
@@ -99,6 +101,8 @@
       <Grid />
     {:else if page === 'spots'}
       <Spots />
+    {:else if page === 'voicetrack'}
+      <VoiceTrack />
     {:else if page === 'reports'}
       <Reports />
     {:else if page === 'settings'}

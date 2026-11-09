@@ -86,3 +86,60 @@ func TestArtistsSplit(t *testing.T) {
 		t.Fatalf("Artists = %q", got)
 	}
 }
+
+func attrs(id int64, artist string, voice string, energy int, bpm float64, genre, year string) domain.Track {
+	t := track(id, artist, "t"+artist)
+	t.Voice, t.Energy, t.BPM, t.Genre, t.Year = voice, energy, bpm, genre, year
+	return t
+}
+
+// Reglas de flujo: voz, salto de energía, salto de tempo, rachas de género y década.
+func TestFlowRules(t *testing.T) {
+	prev := attrs(100, "Previo", "female", 2, 90, "Cumbia", "1995")
+	r := Rules{NoSameVoice: true, MaxEnergyJump: 1, MaxTempoJump: 20, MaxGenreRun: 2, MaxEraRun: 3}
+	// la menos reciente (1) rompe la regla de voz; 2 sí la cumple
+	cands := []domain.Track{attrs(1, "A", "female", 2, 92, "Salsa", "2001"), attrs(2, "B", "male", 2, 92, "Salsa", "2001")}
+	if got := PickFlow(cands, nil, []domain.Track{prev}, t0, r); got.Track.ID != 2 || got.Relaxed != "" {
+		t.Fatalf("voz: %+v", got)
+	}
+	// energía 2 → 5 es un salto de 3 (máximo 1)
+	cands = []domain.Track{attrs(1, "A", "male", 5, 92, "Salsa", "2001"), attrs(2, "B", "male", 3, 92, "Salsa", "2001")}
+	if got := PickFlow(cands, nil, []domain.Track{prev}, t0, r); got.Track.ID != 2 {
+		t.Fatalf("energía: %+v", got)
+	}
+	// tempo 90 → 140 es +55 % (máximo 20 %)
+	cands = []domain.Track{attrs(1, "A", "male", 2, 140, "Salsa", "2001"), attrs(2, "B", "male", 2, 100, "Salsa", "2001")}
+	if got := PickFlow(cands, nil, []domain.Track{prev}, t0, r); got.Track.ID != 2 {
+		t.Fatalf("tempo: %+v", got)
+	}
+	// ya van 2 cumbias seguidas: la tercera no
+	two := []domain.Track{attrs(101, "X", "", 0, 0, "Cumbia", ""), prev}
+	cands = []domain.Track{attrs(1, "A", "male", 2, 92, "cumbia ", "2001"), attrs(2, "B", "male", 2, 92, "Salsa", "2001")}
+	if got := PickFlow(cands, nil, two, t0, r); got.Track.ID != 2 {
+		t.Fatalf("racha de género: %+v", got)
+	}
+	// sin atributos cargados, las reglas de flujo no estorban
+	plain := []domain.Track{track(1, "A", "a"), track(2, "B", "b")}
+	if got := PickFlow(plain, nil, []domain.Track{prev}, t0, r); got.Track.ID != 1 || got.Relaxed != "" {
+		t.Fatalf("sin atributos: %+v", got)
+	}
+}
+
+// Si ninguna cumple, se relaja primero la regla de flujo menos importante,
+// antes que las separaciones de artista y título.
+func TestFlowRelaxationOrder(t *testing.T) {
+	prev := attrs(100, "Previo", "female", 1, 90, "Cumbia", "1995")
+	r := Rules{ArtistSeparation: 45 * time.Minute, NoSameVoice: true, MaxEnergyJump: 1, MaxEraRun: 1}
+	// la única candidata es femenina, energía 5 y de la misma década: hay que relajar
+	// década → energía → voz (de la menos a la más importante)
+	cands := []domain.Track{attrs(1, "A", "female", 5, 0, "", "1998")}
+	got := PickFlow(cands, nil, []domain.Track{prev}, t0, r)
+	if !got.OK || got.Relaxed != "voz, energía, racha de década" {
+		t.Fatalf("relajación = %q", got.Relaxed)
+	}
+	// si basta con relajar la década, se relaja solo esa
+	cands = []domain.Track{attrs(1, "A", "male", 1, 0, "", "1998")}
+	if got = PickFlow(cands, nil, []domain.Track{prev}, t0, r); got.Relaxed != "racha de década" {
+		t.Fatalf("relajación = %q", got.Relaxed)
+	}
+}

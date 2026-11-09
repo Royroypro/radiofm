@@ -6,7 +6,7 @@
   import { onMount } from 'svelte'
   import {
     Categories, CategoryKinds, SaveCategory, DeleteCategory, Tracks, UpdateTrack, DeleteTrack,
-    ReanalyzeTrack, ResetTrackMarks, ImportFolder, PickFolder, AnalyzerStatus, CheckMissing,
+    ReanalyzeTrack, ResetTrackMarks, SetTrackAttributes, ImportFolder, PickFolder, AnalyzerStatus, CheckMissing,
   } from '../../wailsjs/go/ui/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { domain, type ui, type library } from '../../wailsjs/go/models'
@@ -74,6 +74,7 @@
       cue_in: fromSecs(edit.cue_in_s), cue_out: fromSecs(edit.cue_out_s), segue_at: fromSecs(edit.segue_s),
       intro: fromSecs(edit.intro_s), valid_from: fromDateInput(edit.from), valid_to: fromDateInput(edit.to),
       category_id: Number(edit.category_id), gain_db: Number(edit.gain_db),
+      bpm: Number(edit.bpm) || 0, energy: Number(edit.energy) || 0,
     })
     try {
       await UpdateTrack(t)
@@ -92,6 +93,23 @@
       select(await ReanalyzeTrack(sel.id))
       await search(false)
       toast.show('Pista analizada')
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+
+  // --- atributos musicales ---
+  const voices: Record<string, string> = { '': '—', male: 'Masculina', female: 'Femenina', group: 'Grupo / dúo', instrumental: 'Instrumental' }
+  let bulk: { genre: string; year: string; energy: number; voice: string; language: string; mood: string } | null = $state(null)
+  async function applyBulk() {
+    if (!bulk) return
+    if (!confirm(`¿Aplicar estos atributos a las ${total} pistas del filtro actual?`)) return
+    try {
+      const n = await SetTrackAttributes(domain.TrackFilter.createFrom({ CategoryID: catFilter, Query: query }),
+        domain.TrackAttributes.createFrom({ ...bulk, energy: Number(bulk.energy) || 0 }))
+      bulk = null
+      toast.show(`${n} pistas actualizadas`)
+      await search(false)
     } catch (e) {
       toast.error(e)
     }
@@ -221,6 +239,8 @@
       <input class="grow" placeholder="Buscar por título, artista, álbum o archivo…" bind:value={query} oninput={onQuery} />
       <button onclick={() => (importDlg = { dir: '', cat: catFilter || cats[0]?.id || 0, recursive: true, running: false, done: 0, total: 0, file: '' })}>Importar carpeta…</button>
       <button class="ghost" onclick={checkMissing}>Verificar archivos</button>
+      <button class="ghost" title="Género, año, energía, voz, idioma o ánimo para todas las pistas que se ven (categoría + búsqueda)"
+        onclick={() => (bulk = { genre: '', year: '', energy: 0, voice: '', language: '', mood: '' })}>Atributos en lote…</button>
     </div>
     <p class="muted small">
       {total} pistas{#if analyzer && (analyzer.pending > 0 || analyzer.current)} · analizando: {analyzer.current} ({analyzer.pending} en cola){/if}
@@ -262,6 +282,17 @@
       <label class="field">Categoría
         <select bind:value={edit.category_id}>{#each cats as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select></label>
       <label class="check"><input type="checkbox" bind:checked={edit.active} /> Activa (se programa)</label>
+      <h2 style="margin-top:8px">Atributos (reglas de flujo)</h2>
+      <div class="grid3">
+        <label class="field" title="Estimado al analizar; corríjalo si salió el doble o la mitad">BPM<input type="number" min="0" max="300" step="0.1" bind:value={edit.bpm} /></label>
+        <label class="field" title="1 calma … 5 muy movida (estimada; la que ponga a mano se respeta)">Energía
+          <select bind:value={edit.energy}><option value={0}>—</option>{#each [1, 2, 3, 4, 5] as e}<option value={e}>{e}</option>{/each}</select></label>
+        <label class="field">Voz<select bind:value={edit.voice}>{#each Object.entries(voices) as [k, v]}<option value={k}>{v}</option>{/each}</select></label>
+        <label class="field">Género<input bind:value={edit.genre} /></label>
+        <label class="field">Año<input bind:value={edit.year} maxlength="4" /></label>
+        <label class="field">Idioma<input bind:value={edit.language} placeholder="es" maxlength="10" /></label>
+      </div>
+      <label class="field">Ánimo<input bind:value={edit.mood} placeholder="alegre, romántica, nostálgica…" maxlength="40" /></label>
       <div class="grid2">
         <label class="field">Vigente desde<input type="date" bind:value={edit.from} /></label>
         <label class="field">Hasta<input type="date" bind:value={edit.to} /></label>
@@ -294,6 +325,26 @@
     {/if}
   </section>
 </div>
+
+{#if bulk}
+  <div class="backdrop">
+    <div class="modal">
+      <h2>Atributos en lote</h2>
+      <p class="muted small">Se aplican a las {total} pistas del filtro actual (categoría y búsqueda). Los campos vacíos no se cambian.</p>
+      <div class="grid3">
+        <label class="field">Género<input bind:value={bulk.genre} /></label>
+        <label class="field">Año<input bind:value={bulk.year} maxlength="4" /></label>
+        <label class="field">Energía<select bind:value={bulk.energy}><option value={0}>(no cambiar)</option>{#each [1, 2, 3, 4, 5] as e}<option value={e}>{e}</option>{/each}</select></label>
+        <label class="field">Voz<select bind:value={bulk.voice}><option value="">(no cambiar)</option>{#each Object.entries(voices).filter(([k]) => k) as [k, v]}<option value={k}>{v}</option>{/each}</select></label>
+        <label class="field">Idioma<input bind:value={bulk.language} placeholder="es" maxlength="10" /></label>
+        <label class="field">Ánimo<input bind:value={bulk.mood} maxlength="40" /></label>
+      </div>
+      <div class="actions"><span class="grow"></span>
+        <button class="ghost" onclick={() => (bulk = null)}>Cancelar</button>
+        <button class="ok" onclick={applyBulk}>Aplicar</button></div>
+    </div>
+  </div>
+{/if}
 
 {#if catDlg}
   <div class="backdrop">

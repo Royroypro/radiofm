@@ -10,16 +10,32 @@
 | Excepción | otro reloj para una hora de una fecha | `domain.GridException` |
 | Playlist (log) | lista concreta del día, generada con antelación y editable | `domain.LogItem`, tabla `log_items` |
 
-## Rotación (`service/rotation.Pick`, función pura)
+## Rotación (`service/rotation.PickFlow`, función pura)
 
 Entre las pistas disponibles de la categoría (activas, con archivo y vigentes) elige la **menos reciente**
 (historial + lo ya planificado; las nunca usadas primero; empate → menor ID, así es determinista).
 
-Niveles (si ninguna pista cumple, se pasa al siguiente y se anota en la playlist):
-1. separación de título (3 h), de artista (45 min) e intérprete distinto del elemento anterior;
-2. sin separación de artista;
-3. sin separaciones (mantiene "intérprete distinto del anterior");
-4. cualquiera.
+Reglas, de la más a la menos importante (las de flujo usan los atributos de la Biblioteca y solo actúan
+si ambas pistas tienen el dato; 0 = desactivada, Ajustes → Rotación):
+
+| # | Regla | Por defecto |
+|---|---|---|
+| 1 | intérprete distinto del elemento anterior | siempre |
+| 2 | separación de título | 3 h |
+| 3 | separación de artista | 45 min |
+| 4 | voz: no dos femeninas (o masculinas) seguidas | no |
+| 5 | salto máximo de energía (1–5) | 2 |
+| 6 | salto máximo de tempo (%) | no |
+| 7 | máximo seguidas del mismo género | 3 |
+| 8 | máximo seguidas de la misma década | no |
+
+Si ninguna pista las cumple todas, se relajan **de a una desde la menos importante** (8 → 1); lo que se
+relajó queda anotado en la playlist («rotación: se relajó …»). Si no queda ninguna, «todas las reglas».
+
+**Atributos**: el BPM se estima en el análisis (autocorrelación de los ataques en 60 s del medio de la
+canción, `library/tempo.go`; puede salir el doble o la mitad: se corrige a mano); la energía se estima del
+BPM y la sonoridad si la pista no tiene una puesta a mano. Voz, idioma, ánimo, género y año se cargan en
+la Biblioteca, uno por uno o **en lote** (todas las pistas del filtro).
 
 Los intérpretes se comparan normalizados (minúsculas, sin tildes) y separando "feat.", "ft.", "&", "y",
 "con", "x", ",": `Grupo 5 feat. Daniela Darcourt` comparte artista con `Daniela Darcourt`.
@@ -48,6 +64,15 @@ Reglas:
 - El historial de rotación incluye las emisiones reales (tabla `plays`) y la playlist del día anterior.
 - El historial se consulta por ventana de tiempo (búsqueda binaria) y las claves normalizadas se
   precalculan: un día de 5000 elementos se genera en menos de 2 s (`TestGenerateManyShortTracksIsFast`).
+
+## Voice tracking (`service/voicetrack`)
+
+El locutor graba su intervención entre dos canciones (pantalla **Voice tracking**). La toma se graba del
+micrófono de Ajustes → Audio **sin salir al aire** (`Engine.SetRecording`), se escucha la transición por
+los audífonos y al guardarla: WAV a `<datos>/voicetracks`, pista nueva en la categoría **Voice tracking**
+(tipo locución) con punto de mezcla = duración − solape, e inserción **bloqueada** después de la canción
+elegida. Al aire entra en el punto de mezcla de la canción que sale (que se funde debajo) y la siguiente
+canción entra «solape» segundos antes de que termine (reglas de `onair/transition.go`).
 
 ## Regenerar y editar
 

@@ -85,6 +85,7 @@ export namespace audio {
 	    limiter_gain: number;
 	    proc_gain: number;
 	    agc_gain: number;
+	    rec_peak: number;
 	    mic_on: boolean;
 	    dropouts: number;
 	    enc_dropped: number;
@@ -103,6 +104,7 @@ export namespace audio {
 	        this.limiter_gain = source["limiter_gain"];
 	        this.proc_gain = source["proc_gain"];
 	        this.agc_gain = source["agc_gain"];
+	        this.rec_peak = source["rec_peak"];
 	        this.mic_on = source["mic_on"];
 	        this.dropouts = source["dropouts"];
 	        this.enc_dropped = source["enc_dropped"];
@@ -247,6 +249,11 @@ export namespace config {
 	export class RotationSettings {
 	    artist_separation_min: number;
 	    title_separation_hours: number;
+	    no_same_voice: boolean;
+	    max_energy_jump: number;
+	    max_tempo_jump_pct: number;
+	    max_genre_run: number;
+	    max_era_run: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RotationSettings(source);
@@ -256,6 +263,11 @@ export namespace config {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.artist_separation_min = source["artist_separation_min"];
 	        this.title_separation_hours = source["title_separation_hours"];
+	        this.no_same_voice = source["no_same_voice"];
+	        this.max_energy_jump = source["max_energy_jump"];
+	        this.max_tempo_jump_pct = source["max_tempo_jump_pct"];
+	        this.max_genre_run = source["max_genre_run"];
+	        this.max_era_run = source["max_era_run"];
 	    }
 	}
 	export class SafetySettings {
@@ -722,6 +734,12 @@ export namespace domain {
 	    ending: string;
 	    fade_out: number;
 	    marks_manual: boolean;
+	    bpm: number;
+	    energy: number;
+	    voice: string;
+	    language: string;
+	    mood: string;
+	    tempo_done: boolean;
 	    missing: boolean;
 	    // Go type: time
 	    last_played_at?: any;
@@ -759,6 +777,12 @@ export namespace domain {
 	        this.ending = source["ending"];
 	        this.fade_out = source["fade_out"];
 	        this.marks_manual = source["marks_manual"];
+	        this.bpm = source["bpm"];
+	        this.energy = source["energy"];
+	        this.voice = source["voice"];
+	        this.language = source["language"];
+	        this.mood = source["mood"];
+	        this.tempo_done = source["tempo_done"];
 	        this.missing = source["missing"];
 	        this.last_played_at = this.convertValues(source["last_played_at"], null);
 	        this.play_count = source["play_count"];
@@ -782,6 +806,28 @@ export namespace domain {
 		    }
 		    return a;
 		}
+	}
+	export class TrackAttributes {
+	    genre: string;
+	    year: string;
+	    energy: number;
+	    voice: string;
+	    language: string;
+	    mood: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TrackAttributes(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.genre = source["genre"];
+	        this.year = source["year"];
+	        this.energy = source["energy"];
+	        this.voice = source["voice"];
+	        this.language = source["language"];
+	        this.mood = source["mood"];
+	    }
 	}
 	export class TrackFilter {
 	    CategoryID: number;
@@ -1554,6 +1600,43 @@ export namespace ui {
 	        this.delay = source["delay"];
 	        this.b_from = source["b_from"];
 	        this.a_end = source["a_end"];
+	    }
+	}
+	export class VoiceTrackStatus {
+	    recording: boolean;
+	    elapsed: number;
+	    level: number;
+	    mic_ready: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new VoiceTrackStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.recording = source["recording"];
+	        this.elapsed = source["elapsed"];
+	        this.level = source["level"];
+	        this.mic_ready = source["mic_ready"];
+	    }
+	}
+
+}
+
+export namespace voicetrack {
+	
+	export class Take {
+	    file: string;
+	    duration: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Take(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.file = source["file"];
+	        this.duration = source["duration"];
 	    }
 	}
 

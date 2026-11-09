@@ -123,6 +123,8 @@ type Engine struct {
 
 	// entradas y salidas compartidas
 	micRing  *RingBuffer // lo llena el callback de captura
+	recRing  *RingBuffer // copia del micrófono para grabar (voice tracking); lo vacía el grabador
+	recOn    atomic.Bool
 	encRing  *RingBuffer // lo vacía el codificador
 	micOn    atomic.Bool
 	duckOn   atomic.Bool
@@ -134,6 +136,7 @@ type Engine struct {
 	duckGain    atomic.Uint32
 	limitGain   atomic.Uint32
 	procGain    atomic.Uint32 // reducción de los compresores (1 = nada)
+	recPeak     atomic.Uint32 // pico del micrófono mientras se graba (bits float32)
 	agcGain     atomic.Uint32
 	dropouts    atomic.Int64 // frames de silencio por decodificador lento
 	encDropped  atomic.Int64 // muestras descartadas hacia el codificador
@@ -161,6 +164,7 @@ func NewEngine(cfg Config) *Engine {
 		master:    1,
 		micGain:   1,
 		micRing:   NewRingBuffer(int(DurationToFrames(time.Second)) * Channels),
+		recRing:   NewRingBuffer(int(DurationToFrames(4*time.Second)) * Channels),
 		encRing:   NewRingBuffer(int(DurationToFrames(cfg.EncoderBuffer)) * Channels),
 	}
 	e.duckGain.Store(math.Float32bits(1))
@@ -248,6 +252,18 @@ func (e *Engine) SetDuck(on bool) { e.duckOn.Store(on) }
 // SetEncoderTap activa o desactiva la copia del bus hacia el codificador
 // (se desactiva cuando la fuente de Icecast es la entrada de captura).
 func (e *Engine) SetEncoderTap(on bool) { e.encTapOn.Store(on) }
+
+// SetRecording activa la copia del micrófono hacia RecordOutput (voice
+// tracking). Graba aunque el micrófono no esté al aire.
+func (e *Engine) SetRecording(on bool) {
+	if on {
+		e.recRing.Discard(e.recRing.Len()) // empezar sin restos de una toma anterior
+	}
+	e.recOn.Store(on)
+}
+
+// RecordOutput es el buffer con lo que capta el micrófono mientras se graba.
+func (e *Engine) RecordOutput() *RingBuffer { return e.recRing }
 
 // MicInput es el buffer donde el callback de captura escribe el micrófono.
 func (e *Engine) MicInput() *RingBuffer { return e.micRing }
@@ -391,11 +407,18 @@ func (e *Engine) renderBlock(out []float32) {
 	}
 	var micPeak float32
 	micOn := e.micOn.Load()
-	if micOn {
+	if rec := e.recOn.Load(); micOn || rec {
 		for i := range mic {
 			mic[i] *= e.micGain
 		}
 		micPeak = peakOf(mic)
+		if rec {
+			e.recRing.Write(mic) // si el grabador no da abasto, se pierde (nunca frena el aire)
+			e.recPeak.Store(math.Float32bits(micPeak))
+		}
+	}
+	if !micOn {
+		micPeak = 0 // grabando sin el mic al aire: no activa el ducking
 	}
 
 	// 4. ducking y suma
@@ -469,6 +492,7 @@ type Status struct {
 	LimiterGain float32             `json:"limiter_gain"`
 	ProcGain    float32             `json:"proc_gain"` // reducción de los compresores del procesador (1 = nada)
 	AGCGain     float32             `json:"agc_gain"`  // corrección del AGC (lineal)
+	RecPeak     float32             `json:"rec_peak"`  // nivel del micrófono al grabar un voice track
 	MicOn       bool                `json:"mic_on"`
 	Dropouts    int64               `json:"dropouts"`
 	EncDropped  int64               `json:"enc_dropped"`
@@ -497,6 +521,9 @@ func (e *Engine) Status() Status {
 	s.Levels = Levels{PeakL: f(&e.levels[0]), PeakR: f(&e.levels[1]), RMSL: f(&e.levels[2]), RMSR: f(&e.levels[3])}
 	s.DuckGain, s.LimiterGain = f(&e.duckGain), f(&e.limitGain)
 	s.ProcGain, s.AGCGain = f(&e.procGain), f(&e.agcGain)
+	if e.recOn.Load() {
+		s.RecPeak = f(&e.recPeak)
+	}
 	s.MicOn = e.micOn.Load()
 	s.Dropouts, s.EncDropped = e.dropouts.Load(), e.encDropped.Load()
 	s.Rendered = FramesToDuration(e.renderedFrm.Load())

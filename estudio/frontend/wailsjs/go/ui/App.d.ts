@@ -11,6 +11,7 @@ import {app} from '../models';
 import {config} from '../models';
 import {sync} from '../models';
 import {tools} from '../models';
+import {voicetrack} from '../models';
 
 export function AnalyzerStatus():Promise<library.AnalyzerStatus>;
 
@@ -124,6 +125,8 @@ export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
 
 export function SetTimeAnnounce(arg1:boolean):Promise<void>;
 
+export function SetTrackAttributes(arg1:domain.TrackFilter,arg2:domain.TrackAttributes):Promise<number>;
+
 export function Settings():Promise<config.Settings>;
 
 export function SlotKinds():Promise<Array<domain.SlotKind>>;
@@ -144,8 +147,20 @@ export function ToggleLogLock(arg1:number):Promise<void>;
 
 export function ToolsStatus():Promise<Array<tools.Check>>;
 
+export function TrackByID(arg1:number):Promise<domain.Track>;
+
 export function Tracks(arg1:domain.TrackFilter):Promise<ui.TrackPage>;
 
 export function TriggerCart(arg1:number,arg2:number):Promise<void>;
 
 export function UpdateTrack(arg1:domain.Track):Promise<void>;
+
+export function VTDiscard(arg1:string):Promise<void>;
+
+export function VTSave(arg1:string,arg2:number,arg3:number,arg4:string):Promise<domain.Track>;
+
+export function VTStart():Promise<void>;
+
+export function VTStatus():Promise<ui.VoiceTrackStatus>;
+
+export function VTStop():Promise<voicetrack.Take>;

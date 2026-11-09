@@ -133,6 +133,10 @@ func (s *Service) UpdateTrack(ctx context.Context, t *domain.Track) error {
 		return domain.Invalid("valid_to", "La fecha de fin debe ser posterior al inicio")
 	case t.GainDB < -30 || t.GainDB > 12:
 		return domain.Invalid("gain_db", "La ganancia debe estar entre −30 y +12 dB")
+	case t.Energy < 0 || t.Energy > 5:
+		return domain.Invalid("energy", "La energía va de 1 a 5")
+	case t.BPM < 0 || t.BPM > 300:
+		return domain.Invalid("bpm", "Tempo fuera de rango")
 	}
 	// Si cambió alguna marca, queda como ajuste manual (el análisis ya no la pisa).
 	if t.CueIn != old.CueIn || t.CueOut != old.CueOut || t.SegueAt != old.SegueAt || t.Intro != old.Intro {
@@ -382,6 +386,11 @@ func (s *Service) AnalyzeTrack(ctx context.Context, t domain.Track) (a domain.An
 		_ = s.tracks.SetMissing(ctx, t.ID, true)
 		return a
 	}
+	if t.Analyzed && !t.TempoDone { // ya analizada: solo falta el tempo
+		s.analyzeTempo(ctx, t, t.Loudness)
+		return domain.Analysis{Loudness: t.Loudness, GainDB: t.GainDB, CueIn: t.CueIn, CueOut: t.CueOut, SegueAt: t.SegueAt,
+			Envelope: t.Envelope, Ending: t.Ending, FadeOut: t.FadeOut, Err: t.AnalyzeErr}
+	}
 	l, err := s.media.Analyze(ctx, t.Path)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -394,5 +403,89 @@ func (s *Service) AnalyzeTrack(ctx context.Context, t domain.Track) (a domain.An
 	if err := s.tracks.SetAnalysis(ctx, t.ID, a); err != nil {
 		s.log.Error("analizador: guardar", "track", t.ID, "err", err)
 	}
+	if a.Err == "" && !t.TempoDone {
+		s.analyzeTempo(ctx, t, a.Loudness)
+	}
 	return a
+}
+
+// TempoSource decodifica un tramo a mono (lo cumple ffmpeg.Tools; si el Media
+// del servicio no lo implementa, no se estima el tempo).
+type TempoSource interface {
+	DecodeMono(ctx context.Context, path string, start, dur time.Duration, rate int) ([]float32, error)
+}
+
+// analyzeTempo estima el tempo con 60 s del medio de la pista (las intros y
+// finales engañan) y la energía si no tenía. Siempre marca el intento.
+func (s *Service) analyzeTempo(ctx context.Context, t domain.Track, loudness float64) {
+	bpm := 0.0
+	if src, ok := s.media.(TempoSource); ok && t.Duration >= 30*time.Second {
+		start := max(t.Duration/2-30*time.Second, 0)
+		if pcm, err := src.DecodeMono(ctx, t.Path, start, 60*time.Second, TempoRate); err == nil {
+			bpm = EstimateBPM(pcm, TempoRate)
+		} else if ctx.Err() != nil {
+			return
+		}
+	}
+	energy := 0
+	if bpm > 0 {
+		energy = EnergyFrom(bpm, loudness)
+	}
+	if err := s.tracks.SetTempo(ctx, t.ID, bpm, energy); err != nil {
+		s.log.Error("analizador: guardar tempo", "track", t.ID, "err", err)
+	}
+}
+
+// SetAttributes aplica atributos a todas las pistas del filtro (edición masiva).
+func (s *Service) SetAttributes(ctx context.Context, f domain.TrackFilter, a domain.TrackAttributes) (int, error) {
+	if a.Energy < 0 || a.Energy > 5 {
+		return 0, domain.Invalid("energy", "La energía va de 1 a 5")
+	}
+	f.Limit, f.Offset = 5000, 0
+	list, _, err := s.tracks.List(ctx, f)
+	if err != nil {
+		return 0, err
+	}
+	ids := make([]int64, 0, len(list))
+	for _, t := range list {
+		ids = append(ids, t.ID)
+	}
+	return s.tracks.SetAttributes(ctx, ids, a)
+}
+
+// EnsureCategory devuelve la categoría con ese nombre o la crea con ese tipo.
+func (s *Service) EnsureCategory(ctx context.Context, name string, kind domain.CategoryKind) (int64, error) {
+	cats, err := s.cats.List(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, c := range cats {
+		if strings.EqualFold(c.Name, name) {
+			return c.ID, nil
+		}
+	}
+	c := &domain.Category{Name: name, Kind: kind, Color: "#7a5cff"}
+	if err := s.cats.Create(ctx, c); err != nil {
+		return 0, err
+	}
+	return c.ID, nil
+}
+
+// ImportFile agrega (o actualiza) un archivo suelto a la biblioteca y despierta
+// al analizador. Devuelve la pista.
+func (s *Service) ImportFile(ctx context.Context, path string, categoryID int64) (*domain.Track, error) {
+	info, err := s.media.Probe(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("leer %s: %w", filepath.Base(path), err)
+	}
+	t := &domain.Track{Path: path, Title: info.Title, Artist: info.Artist, Album: info.Album, Genre: info.Genre,
+		Year: info.Year, CategoryID: categoryID, Duration: info.Duration, Active: true}
+	if t.Title == "" {
+		t.Artist, t.Title = domain.TitleFromFilename(path)
+	}
+	if _, err := s.tracks.Upsert(ctx, t); err != nil {
+		return nil, err
+	}
+	s.WakeAnalyzer()
+	return s.tracks.Get(ctx, t.ID)
 }

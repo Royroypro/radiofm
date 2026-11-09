@@ -2,6 +2,16 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.3.0 — programación musical y voice tracking
+
+- **Atributos por canción**: BPM (estimado solo al analizar), energía 1–5 (estimada; corregible), voz,
+  idioma, ánimo, género y año. Se editan en la Biblioteca o **en lote** para todo el filtro.
+- **Reglas de flujo** en la rotación (Ajustes → Rotación): no dos voces femeninas/masculinas seguidas,
+  salto máximo de energía y de tempo, máximo seguidas del mismo género o década. Si ninguna canción cumple,
+  se relajan de la menos a la más importante y queda anotado en la playlist.
+- **Voice tracking**: nueva pantalla para grabar la intervención del locutor entre dos canciones (sin salir
+  al aire), escuchar la transición y dejarla bloqueada en la playlist.
+
 ## 1.2.0 — publicidad profesional (tráfico)
 
 Requiere el panel web con campañas (migración 0005 del servidor).

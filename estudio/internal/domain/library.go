@@ -107,6 +107,14 @@ type Track struct {
 	// volver a analizar no los pisa (solo actualiza sonoridad y forma de onda).
 	MarksManual bool `json:"marks_manual"`
 
+	// Atributos musicales (reglas de flujo de la rotación). 0 / "" = sin dato.
+	BPM       float64 `json:"bpm"`        // tempo (estimado en el análisis; corregible)
+	Energy    int     `json:"energy"`     // 1 calma … 5 muy movida (estimada; corregible)
+	Voice     string  `json:"voice"`      // male | female | group | instrumental
+	Language  string  `json:"language"`   // es, en, pt… (texto libre corto)
+	Mood      string  `json:"mood"`       // ánimo (texto libre: alegre, romántica, nostálgica…)
+	TempoDone bool    `json:"tempo_done"` // ya se intentó estimar el tempo
+
 	Missing      bool       `json:"missing"` // el archivo ya no está
 	LastPlayedAt *time.Time `json:"last_played_at"`
 	PlayCount    int        `json:"play_count"`
@@ -213,6 +221,20 @@ type TrackRepository interface {
 	SetMissing(ctx context.Context, id int64, missing bool) error
 	ByCategory(ctx context.Context, categoryID int64) ([]Track, error)
 	CountByCategory(ctx context.Context) (map[int64]int, error)
+	// SetTempo guarda el tempo estimado (y la energía si no tenía) y marca el intento.
+	SetTempo(ctx context.Context, id int64, bpm float64, energy int) error
+	// SetAttributes aplica a varias pistas los atributos no vacíos de a (edición masiva).
+	SetAttributes(ctx context.Context, ids []int64, a TrackAttributes) (int, error)
+}
+
+// TrackAttributes son los atributos de una edición masiva (los vacíos no se tocan).
+type TrackAttributes struct {
+	Genre    string `json:"genre"`
+	Year     string `json:"year"`
+	Energy   int    `json:"energy"`
+	Voice    string `json:"voice"`
+	Language string `json:"language"`
+	Mood     string `json:"mood"`
 }
 
 // CategoryRepository persiste las categorías.

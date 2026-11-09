@@ -18,8 +18,23 @@ import (
 // http.ServeFile atiende rangos: el editor puede saltar a cualquier punto.
 func (a *App) PreviewHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		// /preview/take/{archivo}: una toma de voice tracking (solo de su carpeta)
+		if file, ok := strings.CutPrefix(r.URL.Path, "/preview/take/"); ok && a.core != nil {
+			p, err := a.core.Voice.TakePath(file)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeFile(w, r, p)
+			return
+		}
 		idStr, ok := strings.CutPrefix(r.URL.Path, "/preview/track/")
-		if !ok || r.Method != http.MethodGet {
+		if !ok {
 			http.NotFound(w, r)
 			return
 		}

@@ -95,20 +95,22 @@ func NewTrackRepo(db *sql.DB) *TrackRepo { return &TrackRepo{db: db} }
 
 const trackCols = `id, path, title, artist, album, genre, year, category_id, duration_ms, active, valid_from, valid_to,
 	analyzed, loudness, gain_db, cue_in_ms, cue_out_ms, segue_ms, intro_ms, analyze_err, missing, last_played_at,
-	play_count, created_at, envelope, ending, fade_out_ms, marks_manual`
+	play_count, created_at, envelope, ending, fade_out_ms, marks_manual, bpm, energy, voice, language, mood, tempo_done`
 
 func scanTrack(r rowScanner) (*domain.Track, error) {
 	var t domain.Track
 	var durMs, cueIn, cueOut, segue, intro, fadeOut int64
-	var active, analyzed, missing, manual int
+	var active, analyzed, missing, manual, tempoDone int
 	var ending string
 	var from, to, last sql.NullString
 	var created string
 	if err := r.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.Genre, &t.Year, &t.CategoryID, &durMs, &active,
 		&from, &to, &analyzed, &t.Loudness, &t.GainDB, &cueIn, &cueOut, &segue, &intro, &t.AnalyzeErr, &missing, &last,
-		&t.PlayCount, &created, &t.Envelope, &ending, &fadeOut, &manual); err != nil {
+		&t.PlayCount, &created, &t.Envelope, &ending, &fadeOut, &manual, &t.BPM, &t.Energy, &t.Voice, &t.Language, &t.Mood,
+		&tempoDone); err != nil {
 		return nil, err
 	}
+	t.TempoDone = tempoDone == 1
 	t.Ending, t.FadeOut, t.MarksManual = domain.Ending(ending), dur(fadeOut), manual == 1
 	t.Duration, t.CueIn, t.CueOut, t.SegueAt, t.Intro = dur(durMs), dur(cueIn), dur(cueOut), dur(segue), dur(intro)
 	t.Active, t.Analyzed, t.Missing = active == 1, analyzed == 1, missing == 1
@@ -207,9 +209,9 @@ func (r *TrackRepo) List(ctx context.Context, f domain.TrackFilter) ([]domain.Tr
 func (r *TrackRepo) Update(ctx context.Context, t *domain.Track) error {
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET title=?, artist=?, album=?, genre=?, year=?,
 		category_id=?, active=?, valid_from=?, valid_to=?, gain_db=?, cue_in_ms=?, cue_out_ms=?, segue_ms=?, intro_ms=?,
-		marks_manual=? WHERE id=?`,
+		marks_manual=?, bpm=?, energy=?, voice=?, language=?, mood=? WHERE id=?`,
 		t.Title, t.Artist, t.Album, t.Genre, t.Year, t.CategoryID, b2i(t.Active), fmtTimePtr(t.ValidFrom),
-		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), b2i(t.MarksManual), t.ID))
+		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), b2i(t.MarksManual), t.BPM, t.Energy, t.Voice, t.Language, t.Mood, t.ID))
 }
 
 // Delete borra una pista de la biblioteca (no el archivo).
@@ -219,7 +221,7 @@ func (r *TrackRepo) Delete(ctx context.Context, id int64) error {
 
 // PendingAnalysis devuelve pistas sin analizar.
 func (r *TrackRepo) PendingAnalysis(ctx context.Context, limit int) ([]domain.Track, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+trackCols+` FROM tracks WHERE analyzed=0 AND missing=0 ORDER BY id LIMIT ?`, limit)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+trackCols+` FROM tracks WHERE (analyzed=0 OR tempo_done=0) AND missing=0 ORDER BY analyzed, id LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -340,4 +342,59 @@ func (r *PlayRepo) Since(ctx context.Context, since time.Time) ([]domain.Play, e
 func (r *PlayRepo) Between(ctx context.Context, from, to time.Time) ([]domain.Play, error) {
 	return r.query(ctx, `SELECT `+playCols+` FROM plays WHERE started_at >= ? AND started_at < ? ORDER BY started_at`,
 		fmtTime(from), fmtTime(to))
+}
+
+// SetTempo guarda el tempo estimado; la energía solo si la pista no tenía.
+func (r *TrackRepo) SetTempo(ctx context.Context, id int64, bpm float64, energy int) error {
+	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET tempo_done=1,
+		bpm=CASE WHEN bpm > 0 THEN bpm ELSE ? END,
+		energy=CASE WHEN energy > 0 THEN energy ELSE ? END WHERE id=?`, bpm, energy, id))
+}
+
+// SetAttributes aplica los atributos no vacíos a varias pistas (en una transacción).
+func (r *TrackRepo) SetAttributes(ctx context.Context, ids []int64, a domain.TrackAttributes) (int, error) {
+	var sets []string
+	var args []any
+	add := func(col string, v any) { sets, args = append(sets, col+"=?"), append(args, v) }
+	if a.Genre != "" {
+		add("genre", a.Genre)
+	}
+	if a.Year != "" {
+		add("year", a.Year)
+	}
+	if a.Energy > 0 {
+		add("energy", a.Energy)
+	}
+	if a.Voice != "" {
+		add("voice", a.Voice)
+	}
+	if a.Language != "" {
+		add("language", a.Language)
+	}
+	if a.Mood != "" {
+		add("mood", a.Mood)
+	}
+	if len(sets) == 0 || len(ids) == 0 {
+		return 0, nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	stmt, err := tx.PrepareContext(ctx, `UPDATE tracks SET `+strings.Join(sets, ", ")+` WHERE id=?`)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	n := 0
+	for _, id := range ids {
+		res, err := stmt.ExecContext(ctx, append(append([]any(nil), args...), id)...)
+		if err != nil {
+			return 0, err
+		}
+		k, _ := res.RowsAffected()
+		n += int(k)
+	}
+	return n, tx.Commit()
 }

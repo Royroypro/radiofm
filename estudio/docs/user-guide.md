@@ -3,7 +3,7 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25peru.com/uploads/estudio/app/1.2.0/club25-estudio-amd64-installer.exe`
+   `https://radioclub25peru.com/uploads/estudio/app/1.3.0/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
@@ -49,6 +49,13 @@ Desinstalar no los borra.
 - **Biblioteca → una pista**: en la forma de onda arrastre las marcas (cue-in verde, intro amarilla, mezcla
   naranja, cue-out roja). Clic en la onda para escuchar desde ahí por los audífonos de la PC. Para probar
   cómo pasa a otra canción, elíjala en «Probar transición con…».
+
+## Voice tracking (1.3)
+
+1. **Voice tracking** → elija el día y pulse **＋ Locución después** en la canción tras la que va a hablar.
+2. **● Grabar**, hable, **■ Detener**. Con **▶ Escuchar la transición** oye cómo queda (por los audífonos).
+3. Ajuste cuántos segundos antes del final de su voz entra la siguiente canción y pulse **Guardar en la
+   playlist**. Queda bloqueada: regenerar el día no la borra.
 
 ## Si algo falla
 

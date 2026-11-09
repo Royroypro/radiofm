@@ -1,7 +1,9 @@
 package rotation
 
 import (
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -13,10 +15,18 @@ import (
 	"radioclub25/estudio/internal/domain"
 )
 
-// Rules son las separaciones mínimas.
+// Rules son las separaciones mínimas y las reglas de flujo. Un valor cero
+// desactiva la regla. Las de flujo solo miran pistas con el atributo cargado.
 type Rules struct {
 	ArtistSeparation time.Duration // no repetir un intérprete antes de esto
 	TitleSeparation  time.Duration // no repetir una canción antes de esto
+
+	// Flujo (atributos de la pista; ver domain.Track):
+	NoSameVoice   bool    // no dos voces femeninas (o masculinas) seguidas
+	MaxEnergyJump int     // salto máximo de energía entre canciones seguidas (1–4)
+	MaxTempoJump  float64 // salto máximo de tempo entre canciones seguidas, en %
+	MaxGenreRun   int     // máximo de canciones seguidas del mismo género
+	MaxEraRun     int     // máximo de canciones seguidas de la misma década
 }
 
 // Use es un uso pasado o planificado de una pista (historial + lo ya programado).
@@ -52,17 +62,36 @@ type Result struct {
 	OK      bool
 }
 
-// Pick elige la siguiente pista entre cands para sonar en at.
+// Pick es PickFlow conociendo solo el intérprete anterior.
+func Pick(cands []domain.Track, history []Use, prevArtist string, at time.Time, r Rules) Result {
+	var recent []domain.Track
+	if prevArtist != "" {
+		recent = []domain.Track{{Artist: prevArtist}}
+	}
+	return PickFlow(cands, history, recent, at, r)
+}
+
+// PickFlow elige la siguiente pista entre cands para sonar en at.
 //
 // Orden de preferencia: la menos reciente (según history y LastPlayedAt; las
-// nunca usadas primero). Niveles:
-//  1. todas las reglas: separación de título, de artista y distinto intérprete que el slot anterior;
-//  2. sin separación de artista (mantiene título e intérprete anterior);
-//  3. sin separación de título ni de artista (mantiene intérprete anterior);
-//  4. cualquiera disponible (la menos reciente).
+// nunca usadas primero). Las reglas, de la más a la menos importante:
 //
-// prevArtist es el intérprete del elemento anterior de la playlist. Determinista.
-func Pick(cands []domain.Track, history []Use, prevArtist string, at time.Time, r Rules) Result {
+//	distinto intérprete que la anterior · separación de título · separación de artista ·
+//	voz · salto de energía · salto de tempo · racha de género · racha de década
+//
+// Si ninguna candidata las cumple todas, se relajan de a una empezando por la
+// menos importante (las desactivadas no cuentan); al final, cualquiera
+// disponible. Result.Relaxed dice qué se relajó.
+//
+// recent son las pistas anteriores de la playlist (la última es la inmediata
+// anterior). Determinista.
+func PickFlow(cands []domain.Track, history []Use, recent []domain.Track, at time.Time, r Rules) Result {
+	prevArtist := ""
+	var last *domain.Track
+	if len(recent) > 0 {
+		last = &recent[len(recent)-1]
+		prevArtist = last.Artist
+	}
 	lastTrack := map[int64]time.Time{}
 	lastTitle := map[string]time.Time{}
 	lastArtist := map[string]time.Time{}
@@ -133,23 +162,107 @@ func Pick(cands []domain.Track, history []Use, prevArtist string, at time.Time, 
 		}
 		return true
 	}
-	levels := []struct {
-		note string
+	type rule struct {
+		name string
 		ok   func(cand) bool
-	}{
-		{"", func(c cand) bool { return titleOK(c) && artistOK(c) && !sameAsPrev(c) }},
-		{"separación de artista", func(c cand) bool { return titleOK(c) && !sameAsPrev(c) }},
-		{"separación de título y artista", func(c cand) bool { return !sameAsPrev(c) }},
-		{"todas las reglas", func(cand) bool { return true }},
 	}
-	for _, lv := range levels {
+	rules := []rule{
+		{"intérprete anterior", func(c cand) bool { return !sameAsPrev(c) }},
+		{"separación de título", titleOK},
+		{"separación de artista", artistOK},
+	}
+	if last != nil {
+		if r.NoSameVoice {
+			rules = append(rules, rule{"voz", func(c cand) bool { return !sameVoice(c.t.Voice, last.Voice) }})
+		}
+		if r.MaxEnergyJump > 0 {
+			rules = append(rules, rule{"energía", func(c cand) bool {
+				return c.t.Energy == 0 || last.Energy == 0 || abs(c.t.Energy-last.Energy) <= r.MaxEnergyJump
+			}})
+		}
+		if r.MaxTempoJump > 0 {
+			rules = append(rules, rule{"tempo", func(c cand) bool {
+				return c.t.BPM <= 0 || last.BPM <= 0 || math.Abs(c.t.BPM-last.BPM)/last.BPM*100 <= r.MaxTempoJump
+			}})
+		}
+		if r.MaxGenreRun > 0 {
+			rules = append(rules, rule{"racha de género", func(c cand) bool {
+				return run(recent, c.t, func(t domain.Track) string { return strings.TrimSpace(normalize(t.Genre)) }) < r.MaxGenreRun
+			}})
+		}
+		if r.MaxEraRun > 0 {
+			rules = append(rules, rule{"racha de década", func(c cand) bool { return run(recent, c.t, decade) < r.MaxEraRun }})
+		}
+	}
+	// nivel k: se exigen las primeras len(rules)−k reglas
+	for k := 0; k <= len(rules); k++ {
+		active := rules[:len(rules)-k]
 		for _, c := range pool {
-			if lv.ok(c) {
-				return Result{Track: c.t, Relaxed: lv.note, OK: true}
+			ok := true
+			for _, ru := range active {
+				if !ru.ok(c) {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				var dropped []string
+				for _, ru := range rules[len(rules)-k:] {
+					dropped = append(dropped, ru.name)
+				}
+				return Result{Track: c.t, Relaxed: relaxedNote(dropped, len(rules)), OK: true}
 			}
 		}
 	}
 	return Result{}
+}
+
+// relaxedNote describe las reglas relajadas: "" si ninguna, "todas las reglas"
+// si no quedó ninguna, o sus nombres de la más a la menos importante.
+func relaxedNote(dropped []string, total int) string {
+	switch {
+	case len(dropped) == 0:
+		return ""
+	case len(dropped) == total:
+		return "todas las reglas"
+	}
+	return strings.Join(dropped, ", ")
+}
+
+// sameVoice: dos voces femeninas o dos masculinas seguidas.
+func sameVoice(a, b string) bool { return a == b && (a == "female" || a == "male") }
+
+// run cuenta cuántas pistas seguidas al final de recent tienen la misma clave que t
+// (clave vacía = sin dato: no cuenta).
+func run(recent []domain.Track, t domain.Track, key func(domain.Track) string) int {
+	k := key(t)
+	if k == "" {
+		return 0
+	}
+	n := 0
+	for i := len(recent) - 1; i >= 0 && key(recent[i]) == k; i-- {
+		n++
+	}
+	return n
+}
+
+// decade devuelve la década del año de la pista ("1990") o "" si no hay año.
+func decade(t domain.Track) string {
+	y := strings.TrimSpace(t.Year)
+	if len(y) < 4 {
+		return ""
+	}
+	if _, err := strconv.Atoi(y[:4]); err != nil {
+		return ""
+	}
+	return y[:3] + "0"
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // Artists separa los intérpretes de un campo de artista ("A feat. B & C" → [a b c]),

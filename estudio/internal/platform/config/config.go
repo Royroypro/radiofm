@@ -78,6 +78,12 @@ type StationSettings struct {
 type RotationSettings struct {
 	ArtistSeparationMin  int `json:"artist_separation_min"`
 	TitleSeparationHours int `json:"title_separation_hours"`
+	// Reglas de flujo (0 / false = desactivada); ver service/rotation.
+	NoSameVoice     bool `json:"no_same_voice"`      // no dos voces femeninas (o masculinas) seguidas
+	MaxEnergyJump   int  `json:"max_energy_jump"`    // salto máximo de energía (1–4)
+	MaxTempoJumpPct int  `json:"max_tempo_jump_pct"` // salto máximo de tempo en %
+	MaxGenreRun     int  `json:"max_genre_run"`      // máximo seguidas del mismo género
+	MaxEraRun       int  `json:"max_era_run"`        // máximo seguidas de la misma década
 }
 
 // LocutionSettings: archivos de hora y temperatura locutadas.
@@ -141,7 +147,7 @@ func Defaults() Settings {
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
 		Server:    ServerSettings{URL: ServerURL},
 		Station:   StationSettings{Name: "Radio Club 25", City: "Huacho", Timezone: "America/Lima", Latitude: -11.1067, Longitude: -77.6050},
-		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3},
+		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3, MaxEnergyJump: 2, MaxGenreRun: 3},
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},
 		Safety:    SafetySettings{SilenceSeconds: 15, StartPlaying: true},
 		Schedule:  ScheduleSettings{DaysAhead: 1, FillToleranceMs: 30000},
@@ -256,6 +262,9 @@ func (c Settings) Validate() error {
 		return errors.New("la fuente de Icecast debe ser bus o capture")
 	case c.Icecast.Format != "mp3" && c.Icecast.Format != "aac":
 		return errors.New("el formato debe ser mp3 o aac")
+	case c.Rotation.MaxEnergyJump < 0 || c.Rotation.MaxEnergyJump > 4 || c.Rotation.MaxTempoJumpPct < 0 ||
+		c.Rotation.MaxGenreRun < 0 || c.Rotation.MaxEraRun < 0:
+		return errors.New("reglas de flujo fuera de rango")
 	case c.Rotation.ArtistSeparationMin < 0 || c.Rotation.TitleSeparationHours < 0:
 		return errors.New("las separaciones no pueden ser negativas")
 	case c.Safety.SilenceSeconds < 0:

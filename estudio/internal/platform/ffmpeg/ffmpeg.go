@@ -3,9 +3,11 @@ package ffmpeg
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,3 +174,28 @@ func (l *limitedBuffer) Bytes() []byte {
 }
 
 func (l *limitedBuffer) String() string { return string(l.Bytes()) }
+
+// DecodeMono decodifica dur desde start de path a PCM float32 mono a rate Hz y
+// lo devuelve entero en memoria (para análisis cortos, p. ej. estimar el tempo).
+func (t Tools) DecodeMono(ctx context.Context, path string, start, dur time.Duration, rate int) ([]float32, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
+	if start > 0 {
+		args = append(args, "-ss", strconv.FormatFloat(start.Seconds(), 'f', 3, 64))
+	}
+	args = append(args, "-i", path, "-vn", "-t", strconv.FormatFloat(dur.Seconds(), 'f', 3, 64),
+		"-ac", "1", "-ar", strconv.Itoa(rate), "-f", "f32le", "pipe:1")
+	cmd := command(ctx, t.FFmpeg, args...)
+	stderr := &limitedBuffer{max: 4096}
+	cmd.Stderr = stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("ffmpeg: decodificar %s: %w %s", path, err, stderr.String())
+	}
+	samples := make([]float32, len(out)/4)
+	for i := range samples {
+		samples[i] = math.Float32frombits(binary.LittleEndian.Uint32(out[i*4:]))
+	}
+	return samples, nil
+}

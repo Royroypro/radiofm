@@ -42,6 +42,7 @@ type generator struct {
 	items      []domain.LogItem
 	history    []rotation.Use
 	prevArtist string
+	lastTracks []domain.Track // últimas pistas programadas (para las reglas de flujo)
 }
 
 // Generate arma la playlist de un día hora por hora según los relojes.
@@ -141,7 +142,7 @@ func (g *generator) item(h int, s domain.ClockSlot, at time.Time) (domain.LogIte
 	it := domain.LogItem{Hour: h, Kind: s.Kind, At: at, Status: domain.LogPending}
 	switch s.Kind {
 	case domain.SlotCategory:
-		r := rotation.Pick(g.p.ByCategory[s.CategoryID], g.recent(at), g.prevArtist, at, g.cfg.Rules)
+		r := rotation.PickFlow(g.p.ByCategory[s.CategoryID], g.recent(at), g.recentTracks(), at, g.cfg.Rules)
 		if !r.OK {
 			return it, false
 		}
@@ -194,6 +195,27 @@ func (g *generator) setTrack(it *domain.LogItem, t domain.Track, at time.Time) {
 	if t.Artist != "" {
 		g.prevArtist = t.Artist
 	}
+	g.lastTracks = append(g.lastTracks, t)
+	if len(g.lastTracks) > 8 {
+		g.lastTracks = g.lastTracks[len(g.lastTracks)-8:]
+	}
+}
+
+// recentTracks son las pistas anteriores para las reglas de flujo; la última
+// lleva el intérprete anterior (aunque haya sido una pista fija sin artista,
+// se mantiene el último intérprete conocido, como antes).
+func (g *generator) recentTracks() []domain.Track {
+	if len(g.lastTracks) == 0 {
+		if g.prevArtist == "" {
+			return nil
+		}
+		return []domain.Track{{Artist: g.prevArtist}}
+	}
+	out := append([]domain.Track(nil), g.lastTracks...)
+	if out[len(out)-1].Artist == "" {
+		out[len(out)-1].Artist = g.prevArtist
+	}
+	return out
 }
 
 // recent devuelve los usos que pueden afectar a una elección en at: los de la

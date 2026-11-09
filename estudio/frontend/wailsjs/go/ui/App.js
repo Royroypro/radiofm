@@ -226,6 +226,10 @@ export function SetTimeAnnounce(arg1) {
   return window['go']['ui']['App']['SetTimeAnnounce'](arg1);
 }
 
+export function SetTrackAttributes(arg1, arg2) {
+  return window['go']['ui']['App']['SetTrackAttributes'](arg1, arg2);
+}
+
 export function Settings() {
   return window['go']['ui']['App']['Settings']();
 }
@@ -266,6 +270,10 @@ export function ToolsStatus() {
   return window['go']['ui']['App']['ToolsStatus']();
 }
 
+export function TrackByID(arg1) {
+  return window['go']['ui']['App']['TrackByID'](arg1);
+}
+
 export function Tracks(arg1) {
   return window['go']['ui']['App']['Tracks'](arg1);
 }
@@ -276,4 +284,24 @@ export function TriggerCart(arg1, arg2) {
 
 export function UpdateTrack(arg1) {
   return window['go']['ui']['App']['UpdateTrack'](arg1);
+}
+
+export function VTDiscard(arg1) {
+  return window['go']['ui']['App']['VTDiscard'](arg1);
+}
+
+export function VTSave(arg1, arg2, arg3, arg4) {
+  return window['go']['ui']['App']['VTSave'](arg1, arg2, arg3, arg4);
+}
+
+export function VTStart() {
+  return window['go']['ui']['App']['VTStart']();
+}
+
+export function VTStatus() {
+  return window['go']['ui']['App']['VTStatus']();
+}
+
+export function VTStop() {
+  return window['go']['ui']['App']['VTStop']();
 }
