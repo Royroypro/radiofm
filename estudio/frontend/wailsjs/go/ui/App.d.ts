@@ -113,6 +113,8 @@ export function SetMic(arg1:boolean):Promise<void>;
 
 export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
 
+export function SetTimeAnnounce(arg1:boolean):Promise<void>;
+
 export function Settings():Promise<config.Settings>;
 
 export function SlotKinds():Promise<Array<domain.SlotKind>>;

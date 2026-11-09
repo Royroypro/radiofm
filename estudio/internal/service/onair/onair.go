@@ -39,6 +39,9 @@ type Deps struct {
 	Options     func() Options
 	Logger      *slog.Logger
 	Now         func() time.Time // nil = time.Now
+	// Exists dice si el archivo de audio está en el disco (nil = no se comprueba).
+	// Las cuñas sin archivo se sacan de la tanda antes de empezarla.
+	Exists func(path string) bool
 }
 
 // LogSource es la playlist (scheduler.Service).
@@ -64,6 +67,9 @@ type Options struct {
 	Crossfade time.Duration
 	HardFade  time.Duration
 	Emergency int64 // categoría de emergencia (0 = ninguna)
+	// TimeAnnounce: interruptor «Hora locutada» de Al aire. Apagado, los
+	// elementos de hora locutada se saltan sin sonar.
+	TimeAnnounce bool
 }
 
 // Hooks avisan a otros servicios (sincronización, metadata de Icecast).
@@ -97,19 +103,20 @@ type Service struct {
 	cmds  chan cmd
 
 	// estado del goroutine Run
-	running    bool
-	mode       domain.StudioMode
-	current    *active   // lo que suena en un deck (el último arrancado)
-	fading     []*active // lo que se está fundiendo
-	queue      []Segment // segmentos restantes del elemento en curso
-	waiting    bool      // asistido: terminó y espera al operador
-	stopAfter  bool      // parar al terminar lo que suena (botón "Parar tras actual")
-	silenceAt  time.Time // fin de un segmento de silencio
-	silenceSeg Segment
-	upcoming   []domain.LogItem
-	upAt       time.Time
-	itemID     int64 // elemento de la playlist en curso
-	carts      *cartDeck
+	running     bool
+	mode        domain.StudioMode
+	current     *active   // lo que suena en un deck (el último arrancado)
+	fading      []*active // lo que se está fundiendo
+	queue       []Segment // segmentos restantes del elemento en curso
+	waiting     bool      // asistido: terminó y espera al operador
+	stopAfter   bool      // parar al terminar lo que suena (botón "Parar tras actual")
+	silenceAt   time.Time // fin de un segmento de silencio
+	silenceSeg  Segment
+	upcoming    []domain.LogItem
+	upAt        time.Time
+	itemID      int64 // elemento de la playlist en curso
+	itemSounded bool  // algo del elemento en curso llegó a sonar
+	carts       *cartDeck
 
 	mu   sync.Mutex
 	snap Snapshot
@@ -373,6 +380,7 @@ func (s *Service) advanceOpt(ctx context.Context, crossfade, force bool) {
 			if s.startSegment(ctx, seg, fade) {
 				return
 			}
+			s.segmentFailed(ctx, seg)
 			continue
 		}
 		s.itemID = 0 // el elemento anterior se marca emitido cuando termina su último segmento
@@ -437,7 +445,7 @@ func (s *Service) startItem(ctx context.Context, it domain.LogItem, fade time.Du
 		s.itemID = 0
 		return false
 	}
-	s.itemID = it.ID
+	s.itemID, s.itemSounded = it.ID, false
 	_ = s.d.Log.SetStatus(ctx, it.ID, domain.LogPlaying)
 	s.markLocal(it.ID, domain.LogPlaying)
 	s.queue = segs
@@ -447,8 +455,28 @@ func (s *Service) startItem(ctx context.Context, it domain.LogItem, fade time.Du
 		if s.startSegment(ctx, seg, fade) {
 			return true
 		}
+		s.segmentFailed(ctx, seg)
 	}
 	return false
+}
+
+// segmentFailed cierra el elemento si el segmento que no pudo sonar era el
+// último: emitido si algo de él sonó, saltado si nada. Así un elemento sin
+// audio (cuña sin archivo, locución que no abre) nunca queda «sonando» y la
+// playlist sigue.
+func (s *Service) segmentFailed(ctx context.Context, seg Segment) {
+	if seg.Mode != "" || !seg.Last || seg.ItemID == 0 {
+		return // el cambio de modo ya cerró su elemento
+	}
+	if s.itemSounded {
+		s.itemDone(ctx, seg.ItemID)
+	} else {
+		_ = s.d.Log.SetStatus(ctx, seg.ItemID, domain.LogSkipped)
+		s.markLocal(seg.ItemID, domain.LogSkipped)
+	}
+	if s.itemID == seg.ItemID {
+		s.itemID = 0
+	}
 }
 
 // startSegment carga un segmento en el deck libre y lo hace sonar; funde lo anterior.
@@ -495,6 +523,9 @@ func (s *Service) startSegment(ctx context.Context, seg Segment, fade time.Durat
 	}
 	_ = s.d.Engine.Play(slot, 0)
 	s.current = a
+	if seg.ItemID == s.itemID {
+		s.itemSounded = true
+	}
 	s.silenceAt = time.Time{}
 	if s.hooks.OnSegment != nil {
 		s.hooks.OnSegment(seg)
@@ -597,7 +628,8 @@ func (s *Service) expander(ctx context.Context) *expander {
 			kinds[c.ID] = c.Kind
 		}
 	}
-	return &expander{d: s.d, crossfade: s.d.Options().Crossfade, kinds: kinds}
+	o := s.d.Options()
+	return &expander{d: s.d, crossfade: o.Crossfade, kinds: kinds, timeOn: o.TimeAnnounce}
 }
 
 // itemDone marca un elemento de la playlist como emitido (al terminar su último segmento).

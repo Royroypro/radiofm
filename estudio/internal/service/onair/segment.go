@@ -13,8 +13,8 @@ import (
 // elemento de la playlist se expande en uno o varios segmentos:
 //
 //	canción/pista fija → 1 segmento (con crossfade en su punto de mezcla)
-//	tanda              → cortina + cuñas + cortina (sin solape)
-//	hora locutada      → HRShh + MINmm
+//	tanda              → cortina + cuñas + cortina (sin solape; las cuñas sin audio se saltan)
+//	hora locutada      → HRShh + MINmm (nada si está apagada o falta la locución)
 //	temperatura        → TMPxx (se omite si no hay dato)
 //	silencio           → espera de N segundos sin audio
 //	cambio de modo     → ningún audio (se aplica el modo)
@@ -57,6 +57,15 @@ type expander struct {
 	d         Deps
 	crossfade time.Duration
 	kinds     map[int64]domain.CategoryKind
+	timeOn    bool // interruptor «Hora locutada»
+}
+
+// exists dice si el archivo de audio está disponible.
+func (x *expander) exists(path string) bool {
+	if path == "" {
+		return false
+	}
+	return x.d.Exists == nil || x.d.Exists(path)
 }
 
 func (x *expander) trackSegment(t domain.Track) Segment {
@@ -91,6 +100,17 @@ func (x *expander) expand(ctx context.Context, it domain.LogItem) ([]Segment, []
 		if err != nil {
 			warn = append(warn, "tanda: "+err.Error())
 		}
+		// Las cuñas sin audio (no descargadas o borradas del disco) se saltan; si
+		// no queda ninguna, la tanda entera se salta (sin cortinas sueltas).
+		ok := spots[:0:0]
+		for _, s := range spots {
+			if x.exists(s.Path) {
+				ok = append(ok, s)
+			} else {
+				warn = append(warn, fmt.Sprintf("cuña «%s» de %s sin audio: se salta", s.Name, s.Advertiser))
+			}
+		}
+		spots = ok
 		if len(spots) == 0 {
 			break
 		}
@@ -106,9 +126,12 @@ func (x *expander) expand(ctx context.Context, it domain.LogItem) ([]Segment, []
 			segs = append(segs, *cortina)
 		}
 	case domain.SlotTime:
+		if !x.timeOn {
+			break // interruptor «Hora locutada» apagado en Al aire: se salta sin aviso
+		}
 		files, err := x.d.Voice().Time(it.At.In(x.d.Location()))
 		if err != nil {
-			warn = append(warn, "hora locutada: "+err.Error())
+			warn = append(warn, "hora locutada sin audio, se salta: "+err.Error())
 			break
 		}
 		for _, f := range files {

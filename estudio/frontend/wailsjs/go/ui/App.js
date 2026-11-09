@@ -206,6 +206,10 @@ export function SetServerConnection(arg1, arg2) {
   return window['go']['ui']['App']['SetServerConnection'](arg1, arg2);
 }
 
+export function SetTimeAnnounce(arg1) {
+  return window['go']['ui']['App']['SetTimeAnnounce'](arg1);
+}
+
 export function Settings() {
   return window['go']['ui']['App']['Settings']();
 }

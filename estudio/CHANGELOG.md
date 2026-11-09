@@ -2,6 +2,16 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.6 — lo que no tiene audio ya no traba el aire
+
+- Interruptor **Hora: sí / no** en Al aire. Apagado, la hora locutada de la playlist se salta sin
+  sonar. Encendido y sin locución para esa hora, también se salta (con un aviso en «Problemas»).
+- Las cuñas sin audio (no descargadas del panel o borradas del disco) se sacan de la tanda antes de
+  empezarla, con un aviso por cada una. Si la tanda se queda sin cuñas, se salta entera (sin
+  cortinas sueltas).
+- Un elemento cuyo audio no se puede abrir (archivo dañado, locución que no abre) queda «saltado» y
+  la playlist sigue. Antes quedaba como «sonando» para siempre y la pantalla parecía trabada.
+
 ## 1.0.5 — el aire no espera en silencio
 
 - Si lo siguiente es un evento duro que todavía no llega (p. ej. la tanda de las 19:30) y no queda

@@ -11,7 +11,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import {
-    OnAirStart, OnAirStop, OnAirMode, OnAirStopAfter, StopCarts, Carts, History, Categories, Tracks,
+    OnAirStart, OnAirStop, OnAirMode, OnAirStopAfter, SetTimeAnnounce, StopCarts, Carts, History, Categories, Tracks,
     InsertLogTrack, RemoveLogItem,
   } from '../../wailsjs/go/ui/App'
   import { domain, type ui } from '../../wailsjs/go/models'
@@ -166,6 +166,9 @@
         <button class="tbtn go" onclick={() => run(OnAirStart)}><span class="ico">▶</span>Iniciar</button>
       {/if}
       <button class="tbtn" class:on={air?.stop_after} onclick={() => run(OnAirStopAfter)} title="Parar al terminar lo que suena"><span class="ico">⏯</span>Parar tras</button>
+      <button class="tbtn" class:on={v?.time_announce} onclick={() => run(() => SetTimeAnnounce(!v?.time_announce))}
+        title="Hora locutada: si está apagada, la playlist la salta. Sin locución para esa hora también se salta.">
+        <span class="ico">🕐</span>{v?.time_announce ? 'Hora: sí' : 'Hora: no'}</button>
       <button class="tbtn" class:mic={onair.mic} onclick={() => onair.toggleMic()} title="Ctrl+M"><span class="ico">🎙</span>{onair.mic ? 'Mic abierto' : 'Micrófono'}</button>
     </div>
 

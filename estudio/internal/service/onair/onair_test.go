@@ -2,6 +2,8 @@ package onair
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -187,7 +189,8 @@ func TestPlaysListWithTanda(t *testing.T) {
 	ok := waitFor(t, 8*time.Second, func() bool { return e.log.status(12) == domain.LogPlayed })
 	got := e.plays.titles()
 	want := []string{"uno", "cortina", "cuña", "cortina", "dos"}
-	if !ok || len(got) != len(want) {
+	// al acabarse la playlist el aire pone relleno (no queda en silencio): solo se compara lo programado
+	if !ok || len(got) < len(want) {
 		t.Fatalf("emisiones = %v, quería %v", got, want)
 	}
 	for i := range want {
@@ -200,7 +203,7 @@ func TestPlaysListWithTanda(t *testing.T) {
 	}
 	e.plays.mu.Lock()
 	defer e.plays.mu.Unlock()
-	for _, p := range e.plays.plays {
+	for _, p := range e.plays.plays[:len(want)] {
 		if !p.Complete {
 			t.Fatalf("%q debe quedar completa (duración %v)", p.Title, p.Duration)
 		}
@@ -308,5 +311,123 @@ func TestPlaysAheadInsteadOfWaitingForHardEvent(t *testing.T) {
 	}
 	if el := time.Since(now); el < 1700*time.Millisecond {
 		t.Fatalf("la tanda no debe adelantarse: arrancó a los %v", el)
+	}
+}
+
+// decodeMissing falla con los archivos que empiezan por "falta" (un archivo
+// que existe pero ffmpeg no puede abrir).
+func decodeMissing(ctx context.Context, path string, start time.Duration) (audio.Source, error) {
+	if strings.HasPrefix(path, "falta") {
+		return nil, errors.New("no se pudo abrir")
+	}
+	return decodeSine(ctx, path, start)
+}
+
+func withPath(t domain.Track, p string) domain.Track { t.Path = p; return t }
+
+func warnings(e *env) string {
+	var out []string
+	for _, w := range e.svc.Snapshot().Warnings {
+		out = append(out, w.Message)
+	}
+	return strings.Join(out, " | ")
+}
+
+// Cuñas sin audio (no descargadas o borradas): se sacan de la tanda y el aire sigue.
+func TestSkipsSpotsWithoutAudio(t *testing.T) {
+	now := time.Now()
+	tracks := map[int64]domain.Track{
+		1: withPath(track(1, "uno", 1200*time.Millisecond, 900*time.Millisecond), "uno.mp3"),
+		2: withPath(track(2, "dos", 1200*time.Millisecond, 900*time.Millisecond), "dos.mp3"),
+		9: {ID: 9, Title: "cortina", Path: "cortina.mp3", CategoryID: 5, Active: true, Duration: 300 * time.Millisecond},
+	}
+	spots := map[int64][]domain.Spot{
+		11: {
+			{ID: 1, Advertiser: "A", Name: "borrada", Path: "borrada.mp3", Duration: 400 * time.Millisecond},
+			{ID: 2, Advertiser: "B", Name: "no descargada", Path: "", Duration: 400 * time.Millisecond},
+			{ID: 3, Advertiser: "C", Name: "buena", Path: "c.mp3", Duration: 400 * time.Millisecond},
+		},
+		12: {{ID: 4, Advertiser: "D", Name: "sola sin audio", Path: "borrada.mp3"}},
+	}
+	items := []domain.LogItem{
+		{ID: 10, Kind: domain.SlotCategory, TrackID: 1, At: now, Length: time.Second, Status: domain.LogPending},
+		{ID: 11, Kind: domain.SlotSpots, At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+		{ID: 12, Kind: domain.SlotSpots, At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+		{ID: 13, Kind: domain.SlotCategory, TrackID: 2, At: now.Add(2 * time.Second), Length: time.Second, Status: domain.LogPending},
+	}
+	e := newEnv(t, items, tracks, spots)
+	e.svc.d.Exists = func(p string) bool { return p != "borrada.mp3" }
+	_ = e.svc.Start()
+	if !waitFor(t, 8*time.Second, func() bool { return e.log.status(13) == domain.LogPlayed }) {
+		t.Fatalf("se trabó: emisiones %v", e.plays.titles())
+	}
+	if got := strings.Join(e.plays.titles(), ","); !strings.HasPrefix(got, "uno,cortina,buena,cortina,dos") {
+		t.Fatalf("emisiones = %s", got)
+	}
+	if e.log.status(11) != domain.LogPlayed || e.log.status(12) != domain.LogSkipped {
+		t.Fatalf("estados: tanda con una cuña buena = %s, tanda sin audio = %s", e.log.status(11), e.log.status(12))
+	}
+	if w := warnings(e); !strings.Contains(w, "«borrada» de A sin audio") || !strings.Contains(w, "«no descargada» de B") {
+		t.Fatalf("avisos = %s", w)
+	}
+}
+
+// Un elemento cuyo audio no abre no debe quedar «sonando» para siempre.
+func TestItemThatFailsToOpenIsSkipped(t *testing.T) {
+	now := time.Now()
+	tracks := map[int64]domain.Track{
+		1: withPath(track(1, "uno", 1200*time.Millisecond, 900*time.Millisecond), "uno.mp3"),
+		2: withPath(track(2, "rota", 1200*time.Millisecond, 900*time.Millisecond), "falta.mp3"),
+		3: withPath(track(3, "tres", 1200*time.Millisecond, 900*time.Millisecond), "tres.mp3"),
+		9: {ID: 9, Title: "cortina", Path: "falta-cortina.mp3", CategoryID: 5, Active: true, Duration: 300 * time.Millisecond},
+	}
+	// tanda donde nada abre (cortina y cuña rotas)
+	spots := map[int64][]domain.Spot{12: {{ID: 1, Advertiser: "A", Name: "rota", Path: "falta-cuña.mp3"}}}
+	items := []domain.LogItem{
+		{ID: 10, Kind: domain.SlotCategory, TrackID: 1, At: now, Length: time.Second, Status: domain.LogPending},
+		{ID: 11, Kind: domain.SlotTrack, TrackID: 2, At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+		{ID: 12, Kind: domain.SlotSpots, At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+		{ID: 13, Kind: domain.SlotCategory, TrackID: 3, At: now.Add(2 * time.Second), Length: time.Second, Status: domain.LogPending},
+	}
+	e := newEnv(t, items, tracks, spots)
+	e.svc.d.Decode = decodeMissing
+	_ = e.svc.Start()
+	if !waitFor(t, 8*time.Second, func() bool { return e.log.status(13) == domain.LogPlayed }) {
+		t.Fatalf("se trabó: emisiones %v, estados 11=%s 12=%s", e.plays.titles(), e.log.status(11), e.log.status(12))
+	}
+	if e.log.status(11) != domain.LogSkipped || e.log.status(12) != domain.LogSkipped {
+		t.Fatalf("los elementos sin audio deben quedar saltados: 11=%s 12=%s", e.log.status(11), e.log.status(12))
+	}
+}
+
+// Interruptor «Hora locutada»: apagado se salta sin aviso; encendido y sin
+// locución se salta con aviso. En ningún caso se detiene el aire.
+func TestTimeAnnounceSwitch(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		now := time.Now()
+		tracks := map[int64]domain.Track{
+			1: withPath(track(1, "uno", 1200*time.Millisecond, 900*time.Millisecond), "uno.mp3"),
+			2: withPath(track(2, "dos", 1200*time.Millisecond, 900*time.Millisecond), "dos.mp3"),
+		}
+		items := []domain.LogItem{
+			{ID: 10, Kind: domain.SlotCategory, TrackID: 1, At: now, Length: time.Second, Status: domain.LogPending},
+			{ID: 11, Kind: domain.SlotTime, Hard: true, At: now.Add(time.Second), Status: domain.LogPending},
+			{ID: 12, Kind: domain.SlotCategory, TrackID: 2, At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+		}
+		e := newEnv(t, items, tracks, nil)
+		opts := e.svc.d.Options()
+		opts.TimeAnnounce = on
+		e.svc.d.Options = func() Options { return opts }
+		_ = e.svc.Start()
+		if !waitFor(t, 6*time.Second, func() bool { return e.log.status(12) == domain.LogPlayed }) {
+			t.Fatalf("hora locutada %v: se trabó (emisiones %v)", on, e.plays.titles())
+		}
+		if e.log.status(11) != domain.LogSkipped {
+			t.Fatalf("hora locutada %v: estado %s", on, e.log.status(11))
+		}
+		if w := warnings(e); strings.Contains(w, "hora locutada") != on {
+			t.Fatalf("hora locutada %v: avisos = %s", on, w)
+		}
+		e.cancel()
 	}
 }

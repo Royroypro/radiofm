@@ -219,6 +219,7 @@ export namespace config {
 	    hour_prefix: string;
 	    minute_prefix: string;
 	    temp_prefix: string;
+	    time_off: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new LocutionSettings(source);
@@ -230,6 +231,7 @@ export namespace config {
 	        this.hour_prefix = source["hour_prefix"];
 	        this.minute_prefix = source["minute_prefix"];
 	        this.temp_prefix = source["temp_prefix"];
+	        this.time_off = source["time_off"];
 	    }
 	}
 	export class RotationSettings {
@@ -1306,6 +1308,7 @@ export namespace ui {
 	    stream: streaming.Status;
 	    audio: app.AudioState;
 	    sync: sync.Status;
+	    time_announce: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new OnAirView(source);
@@ -1317,6 +1320,7 @@ export namespace ui {
 	        this.stream = this.convertValues(source["stream"], streaming.Status);
 	        this.audio = this.convertValues(source["audio"], app.AudioState);
 	        this.sync = this.convertValues(source["sync"], sync.Status);
+	        this.time_announce = source["time_announce"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

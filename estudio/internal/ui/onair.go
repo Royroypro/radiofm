@@ -17,12 +17,14 @@ type OnAirView struct {
 	Stream streaming.Status `json:"stream"`
 	Audio  app.AudioState   `json:"audio"`
 	Sync   syncsvc.Status   `json:"sync"`
+	// TimeAnnounce es el interruptor «Hora locutada».
+	TimeAnnounce bool `json:"time_announce"`
 }
 
 // OnAirStatus devuelve la foto del aire, la emisión y los dispositivos.
 func (a *App) OnAirStatus() OnAirView {
 	return OnAirView{Air: a.core.OnAir.Snapshot(), Stream: a.core.Streaming.Status(), Audio: a.core.Audio(),
-		Sync: a.core.Sync.Status()}
+		Sync: a.core.Sync.Status(), TimeAnnounce: !a.core.Settings().Locutions.TimeOff}
 }
 
 // OnAirStart arranca la automatización.
@@ -101,6 +103,14 @@ func (a *App) SyncNow() { a.core.Sync.SyncNow() }
 
 // SyncStatus devuelve el estado de la sincronización.
 func (a *App) SyncStatus() syncsvc.Status { return a.core.Sync.Status() }
+
+// SetTimeAnnounce enciende o apaga la hora locutada (interruptor de Al aire).
+// Apagada, los elementos de hora locutada de la playlist se saltan.
+func (a *App) SetTimeAnnounce(on bool) error {
+	s := a.core.Settings()
+	s.Locutions.TimeOff = !on
+	return a.core.SaveSettings(s)
+}
 
 // OnAirStopAfter alterna "parar al terminar lo que suena".
 func (a *App) OnAirStopAfter() error { return a.core.OnAir.StopAfterCurrent() }

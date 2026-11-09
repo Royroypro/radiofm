@@ -82,6 +82,7 @@ type LocutionSettings struct {
 	HourPrefix   string `json:"hour_prefix"`   // HRS → HRS00.mp3 … HRS23.mp3
 	MinutePrefix string `json:"minute_prefix"` // MIN → MIN00.mp3 … MIN59.mp3
 	TempPrefix   string `json:"temp_prefix"`   // TMP → TMP-10.mp3 … TMP45.mp3
+	TimeOff      bool   `json:"time_off"`      // interruptor «Hora locutada» de Al aire apagado
 }
 
 // SafetySettings: seguridad operativa.

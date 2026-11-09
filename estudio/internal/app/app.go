@@ -140,7 +140,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 			st := a.Settings().Station
 			return a.Weather.Current(ctx, st.Latitude, st.Longitude)
 		},
-		Location: loc, Options: a.onairOptions, Logger: log,
+		Location: loc, Options: a.onairOptions, Logger: log, Exists: fileExists,
 	}, onair.Hooks{
 		OnSegment: func(seg onair.Segment) {
 			if seg.Path != "" {
@@ -419,7 +419,8 @@ func (a *App) decode(ctx context.Context, path string, start time.Duration) (aud
 // onairOptions traduce los ajustes a las opciones del aire.
 func (a *App) onairOptions() onair.Options {
 	s := a.Settings()
-	o := onair.Options{Crossfade: s.Audio.Crossfade(), HardFade: time.Duration(s.Audio.HardFadeMs) * time.Millisecond}
+	o := onair.Options{Crossfade: s.Audio.Crossfade(), HardFade: time.Duration(s.Audio.HardFadeMs) * time.Millisecond,
+		TimeAnnounce: !s.Locutions.TimeOff}
 	if cats, err := a.Library.Categories(context.Background()); err == nil {
 		for _, c := range cats {
 			if c.Kind == domain.KindEmergency && o.Emergency == 0 {
@@ -533,4 +534,10 @@ func (a *App) Close() {
 	if a.logFile != nil {
 		a.logFile.Close()
 	}
+}
+
+// fileExists dice si un archivo de audio está en el disco (cuñas sin descargar o borradas).
+func fileExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
 }
