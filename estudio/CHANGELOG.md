@@ -2,6 +2,19 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.2.0 — publicidad profesional (tráfico)
+
+Requiere el panel web con campañas (migración 0005 del servidor).
+
+- Las cuñas llegan como **versiones de campañas**: las veces por día son de la campaña y las versiones
+  **rotan según su peso**.
+- Reglas al armar las tandas: **días de la semana**, **prioridad** (si no hay espacio cede la baja),
+  **competidores** (mismo rubro) nunca en la misma tanda, **posición** primera/última, **topes** de cuñas
+  y de segundos por tanda (Ajustes → Tandas).
+- **Reposición automática**: cada 10 min se replanifica el día contando lo que ya sonó; lo que no salió
+  se repone en las siguientes tandas de su franja.
+- Cuñas → **No entran**: qué campañas no caben hoy y por qué.
+
 ## 1.1.0 — sonido y transiciones profesionales
 
 - **Análisis de finales** (idea de autocue, MIT): cada pista sabe si termina con **fundido** o **seco** y

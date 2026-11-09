@@ -138,6 +138,13 @@ type Spot struct {
 	HourFrom    int        `json:"hour_from"`
 	HourTo      int        `json:"hour_to"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	// Reglas de la campaña (servidor con campañas; se piden con ?v=2).
+	CampaignID int64  `json:"campaign_id"`
+	Weight     int    `json:"weight"`
+	Days       int    `json:"days"`
+	Position   string `json:"position"`
+	Priority   int    `json:"priority"`
+	Sector     string `json:"sector"`
 }
 
 // GetSpots lee las cuñas vigentes. Con etag igual al del servidor devuelve notModified = true.
@@ -149,7 +156,9 @@ func (c *Client) GetSpots(ctx context.Context, etag string) (spots []Spot, newET
 	var out struct {
 		Spots []Spot `json:"spots"`
 	}
-	res, err := c.do(ctx, http.MethodGet, "/spots", nil, &out, h)
+	// v=2: todas las versiones de cada campaña con sus reglas (sin v el servidor
+	// manda una versión por campaña, para estudios anteriores a 1.2).
+	res, err := c.do(ctx, http.MethodGet, "/spots?v=2", nil, &out, h)
 	if err != nil {
 		return nil, "", false, err
 	}

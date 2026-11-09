@@ -95,9 +95,16 @@ antelación). Responde `ETag`; con `If-None-Match` igual devuelve `304` sin cuer
   "sha256": "e3b0c442…", "duration_ms": 20000,
   "starts_at": null, "ends_at": "2026-12-31T05:00:00Z",
   "plays_per_day": 6, "hour_from": 7, "hour_to": 13,
-  "updated_at": "2026-11-08T16:55:10Z"
+  "updated_at": "2026-11-08T16:55:10Z",
+  "campaign_id": 3, "weight": 2, "days": 62, "position": "first", "priority": 1, "sector": "ferretería"
 }]}
 ```
+- Cada entrada es una **versión** (un audio) de una **campaña**; las reglas (veces por día, franja,
+  `days` = máscara bit 0 domingo … bit 6 sábado, `position` any/first/last, `priority` 1 alta … 3 baja,
+  `sector` = rubro del anunciante) son las de su campaña. Las veces por día son **de la campaña**:
+  la PC agrupa por `campaign_id` y rota las versiones según `weight`.
+- **Compatibilidad:** sin `?v=2` se envía **una versión por campaña** (la de más peso), para que un
+  Club25 Estudio anterior a 1.2 no duplique las emisiones. Estudio 1.2+ pide `?v=2`.
 - `hour_from`/`hour_to`: franja en hora local de la radio, `[hour_from, hour_to)`; `0`–`24` = todo el día.
 - `duration_ms` = 0 si no se conoce (la PC la mide al descargar).
 - La PC descarga `url` (pública), verifica `sha256` y descarta el archivo si no coincide.

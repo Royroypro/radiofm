@@ -25,7 +25,9 @@ booleanos 0/1.
 | `payments` | pagos / cuotas | solo los `paid` cuentan para "pagado hasta" (`period_end` máximo) |
 | `license` | política de bloqueo (fila única id=1) | gracia, nivel automático, bloqueo manual, último nivel |
 | `audit_log` | auditoría | `user_id` 0 = sistema |
-| `fm_spots` | cuñas para la emisión FM (las programa la PC del estudio) | franja `[hour_from, hour_to)`, `plays_per_day` 1–96, `sha256` del archivo; `frequency_id` NULL = todas |
+| `fm_advertisers` | anunciantes de la publicidad FM | `sector` (rubro) = grupo de competencia |
+| `fm_campaigns` | campañas: las reglas de emisión | veces/día, franja, `days_mask` (bit 0 domingo), `position` any/first/last, `priority` 1–3, `frequency_id` |
+| `fm_spots` | **versiones** (audios) de las campañas; las programa la PC del estudio | `campaign_id`, `weight`; las reglas son **copia** de su campaña (`SyncVersions` al guardarla); `sha256` del archivo |
 | `fm_spot_airplays` | emisiones reales de cuñas FM (comprobante) | `play_uuid` único (reenviar no duplica); copia anunciante y nombre |
 | `studio_stations` | PC del estudio de cada frecuencia (clave `frequency_id`) | SHA-256 del token, último heartbeat, modo, lo que suena. Reemplaza a `studio_state` (migración 0004) |
 
@@ -37,6 +39,7 @@ ads 1─* ad_events                (borrar anuncio borra sus eventos)
 plans 1─* contracts               (no se puede borrar un plan con contratos)
 contracts 1─* payments            (borrar contrato borra sus pagos)
 fm_spots 1─* fm_spot_airplays     (borrar cuña deja spot_id en NULL: el comprobante se conserva)
+fm_advertisers 1─* fm_campaigns 1─* fm_spots (borrar campaña borra sus versiones; el comprobante se conserva)
 frequencies 1─1 studio_stations  (borrar frecuencia borra su PC)
 frequencies 1─* programs, fm_spots (no se puede borrar una frecuencia con programas o cuñas propias)
 frequencies 1─* fm_spot_airplays (borrar frecuencia deja frequency_id en NULL)

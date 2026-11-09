@@ -34,8 +34,10 @@ func newStudio(t *testing.T) (*studio.Service, *hashFiles) {
 	}
 	files := &hashFiles{}
 	au := audit.New(sqlite.NewAuditRepo(d), testutil.Logger())
-	return studio.New(sqlite.NewFMSpotRepo(d), sqlite.NewAirplayRepo(d), sqlite.NewStudioRepo(d), files, au,
-		testutil.Lima(t)), files
+	svc := studio.New(sqlite.NewFMSpotRepo(d), sqlite.NewAirplayRepo(d), sqlite.NewStudioRepo(d), files, au,
+		testutil.Lima(t))
+	svc.WithTraffic(sqlite.NewFMAdvertiserRepo(d), sqlite.NewFMCampaignRepo(d))
+	return svc, files
 }
 
 func TestStudioToken(t *testing.T) {

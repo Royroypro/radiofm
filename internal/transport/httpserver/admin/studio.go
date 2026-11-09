@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"radioclub25/internal/domain"
-	"radioclub25/internal/platform/storage"
 	"radioclub25/internal/transport/httpserver/form"
 	"radioclub25/internal/transport/httpserver/middleware"
 	"radioclub25/internal/transport/httpserver/views"
@@ -100,105 +99,7 @@ func (h *Handler) StudioTokenRevoke(w http.ResponseWriter, r *http.Request) {
 	views.Redirect(w, r, "/admin/studio", "ok", "Token de "+f.City+" revocado: esa PC ya no puede sincronizar.")
 }
 
-// ---------- Cuñas FM ----------
-
-// FMSpotsList lista las cuñas FM: GET /admin/fm-spots
-func (h *Handler) FMSpotsList(w http.ResponseWriter, r *http.Request) {
-	list, err := h.Studio.ListSpots(r.Context())
-	if err != nil {
-		h.Views.Error(w, r, err)
-		return
-	}
-	today, err := h.Studio.TodayCounts(r.Context())
-	if err != nil {
-		h.Views.Error(w, r, err)
-		return
-	}
-	h.Views.Render(w, r, http.StatusOK, "admin/fm_spots", "Cuñas FM", map[string]any{
-		"Spots": list, "Today": today, "Now": time.Now(),
-	})
-}
-
-// FMSpotNew muestra el formulario de alta: GET /admin/fm-spots/new
-func (h *Handler) FMSpotNew(w http.ResponseWriter, r *http.Request) {
-	sp := &domain.FMSpot{PlaysPerDay: 6, HourFrom: 6, HourTo: 22, Active: true}
-	h.Views.Render(w, r, http.StatusOK, "admin/fm_spot_form", "Nueva cuña FM", h.fmSpotFormData(sp))
-}
-
-// FMSpotEdit muestra el formulario de edición: GET /admin/fm-spots/{id}
-func (h *Handler) FMSpotEdit(w http.ResponseWriter, r *http.Request) {
-	sp, err := h.Studio.GetSpot(r.Context(), form.ID(chi.URLParam(r, "id")))
-	if err != nil {
-		h.Views.Error(w, r, err)
-		return
-	}
-	h.Views.Render(w, r, http.StatusOK, "admin/fm_spot_form", "Editar cuña FM", h.fmSpotFormData(sp))
-}
-
-func (h *Handler) fmSpotFormData(sp *domain.FMSpot) map[string]any {
-	return map[string]any{"Spot": sp, "MaxUploadMB": h.maxUploadMB(), "DurationSec": sp.DurationMs / 1000}
-}
-
-// FMSpotSave crea o modifica una cuña: POST /admin/fm-spots y POST /admin/fm-spots/{id}
-func (h *Handler) FMSpotSave(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id := form.ID(chi.URLParam(r, "id"))
-	sp := &domain.FMSpot{}
-	if id > 0 {
-		old, err := h.Studio.GetSpot(ctx, id)
-		if err != nil {
-			h.Views.Error(w, r, err)
-			return
-		}
-		sp = old
-	}
-	sp.Advertiser = form.String(r, "advertiser")
-	sp.Name = form.String(r, "name")
-	sp.DurationMs = int64(form.Int(r, "duration")) * 1000
-	sp.PlaysPerDay = form.Int(r, "plays_per_day")
-	sp.HourFrom = form.Int(r, "hour_from")
-	sp.HourTo = form.Int(r, "hour_to")
-	sp.StartsAt = form.DateTimePtr(r, "starts_at", h.Cfg.Location)
-	sp.EndsAt = form.DateTimePtr(r, "ends_at", h.Cfg.Location)
-	sp.Active = form.Bool(r, "active")
-	sp.FrequencyID = form.ID(form.String(r, "frequency_id"))
-
-	title := "Nueva cuña FM"
-	if id > 0 {
-		title = "Editar cuña FM"
-	}
-	url, err := h.upload(r, "file", storage.KindAudio, "fm")
-	if err != nil {
-		h.formError(w, r, "admin/fm_spot_form", title, h.fmSpotFormData(sp), err)
-		return
-	}
-	if url != "" {
-		sp.FileURL = url
-	}
-	actor := middleware.ActorFrom(r)
-	if id > 0 {
-		err = h.Studio.UpdateSpot(ctx, actor, sp)
-	} else {
-		err = h.Studio.CreateSpot(ctx, actor, sp)
-	}
-	if err != nil {
-		if url != "" {
-			_ = h.Store.Delete(url) // no dejar archivos huérfanos
-		}
-		h.formError(w, r, "admin/fm_spot_form", title, h.fmSpotFormData(sp), err)
-		return
-	}
-	views.Redirect(w, r, "/admin/fm-spots", "ok", "Cuña guardada. La PC la descargará en la próxima sincronización.")
-}
-
-// FMSpotDelete borra una cuña: POST /admin/fm-spots/{id}/delete
-func (h *Handler) FMSpotDelete(w http.ResponseWriter, r *http.Request) {
-	if err := h.Studio.DeleteSpot(r.Context(), middleware.ActorFrom(r), form.ID(chi.URLParam(r, "id"))); err != nil {
-		h.Views.Error(w, r, err)
-		return
-	}
-	views.Redirect(w, r, "/admin/fm-spots", "ok", "Cuña eliminada. Su historial de emisiones se conserva.")
-}
+// Cuñas FM (campañas, versiones y anunciantes): ver campaigns.go.
 
 // ---------- Comprobante de emisión ----------
 
@@ -267,8 +168,24 @@ func (h *Handler) FMSpotReport(w http.ResponseWriter, r *http.Request) {
 	if len(plays) > 1000 {
 		plays = plays[len(plays)-1000:] // en pantalla, las últimas 1000; el CSV trae todas
 	}
+	// cumplimiento por campaña en el mismo rango (filtrado por anunciante si se eligió uno)
+	comp, err := h.Studio.Compliance(r.Context(), f.From, f.To)
+	if err != nil {
+		h.Views.Error(w, r, err)
+		return
+	}
+	if f.Advertiser != "" {
+		kept := comp[:0]
+		for _, c := range comp {
+			if strings.EqualFold(c.Campaign.Advertiser, f.Advertiser) {
+				kept = append(kept, c)
+			}
+		}
+		comp = kept
+	}
 	h.Views.Render(w, r, http.StatusOK, "admin/fm_spot_report", "Comprobante de emisión", map[string]any{
-		"From": fromStr, "To": toStr, "Advertiser": f.Advertiser, "Advertisers": advertisers, "Freq": f.FrequencyID,
+		"Compliance": comp,
+		"From":       fromStr, "To": toStr, "Advertiser": f.Advertiser, "Advertisers": advertisers, "Freq": f.FrequencyID,
 		"Plays": plays, "Summary": summary,
 	})
 }

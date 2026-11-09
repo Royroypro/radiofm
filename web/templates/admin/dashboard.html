@@ -1,6 +1,13 @@
-{{/* Resumen del panel admin. .Data: Status, AdsTotal, AdsLive, Programs, OnAir, TopAds, AdsActive */}}
+{{/* Resumen del panel admin. .Data: Status, AdsTotal, AdsLive, Programs, OnAir, TopAds, AdsActive, FMShort []studio.CampaignCompliance */}}
 {{define "content"}}
 {{$d := .Data}}
+{{with $d.FMShort}}
+<div class="alert alert-warn">
+  <strong>Publicidad FM atrasada hoy:</strong>
+  {{range $i, $c := .}}{{if $i}} · {{end}}faltan {{$c.Missing}} de <a href="/admin/fm-spots/{{$c.Campaign.ID}}">{{$c.Campaign.Advertiser}} — {{$c.Campaign.Name}}</a>{{end}}.
+  La PC del estudio repone las que puede en las siguientes tandas de su franja; revise si está conectada (<a href="/admin/studio">Estudio (PC)</a>).
+</div>
+{{end}}
 <div class="grid grid-4">
   <div class="stat">
     <div class="label">Radio</div>

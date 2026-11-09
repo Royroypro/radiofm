@@ -119,6 +119,10 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	loc := func() *time.Location { return a.Settings().Location() }
 	a.Spots = spots.New(sqlite.NewSpotRepo(a.DB), sqlite.NewTandaRepo(a.DB), sqlite.NewPlayRepo(a.DB),
 		sqlite.NewCategoryRepo(a.DB), sqlite.NewTrackRepo(a.DB), a.Scheduler, a.Tools, loc, log)
+	a.Spots.SetLimits(func() spots.Limits {
+		sc := a.Settings().Schedule
+		return spots.Limits{MaxSpots: sc.BreakMaxSpots, MaxLength: time.Duration(sc.BreakMaxSeconds) * time.Second}
+	})
 	a.Reports = reports.New(sqlite.NewPlayRepo(a.DB), sqlite.NewSpotRepo(a.DB), loc)
 	a.Weather = weather.New()
 	a.Secrets = secrets.NewStore(dataDir)
@@ -274,7 +278,9 @@ func (a *App) Start(ctx context.Context) {
 				a.Log.Error("generar playlist", "err", err)
 			}
 			a.backupDaily(ctx)
-			// las cuñas pueden haber cambiado (sincronización, vigencias): replanificar hoy
+			// las cuñas pueden haber cambiado (sincronización, vigencias): replanificar hoy.
+			// Es también la reposición: Replan cuenta lo ya emitido, así que lo que no
+			// salió en una tanda saltada se repone en las siguientes de su franja.
 			if _, err := a.Spots.Replan(ctx, a.Scheduler.DayOf(time.Now())); err != nil && ctx.Err() == nil {
 				a.Log.Error("replanificar tandas", "err", err)
 			}

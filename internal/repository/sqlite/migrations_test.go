@@ -71,3 +71,45 @@ func TestMigration0004Stations(t *testing.T) {
 		t.Fatalf("estado migrado = %+v", st)
 	}
 }
+
+// 0005_campaigns sobre cuñas existentes: un anunciante por nombre y una campaña
+// por cuña (mismo id), con sus reglas.
+func TestMigration0005Campaigns(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(filepath.Join(t.TempDir(), "old.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := db.Migrate(ctx, d, upTo(t, "0005")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.ExecContext(ctx, `INSERT INTO fm_spots (advertiser, name, file_url, plays_per_day, hour_from, hour_to,
+		active, created_at, updated_at) VALUES
+		('Ferretería El Sol', 'Verano', '/uploads/fm/a.mp3', 6, 7, 13, 1, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z'),
+		('ferretería el sol', 'Invierno', '/uploads/fm/b.mp3', 4, 0, 24, 0, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z'),
+		('Pollería Don Lucho', 'Promo', '/uploads/fm/c.mp3', 2, 18, 23, 1, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(ctx, d, sqlite.Migrations()); err != nil {
+		t.Fatal(err)
+	}
+	advs, _ := sqlite.NewFMAdvertiserRepo(d).List(ctx)
+	if len(advs) != 2 {
+		t.Fatalf("anunciantes = %+v (los nombres iguales sin distinguir mayúsculas son uno)", advs)
+	}
+	camps, err := sqlite.NewFMCampaignRepo(d).List(ctx)
+	if err != nil || len(camps) != 3 {
+		t.Fatalf("campañas = %+v, %v", camps, err)
+	}
+	spots := sqlite.NewFMSpotRepo(d)
+	for _, c := range camps {
+		vs, _ := spots.ByCampaign(ctx, c.ID)
+		if len(vs) != 1 || vs[0].ID != c.ID || vs[0].PlaysPerDay != c.PlaysPerDay || vs[0].DaysMask != 127 || vs[0].Weight != 1 {
+			t.Fatalf("campaña %d %q: versiones %+v", c.ID, c.Name, vs)
+		}
+		if c.Name == "Invierno" && c.Active {
+			t.Fatal("la cuña pausada debe dar una campaña pausada")
+		}
+	}
+}

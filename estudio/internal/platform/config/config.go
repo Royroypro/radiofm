@@ -100,6 +100,8 @@ type SafetySettings struct {
 type ScheduleSettings struct {
 	DaysAhead       int `json:"days_ahead"`        // 1 = hoy y mañana
 	FillToleranceMs int `json:"fill_tolerance_ms"` // margen para cuadrar la hora
+	BreakMaxSpots   int `json:"break_max_spots"`   // máximo de cuñas por tanda (0 = sin tope)
+	BreakMaxSeconds int `json:"break_max_seconds"` // máximo de segundos de cuñas por tanda (0 = sin tope)
 }
 
 // InterfaceSettings: preferencias de la interfaz.

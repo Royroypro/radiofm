@@ -1,0 +1,40 @@
+{{/* Anunciantes de la publicidad FM. .Data: []domain.FMAdvertiser */}}
+{{define "content"}}
+<p class="small muted">El <strong>rubro</strong> agrupa a los competidores (p. ej. «banca», «telefonía», «pollerías»): la PC nunca pone dos
+  anunciantes del mismo rubro en la misma tanda. Déjelo vacío si no compite con nadie.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Anunciante</th><th>Rubro</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data}}
+    <tr>
+      <td colspan="2">
+        <form class="inline" method="post" action="/admin/fm-advertisers/{{.ID}}">
+          {{template "csrf" $}}
+          <input type="text" name="name" value="{{.Name}}" required maxlength="120" aria-label="Nombre">
+          <input type="text" name="sector" value="{{.Sector}}" maxlength="60" placeholder="rubro" aria-label="Rubro" list="sectors">
+          <button class="btn btn-sm btn-ghost" type="submit">Guardar</button>
+        </form>
+      </td>
+      <td class="actions">
+        <form method="post" action="/admin/fm-advertisers/{{.ID}}/delete" data-confirm="¿Eliminar «{{.Name}}»?">
+          {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+        </form>
+      </td>
+    </tr>
+  {{else}}<tr><td colspan="3" class="empty">Aún no hay anunciantes. Se crean también al guardar una campaña.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+<datalist id="sectors">{{range .Data}}{{with .Sector}}<option value="{{.}}">{{end}}{{end}}</datalist>
+
+<form class="box form" method="post" action="/admin/fm-advertisers">
+  {{template "csrf" .}}
+  <h2>Nuevo anunciante</h2>
+  <div class="grid grid-2">
+    <label>Nombre<input type="text" name="name" required maxlength="120"></label>
+    <label>Rubro<input type="text" name="sector" maxlength="60" list="sectors" placeholder="Ej.: ferretería"></label>
+  </div>
+  <div class="form-actions"><button class="btn" type="submit">Agregar</button> <a class="btn btn-ghost" href="/admin/fm-spots">Volver a campañas</a></div>
+</form>
+{{end}}

@@ -16,7 +16,7 @@ type SpotRepo struct{ db *sql.DB }
 func NewSpotRepo(db *sql.DB) *SpotRepo { return &SpotRepo{db: db} }
 
 const spotCols = `id, remote_id, advertiser, name, path, sha256, duration_ms, starts_at, ends_at, plays_per_day,
-	hour_from, hour_to, active, updated_at`
+	hour_from, hour_to, active, updated_at, campaign_id, weight, days_mask, position, priority, sector`
 
 func scanSpot(r rowScanner) (*domain.Spot, error) {
 	var s domain.Spot
@@ -25,7 +25,8 @@ func scanSpot(r rowScanner) (*domain.Spot, error) {
 	var active int
 	var updated string
 	if err := r.Scan(&s.ID, &s.RemoteID, &s.Advertiser, &s.Name, &s.Path, &s.SHA256, &d, &starts, &ends,
-		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &updated); err != nil {
+		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &updated, &s.CampaignID, &s.Weight, &s.DaysMask, &s.Position,
+		&s.Priority, &s.Sector); err != nil {
 		return nil, err
 	}
 	s.Duration, s.StartsAt, s.EndsAt, s.Active, s.UpdatedAt = dur(d), parseTimePtr(starts), parseTimePtr(ends), active == 1, parseTime(updated)
@@ -67,9 +68,11 @@ func (r *SpotRepo) Save(ctx context.Context, s *domain.Spot) error {
 	s.UpdatedAt = time.Now()
 	if s.ID == 0 {
 		res, err := r.db.ExecContext(ctx, `INSERT INTO spots (remote_id, advertiser, name, path, sha256, duration_ms,
-			starts_at, ends_at, plays_per_day, hour_from, hour_to, active, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			starts_at, ends_at, plays_per_day, hour_from, hour_to, active, updated_at, campaign_id, weight, days_mask,
+			position, priority, sector) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			s.RemoteID, s.Advertiser, s.Name, s.Path, s.SHA256, ms(s.Duration), fmtTimePtr(s.StartsAt), fmtTimePtr(s.EndsAt),
-			s.PlaysPerDay, s.HourFrom, s.HourTo, b2i(s.Active), fmtTime(s.UpdatedAt))
+			s.PlaysPerDay, s.HourFrom, s.HourTo, b2i(s.Active), fmtTime(s.UpdatedAt), s.CampaignID, max(s.Weight, 1),
+			s.DaysMask, posOr(s.Position), s.Prio(), s.Sector)
 		if err != nil {
 			return err
 		}
@@ -77,9 +80,11 @@ func (r *SpotRepo) Save(ctx context.Context, s *domain.Spot) error {
 		return nil
 	}
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE spots SET remote_id=?, advertiser=?, name=?, path=?, sha256=?,
-		duration_ms=?, starts_at=?, ends_at=?, plays_per_day=?, hour_from=?, hour_to=?, active=?, updated_at=? WHERE id=?`,
+		duration_ms=?, starts_at=?, ends_at=?, plays_per_day=?, hour_from=?, hour_to=?, active=?, updated_at=?,
+		campaign_id=?, weight=?, days_mask=?, position=?, priority=?, sector=? WHERE id=?`,
 		s.RemoteID, s.Advertiser, s.Name, s.Path, s.SHA256, ms(s.Duration), fmtTimePtr(s.StartsAt), fmtTimePtr(s.EndsAt),
-		s.PlaysPerDay, s.HourFrom, s.HourTo, b2i(s.Active), fmtTime(s.UpdatedAt), s.ID))
+		s.PlaysPerDay, s.HourFrom, s.HourTo, b2i(s.Active), fmtTime(s.UpdatedAt), s.CampaignID, max(s.Weight, 1),
+		s.DaysMask, posOr(s.Position), s.Prio(), s.Sector, s.ID))
 }
 
 // Delete borra una cuña (y la quita de las tandas planificadas).
@@ -139,4 +144,11 @@ func (r *TandaRepo) Set(ctx context.Context, logItemID int64, spotIDs []int64) e
 		}
 	}
 	return tx.Commit()
+}
+
+func posOr(p string) string {
+	if p == "first" || p == "last" {
+		return p
+	}
+	return "any"
 }

@@ -277,6 +277,8 @@ export namespace config {
 	export class ScheduleSettings {
 	    days_ahead: number;
 	    fill_tolerance_ms: number;
+	    break_max_spots: number;
+	    break_max_seconds: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScheduleSettings(source);
@@ -286,6 +288,8 @@ export namespace config {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.days_ahead = source["days_ahead"];
 	        this.fill_tolerance_ms = source["fill_tolerance_ms"];
+	        this.break_max_spots = source["break_max_spots"];
+	        this.break_max_seconds = source["break_max_seconds"];
 	    }
 	}
 	export class ServerSettings {
@@ -638,6 +642,12 @@ export namespace domain {
 	    active: boolean;
 	    // Go type: time
 	    updated_at: any;
+	    campaign_id: number;
+	    weight: number;
+	    days_mask: number;
+	    position: string;
+	    priority: number;
+	    sector: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Spot(source);
@@ -659,6 +669,12 @@ export namespace domain {
 	        this.hour_to = source["hour_to"];
 	        this.active = source["active"];
 	        this.updated_at = this.convertValues(source["updated_at"], null);
+	        this.campaign_id = source["campaign_id"];
+	        this.weight = source["weight"];
+	        this.days_mask = source["days_mask"];
+	        this.position = source["position"];
+	        this.priority = source["priority"];
+	        this.sector = source["sector"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1118,6 +1134,24 @@ export namespace reports {
 
 export namespace spots {
 	
+	export class Missing {
+	    advertiser: string;
+	    name: string;
+	    count: number;
+	    reason: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Missing(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.advertiser = source["advertiser"];
+	        this.name = source["name"];
+	        this.count = source["count"];
+	        this.reason = source["reason"];
+	    }
+	}
 	export class TandaView {
 	    log_item_id: number;
 	    // Go type: time
@@ -1364,7 +1398,7 @@ export namespace ui {
 		}
 	}
 	export class ReplanResult {
-	    missing: Record<number, number>;
+	    missing: spots.Missing[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ReplanResult(source);
@@ -1372,8 +1406,26 @@ export namespace ui {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.missing = source["missing"];
+	        this.missing = this.convertValues(source["missing"], spots.Missing);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SpotView {
 	    id: number;
@@ -1393,6 +1445,12 @@ export namespace ui {
 	    active: boolean;
 	    // Go type: time
 	    updated_at: any;
+	    campaign_id: number;
+	    weight: number;
+	    days_mask: number;
+	    position: string;
+	    priority: number;
+	    sector: string;
 	    aired_today: number;
 	    from_web: boolean;
 	
@@ -1416,6 +1474,12 @@ export namespace ui {
 	        this.hour_to = source["hour_to"];
 	        this.active = source["active"];
 	        this.updated_at = this.convertValues(source["updated_at"], null);
+	        this.campaign_id = source["campaign_id"];
+	        this.weight = source["weight"];
+	        this.days_mask = source["days_mask"];
+	        this.position = source["position"];
+	        this.priority = source["priority"];
+	        this.sector = source["sector"];
 	        this.aired_today = source["aired_today"];
 	        this.from_web = source["from_web"];
 	    }

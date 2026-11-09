@@ -32,17 +32,24 @@ Estados en la lista: **Al aire**, **Fuera de fecha** (activo pero fuera de su ra
 En **Marca y contacto → Publicidad** se fija cada cuántos minutos, como mínimo, un mismo oyente
 vuelve a ver/oír publicidad previa.
 
-## Cuñas FM
-Cuñas que suenan **en la emisión de radio (93.3 FM)**, no en la web. Las programa la PC del
-estudio (Club25 Estudio), que las descarga sola. Por cada cuña: **anunciante**, nombre, audio,
-**veces por día**, **franja horaria** (p. ej. 07:00–13:00) y vigencia opcional. La PC reparte las
-veces por día entre las tandas de la franja y no repite anunciante en la misma tanda.
-La columna **Hoy** muestra cuántas veces sonó hoy. **Frecuencia:** «Todas» o una ciudad; la cuña
-la reciben solo las PC de esas frecuencias. El comprobante se puede filtrar por frecuencia.
+## Publicidad FM
+Publicidad que suena **en la emisión de radio**, no en la web. La PC del estudio (Club25 Estudio)
+la descarga sola y arma las tandas con estas reglas.
 
-**Comprobante de emisión**: elija fechas y anunciante; lista cada emisión con fecha, hora,
-duración y si sonó completa. **Descargar CSV** lo abre en Excel para enviarlo al anunciante.
-Borrar una cuña no borra su historial.
+- **Anunciantes**: nombre y **rubro** (p. ej. «banca», «telefonía»). Dos anunciantes del mismo rubro
+  (competidores) **nunca** suenan en la misma tanda.
+- **Campañas**: anunciante, nombre, **veces por día**, **franja** (p. ej. 07:00–13:00), **días de la
+  semana**, vigencia, **posición** en la tanda (cualquiera, primera o última), **prioridad** (alta, normal
+  o baja: si no hay espacio, cede la baja) y **frecuencia** (todas o una ciudad).
+- **Versiones**: los audios de una campaña. Si hay varios, se turnan según su **peso** (peso 2 suena el
+  doble). Las veces por día son de la campaña, no de cada versión. Una versión se puede pausar sola.
+- La columna **Hoy** compara lo emitido con lo que ya debía haber sonado. Si una campaña va atrasada,
+  aparece un aviso en el **Resumen**; la PC repone lo que no salió en las siguientes tandas de su franja.
+
+**Comprobante y cumplimiento**: elija fechas, anunciante y frecuencia. Arriba, el **cumplimiento por
+campaña** (programadas, emitidas, completas, faltantes y %); abajo cada emisión con fecha, hora,
+duración y si sonó completa. **Descargar CSV** lo abre en Excel. Borrar una campaña o una versión no
+borra su historial.
 
 ## Estadísticas
 Elija el rango de fechas. Por anuncio: impresiones, clics, CTR (clics ÷ impresiones),

@@ -105,6 +105,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	})
 	adsSvc := ads.New(adRepo, adEventRepo, licenseSvc, store, auditSvc, cfg.IPHashSalt)
 	studioSvc := studio.New(fmSpotRepo, airplayRepo, studioRepo, store, auditSvc, cfg.Location)
+	studioSvc.WithTraffic(sqlite.NewFMAdvertiserRepo(database), sqlite.NewFMCampaignRepo(database))
 	gateSvc := gate.New(licenseSvc, settingsSvc, cfg.MediaMTXPath, cfg.IcecastSourcePass)
 	gateSvc.SetMounts(frequenciesSvc)
 

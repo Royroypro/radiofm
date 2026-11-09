@@ -24,6 +24,24 @@
   </div>
 </form>
 
+{{with $d.Compliance}}
+<h2>Cumplimiento por campaña</h2>
+<div class="table-wrap" style="margin-bottom:18px">
+  <table>
+    <thead><tr><th>Anunciante</th><th>Campaña</th><th class="num">Programadas</th><th class="num">Emitidas</th><th class="num">Completas</th><th class="num">Faltan</th><th class="num">%</th></tr></thead>
+    <tbody>
+    {{range .}}
+      <tr><td>{{.Campaign.Advertiser}}</td><td><a href="/admin/fm-spots/{{.Campaign.ID}}">{{.Campaign.Name}}</a></td>
+        <td class="num">{{.Scheduled}}</td><td class="num">{{.Aired}}</td><td class="num">{{.Complete}}</td>
+        <td class="num">{{if .Missing}}<span class="pill warn">{{.Missing}}</span>{{else}}0{{end}}</td>
+        <td class="num">{{.Percent}}%</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+<p class="small muted">Programadas = veces por día × días del rango en que la campaña aplica (vigencia y días de la semana); hoy cuenta solo la parte de la franja que ya pasó.</p>
+{{end}}
+
 {{if $d.Summary}}
 <div class="table-wrap" style="margin-bottom:18px">
   <table>

@@ -159,6 +159,13 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/fm-spots/{id}", adm.FMSpotEdit)
 		r.Post("/fm-spots/{id}", adm.FMSpotSave)
 		r.Post("/fm-spots/{id}/delete", adm.FMSpotDelete)
+		r.Post("/fm-spots/{id}/versions", adm.FMVersionSave)
+		r.Post("/fm-spots/{id}/versions/{vid}", adm.FMVersionSave)
+		r.Post("/fm-spots/{id}/versions/{vid}/delete", adm.FMVersionDelete)
+		r.Get("/fm-advertisers", adm.FMAdvertisersList)
+		r.Post("/fm-advertisers", adm.FMAdvertiserSave)
+		r.Post("/fm-advertisers/{id}", adm.FMAdvertiserSave)
+		r.Post("/fm-advertisers/{id}/delete", adm.FMAdvertiserDelete)
 
 		r.Get("/frequencies", adm.FrequenciesList)
 		r.Get("/frequencies/new", adm.FrequencyNew)

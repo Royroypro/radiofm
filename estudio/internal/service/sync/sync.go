@@ -387,6 +387,8 @@ func (s *Service) syncSpot(ctx context.Context, c *apiclient.Client, r apiclient
 	upd.Advertiser, upd.Name, upd.Path, upd.SHA256 = r.Advertiser, r.Name, dst, r.SHA256
 	upd.Duration, upd.StartsAt, upd.EndsAt = duration, r.StartsAt, r.EndsAt
 	upd.PlaysPerDay, upd.HourFrom, upd.HourTo, upd.Active = r.PlaysPerDay, r.HourFrom, r.HourTo, true
+	upd.CampaignID, upd.Weight, upd.DaysMask, upd.Position = r.CampaignID, max(r.Weight, 1), r.Days, r.Position
+	upd.Priority, upd.Sector = r.Priority, r.Sector
 	if !needFile && same(*local, upd) {
 		return false, nil
 	}
@@ -397,7 +399,9 @@ func same(a, b domain.Spot) bool {
 	eqT := func(x, y *time.Time) bool { return (x == nil && y == nil) || (x != nil && y != nil && x.Equal(*y)) }
 	return a.Advertiser == b.Advertiser && a.Name == b.Name && a.Path == b.Path && a.SHA256 == b.SHA256 &&
 		a.Duration == b.Duration && eqT(a.StartsAt, b.StartsAt) && eqT(a.EndsAt, b.EndsAt) &&
-		a.PlaysPerDay == b.PlaysPerDay && a.HourFrom == b.HourFrom && a.HourTo == b.HourTo && a.Active == b.Active
+		a.PlaysPerDay == b.PlaysPerDay && a.HourFrom == b.HourFrom && a.HourTo == b.HourTo && a.Active == b.Active &&
+		a.CampaignID == b.CampaignID && a.Weight == b.Weight && a.DaysMask == b.DaysMask && a.Position == b.Position &&
+		a.Priority == b.Priority && a.Sector == b.Sector
 }
 
 func short(sha string) string {

@@ -7,24 +7,29 @@
   `[hour_from, hour_to)` en hora de la radio.
 - Las cuñas del panel web no se editan aquí: se editan en el panel y llegan con la sincronización.
 
-## Reparto en tandas (`spots.Plan`, función pura)
+## Reparto en tandas (`spots.Plan`, función pura) — tráfico (1.2)
 
-Una tanda es un elemento de la playlist de tipo `spots` (slot "Tanda de cuñas" de un reloj).
+Las cuñas llegan del panel como **versiones de campañas** (`campaign_id`, `weight`, `days_mask`,
+`position`, `priority`, `sector`). Las veces por día son de la **campaña** (`spots.needs` agrupa por
+`Spot.CampaignKey`; una cuña local es su propia campaña).
 
-1. Para cada cuña: emisiones pendientes = veces por día − las que ya sonaron hoy.
-2. Tandas válidas = tandas pendientes futuras dentro de la franja y vigencia de la cuña.
-3. Reparto equitativo: con n emisiones y m tandas válidas, posiciones `(k + ½) · m / n`.
-4. Nunca dos cuñas del **mismo anunciante** en una tanda (comparado sin mayúsculas, tildes ni espacios),
-   ni la misma cuña dos veces; si la tanda ideal choca, se usa la libre más cercana.
-5. Primero se reparten las cuñas con menos tandas posibles.
-6. Lo que no cabe se informa (`missing`) en la pantalla Cuñas.
+1. Cada campaña va solo a tandas dentro de su **franja**, **días** y **vigencia** (`Spot.LiveAt`).
+2. Orden de reparto: **prioridad** (alta primero); a igual prioridad, la que tiene **menos tandas
+   posibles**. Si no hay espacio, la de prioridad baja es la que queda fuera.
+3. **Reparto parejo**: n emisiones en m tandas válidas van a (k+½)·m/n; si esa tanda no sirve, la válida
+   libre más cercana.
+4. En una tanda: nunca el **mismo anunciante** dos veces ni dos del **mismo rubro** (competidores);
+   respeta **Máx. cuñas** y **Máx. segundos** por tanda (Ajustes → Rotación/Tandas; 0 = sin tope).
+5. **Posición**: «primera» y «última» se reservan una por tanda (si no hay otra opción se comparten). Al
+   final cada tanda se ordena: primeras, el resto por prioridad, últimas.
+6. **Versiones**: rotan con round-robin ponderado suave (pesos 2:1 → A, B, A), continuando desde lo
+   emitido hoy.
+7. Lo que no entra queda en `Missing` con el motivo («no hay tandas suficientes…» o «tandas llenas o
+   con un competidor…»); se ve en **Cuñas → No entran** y en el log.
 
-`Replan(day)` guarda el contenido de cada tanda (tabla `tanda_spots`) y actualiza su duración en la
-playlist: cuñas + 2 cortinas (promedio de la categoría **Cortinas**). Se ejecuta al cambiar la playlist
-de un día, al guardar/borrar una cuña y cada 10 minutos para hoy.
-
-Al aire (fase 6) una tanda suena así: cortina de entrada → cuñas en orden → cortina de salida. Cada cuña
-emitida queda en el historial (`plays.spot_id`) y, si viene del panel, se envía como emisión (fase 7).
+**Reposición**: `Replan` cuenta lo ya emitido hoy y solo toca tandas futuras pendientes. Se ejecuta al
+cambiar las cuñas, al generar el día y **cada 10 minutos**: lo que no salió en una tanda saltada (evento
+duro, PC apagada, archivo que faltaba) se repone en las siguientes tandas de su franja.
 
 ## Hora y temperatura locutadas (`service/timeannounce`)
 

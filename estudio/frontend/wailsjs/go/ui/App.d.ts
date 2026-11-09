@@ -130,6 +130,8 @@ export function SlotKinds():Promise<Array<domain.SlotKind>>;
 
 export function Spots():Promise<Array<ui.SpotView>>;
 
+export function SpotsMissing(arg1:string):Promise<Array<spots.Missing>>;
+
 export function StopCarts():Promise<void>;
 
 export function SyncNow():Promise<void>;

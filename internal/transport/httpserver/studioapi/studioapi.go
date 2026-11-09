@@ -95,6 +95,13 @@ type spotJSON struct {
 	HourFrom    int        `json:"hour_from"`
 	HourTo      int        `json:"hour_to"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	// Tráfico (estudio 1.2+): reglas de la campaña de esta versión.
+	CampaignID int64  `json:"campaign_id"`
+	Weight     int    `json:"weight"`
+	Days       int    `json:"days"` // máscara: bit 0 = domingo … bit 6 = sábado
+	Position   string `json:"position"`
+	Priority   int    `json:"priority"`
+	Sector     string `json:"sector"`
 }
 
 // Spots devuelve las cuñas FM activas y no vencidas: GET /api/studio/spots
@@ -105,12 +112,20 @@ func (h *Handler) Spots(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
+	// Un estudio anterior a 1.2 no conoce las campañas: trataría cada versión
+	// como una cuña aparte y duplicaría las veces por día. Sin ?v=2 se envía
+	// solo una versión por campaña (la de más peso).
+	if r.URL.Query().Get("v") != "2" {
+		list = onePerCampaign(list)
+	}
 	out := make([]spotJSON, 0, len(list))
 	for _, s := range list {
 		out = append(out, spotJSON{
 			ID: s.ID, Advertiser: s.Advertiser, Name: s.Name, URL: h.Cfg.BaseURL + s.FileURL, SHA256: s.SHA256,
 			DurationMs: s.DurationMs, StartsAt: utcPtr(s.StartsAt), EndsAt: utcPtr(s.EndsAt), PlaysPerDay: s.PlaysPerDay,
 			HourFrom: s.HourFrom, HourTo: s.HourTo, UpdatedAt: s.UpdatedAt.UTC(),
+			CampaignID: s.CampaignID, Weight: max(s.Weight, 1), Days: s.DaysMask, Position: string(s.Position),
+			Priority: s.Priority, Sector: s.Sector,
 		})
 	}
 	body, err := json.Marshal(map[string]any{"spots": out})
@@ -234,4 +249,25 @@ func utcPtr(t *time.Time) *time.Time {
 	}
 	u := t.UTC()
 	return &u
+}
+
+// onePerCampaign deja una versión por campaña (la de más peso; a igual peso, la primera).
+func onePerCampaign(list []domain.FMSpot) []domain.FMSpot {
+	best := map[int64]int{}
+	var out []domain.FMSpot
+	for _, s := range list {
+		if s.CampaignID == 0 {
+			out = append(out, s)
+			continue
+		}
+		if i, ok := best[s.CampaignID]; ok {
+			if s.Weight > out[i].Weight {
+				out[i] = s
+			}
+			continue
+		}
+		best[s.CampaignID] = len(out)
+		out = append(out, s)
+	}
+	return out
 }

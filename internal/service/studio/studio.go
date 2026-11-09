@@ -54,6 +54,8 @@ type Service struct {
 	plays domain.AirplayRepository
 	state domain.StudioRepository
 	files Files
+	adv   domain.FMAdvertiserRepository // tráfico (traffic.go)
+	camp  domain.FMCampaignRepository
 	audit *audit.Service
 	loc   *time.Location
 	now   func() time.Time

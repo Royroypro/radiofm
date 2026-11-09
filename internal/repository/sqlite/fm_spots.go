@@ -17,7 +17,8 @@ type FMSpotRepo struct{ db *sql.DB }
 func NewFMSpotRepo(db *sql.DB) *FMSpotRepo { return &FMSpotRepo{db: db} }
 
 const fmSpotCols = `id, advertiser, name, file_url, sha256, duration_ms, starts_at, ends_at, plays_per_day,
-	hour_from, hour_to, active, created_at, updated_at, frequency_id`
+	hour_from, hour_to, active, created_at, updated_at, frequency_id, COALESCE(campaign_id, 0), weight, days_mask,
+	position, priority, sector`
 
 func scanFMSpot(r rowScanner) (*domain.FMSpot, error) {
 	var s domain.FMSpot
@@ -25,10 +26,13 @@ func scanFMSpot(r rowScanner) (*domain.FMSpot, error) {
 	var created, updated string
 	var active int
 	var fid sql.NullInt64
+	var position string
 	if err := r.Scan(&s.ID, &s.Advertiser, &s.Name, &s.FileURL, &s.SHA256, &s.DurationMs, &starts, &ends,
-		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &created, &updated, &fid); err != nil {
+		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &created, &updated, &fid, &s.CampaignID, &s.Weight,
+		&s.DaysMask, &position, &s.Priority, &s.Sector); err != nil {
 		return nil, err
 	}
+	s.Position = domain.SpotPosition(position)
 	s.FrequencyID = fid.Int64
 	s.StartsAt, s.EndsAt, s.Active = parseTimePtr(starts), parseTimePtr(ends), active == 1
 	s.CreatedAt, s.UpdatedAt = parseTime(created), parseTime(updated)
@@ -40,10 +44,12 @@ func (r *FMSpotRepo) Create(ctx context.Context, s *domain.FMSpot) error {
 	now := time.Now()
 	s.CreatedAt, s.UpdatedAt = now, now
 	res, err := r.db.ExecContext(ctx, `INSERT INTO fm_spots (advertiser, name, file_url, sha256, duration_ms,
-		starts_at, ends_at, plays_per_day, hour_from, hour_to, active, created_at, updated_at, frequency_id)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		starts_at, ends_at, plays_per_day, hour_from, hour_to, active, created_at, updated_at, frequency_id,
+		campaign_id, weight, days_mask, position, priority, sector)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		s.Advertiser, s.Name, s.FileURL, s.SHA256, s.DurationMs, formatTimePtr(s.StartsAt), formatTimePtr(s.EndsAt),
-		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(now), formatTime(now), nullID(s.FrequencyID))
+		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(now), formatTime(now), nullID(s.FrequencyID),
+		nullID(s.CampaignID), max(s.Weight, 1), daysOr(s.DaysMask), positionOr(s.Position), priorityOr(s.Priority), s.Sector)
 	if err != nil {
 		return fmt.Errorf("fm_spots: create: %w", err)
 	}
@@ -85,9 +91,50 @@ func (r *FMSpotRepo) Update(ctx context.Context, s *domain.FMSpot) error {
 	s.UpdatedAt = time.Now()
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE fm_spots SET advertiser=?, name=?, file_url=?, sha256=?,
 		duration_ms=?, starts_at=?, ends_at=?, plays_per_day=?, hour_from=?, hour_to=?, active=?, updated_at=?,
-		frequency_id=? WHERE id=?`,
+		frequency_id=?, campaign_id=?, weight=?, days_mask=?, position=?, priority=?, sector=? WHERE id=?`,
 		s.Advertiser, s.Name, s.FileURL, s.SHA256, s.DurationMs, formatTimePtr(s.StartsAt), formatTimePtr(s.EndsAt),
-		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(s.UpdatedAt), nullID(s.FrequencyID), s.ID))
+		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(s.UpdatedAt), nullID(s.FrequencyID),
+		nullID(s.CampaignID), max(s.Weight, 1), daysOr(s.DaysMask), positionOr(s.Position), priorityOr(s.Priority),
+		s.Sector, s.ID))
+}
+
+// ByCampaign devuelve las versiones de una campaña.
+func (r *FMSpotRepo) ByCampaign(ctx context.Context, campaignID int64) ([]domain.FMSpot, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+fmSpotCols+` FROM fm_spots WHERE campaign_id=? ORDER BY id`, campaignID)
+	if err != nil {
+		return nil, fmt.Errorf("fm_spots: by campaign: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.FMSpot
+	for rows.Next() {
+		s, err := scanFMSpot(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *s)
+	}
+	return out, rows.Err()
+}
+
+func daysOr(m int) int {
+	if m <= 0 || m > domain.AllDays {
+		return domain.AllDays
+	}
+	return m
+}
+
+func positionOr(p domain.SpotPosition) string {
+	if p == domain.PositionFirst || p == domain.PositionLast {
+		return string(p)
+	}
+	return string(domain.PositionAny)
+}
+
+func priorityOr(p int) int {
+	if p < 1 || p > 3 {
+		return 2
+	}
+	return p
 }
 
 // Delete borra una cuña. Sus emisiones se conservan (spot_id pasa a NULL).

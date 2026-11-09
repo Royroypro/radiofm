@@ -224,6 +224,9 @@
         <h2>Rotación</h2>
         <label class="field">Separación de artista (min)<input type="number" min="0" bind:value={s.rotation.artist_separation_min} /></label>
         <label class="field">Separación de título (h)<input type="number" min="0" bind:value={s.rotation.title_separation_hours} /></label>
+        <h2 style="margin-top:10px">Tandas</h2>
+        <label class="field" title="La PC no pone más cuñas que esto en una tanda; lo que no entra se repone en otra">Máx. cuñas por tanda (0 = sin tope)<input type="number" min="0" max="40" bind:value={s.schedule.break_max_spots} /></label>
+        <label class="field" title="Duración máxima de las cuñas de una tanda, sin contar cortinas">Máx. segundos por tanda (0 = sin tope)<input type="number" min="0" max="1800" step="10" bind:value={s.schedule.break_max_seconds} /></label>
       </div>
       <div>
         <h2>Locuciones</h2>

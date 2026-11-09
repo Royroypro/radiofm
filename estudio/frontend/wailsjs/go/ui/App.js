@@ -238,6 +238,10 @@ export function Spots() {
   return window['go']['ui']['App']['Spots']();
 }
 
+export function SpotsMissing(arg1) {
+  return window['go']['ui']['App']['SpotsMissing'](arg1);
+}
+
 export function StopCarts() {
   return window['go']['ui']['App']['StopCarts']();
 }

@@ -1,62 +1,131 @@
-{{/* Alta/edición de cuña FM. .Data: Spot *domain.FMSpot, MaxUploadMB int, DurationSec int64 */}}
+{{/* Campaña FM con sus versiones. .Data: C *domain.FMCampaign, Advertisers []domain.FMAdvertiser, MaxUploadMB int, Weekdays []admin.WeekdayCheck */}}
 {{define "content"}}
-{{$s := .Data.Spot}}
-<form class="box form" method="post" enctype="multipart/form-data" action="/admin/fm-spots{{if $s.ID}}/{{$s.ID}}{{end}}">
+{{$c := .Data.C}}
+<form class="box form" method="post" enctype="multipart/form-data" action="/admin/fm-spots{{if $c.ID}}/{{$c.ID}}{{end}}">
   {{template "csrf" .}}
   <div class="grid grid-2">
     <label class="{{if .FieldError "advertiser"}}has-error{{end}}">Anunciante
-      <input type="text" name="advertiser" value="{{$s.Advertiser}}" required maxlength="120" placeholder="Ej.: Ferretería El Sol">
-      <span class="hint">Se usa para agrupar el comprobante de emisión y para no repetir anunciante en la misma tanda.</span>
+      <select name="advertiser_id">
+        <option value="0">— Nuevo (escríbalo abajo) —</option>
+        {{range .Data.Advertisers}}<option value="{{.ID}}" {{if eq .ID $c.AdvertiserID}}selected{{end}}>{{.Name}}{{with .Sector}} · {{.}}{{end}}</option>{{end}}
+      </select>
+      <input type="text" name="advertiser" maxlength="120" placeholder="Nombre de un anunciante nuevo">
+      <span class="hint">El <a href="/admin/fm-advertisers">rubro</a> del anunciante evita que dos competidores suenen en la misma tanda.</span>
       {{with .FieldError "advertiser"}}<span class="err">{{.}}</span>{{end}}
     </label>
-    <label class="{{if .FieldError "name"}}has-error{{end}}">Nombre de la cuña
-      <input type="text" name="name" value="{{$s.Name}}" required maxlength="120" placeholder="Ej.: Campaña verano — 20 s">
+    <label class="{{if .FieldError "name"}}has-error{{end}}">Nombre de la campaña
+      <input type="text" name="name" value="{{$c.Name}}" required maxlength="120" placeholder="Ej.: Verano 2027">
       {{with .FieldError "name"}}<span class="err">{{.}}</span>{{end}}
     </label>
   </div>
 
-  {{template "freq_select" (freqArgs .Frequencies $s.FrequencyID "Elija una si la cuña solo debe sonar en esa ciudad; la recibe solo la PC de esa frecuencia.")}}
-  <label class="{{if .FieldError "file"}}has-error{{end}}">Audio {{if $s.FileURL}}(deje vacío para mantener el actual){{end}}
-    <input type="file" name="file" {{if not $s.FileURL}}required{{end}} accept="audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav">
-    <span class="hint">MP3, AAC, OGG, M4A o WAV. Máximo {{.Data.MaxUploadMB}} MB. La PC verifica el archivo con su huella SHA-256.</span>
-    {{with .FieldError "file"}}<span class="err">{{.}}</span>{{end}}
-  </label>
-  {{with $s.FileURL}}<div><audio src="{{.}}" controls preload="none"></audio>{{with $s.SHA256}}<div class="small muted">SHA-256: <code>{{.}}</code></div>{{end}}</div>{{end}}
+  {{template "freq_select" (freqArgs .Frequencies $c.FrequencyID "Elija una si la campaña solo debe sonar en esa ciudad.")}}
 
-  <div class="grid grid-2">
-    <label class="{{if .FieldError "duration"}}has-error{{end}}">Duración (segundos, opcional)
-      <input type="number" name="duration" min="0" max="600" value="{{.Data.DurationSec}}">
-      <span class="hint">0 = la mide la PC al descargarla.</span>
-      {{with .FieldError "duration"}}<span class="err">{{.}}</span>{{end}}
-    </label>
+  <div class="grid grid-3">
     <label class="{{if .FieldError "plays_per_day"}}has-error{{end}}">Veces por día
-      <input type="number" name="plays_per_day" min="1" max="96" value="{{$s.PlaysPerDay}}" required>
-      <span class="hint">La PC las reparte de forma equitativa entre las tandas de la franja.</span>
-      {{with .FieldError "plays_per_day"}}<span class="err">{{.}}</span>{{end}}
-    </label>
-  </div>
-
-  <div class="grid grid-2">
+      <input type="number" name="plays_per_day" min="1" max="96" value="{{$c.PlaysPerDay}}" required>
+      {{with .FieldError "plays_per_day"}}<span class="err">{{.}}</span>{{end}}</label>
     <label>Desde la hora
-      <select name="hour_from">{{range seq 24}}<option value="{{.}}" {{if eq . $s.HourFrom}}selected{{end}}>{{printf "%02d:00" .}}</option>{{end}}</select>
-    </label>
+      <select name="hour_from">{{range seq 24}}<option value="{{.}}" {{if eq . $c.HourFrom}}selected{{end}}>{{printf "%02d:00" .}}</option>{{end}}</select></label>
     <label class="{{if .FieldError "hour_to"}}has-error{{end}}">Hasta la hora (sin incluir)
-      <select name="hour_to">{{range seq 24}}{{$h := add . 1}}<option value="{{$h}}" {{if eq $h $s.HourTo}}selected{{end}}>{{printf "%02d:00" $h}}</option>{{end}}</select>
-      {{with .FieldError "hour_to"}}<span class="err">{{.}}</span>{{end}}
-    </label>
+      <select name="hour_to">{{range seq 24}}{{$h := add . 1}}<option value="{{$h}}" {{if eq $h $c.HourTo}}selected{{end}}>{{printf "%02d:00" $h}}</option>{{end}}</select>
+      {{with .FieldError "hour_to"}}<span class="err">{{.}}</span>{{end}}</label>
+  </div>
+
+  <fieldset class="{{if .FieldError "days"}}has-error{{end}}">
+    <legend>Días</legend>
+    <div class="row-checks">{{range .Data.Weekdays}}<label class="check"><input type="checkbox" name="days" value="{{.Value}}" {{if .Checked}}checked{{end}}> {{.Label}}</label>{{end}}</div>
+    {{with .FieldError "days"}}<span class="err">{{.}}</span>{{end}}
+  </fieldset>
+
+  <div class="grid grid-2">
+    <label>Posición en la tanda
+      <select name="position">
+        <option value="any" {{if eq (print $c.Position) "any"}}selected{{end}}>Cualquiera</option>
+        <option value="first" {{if eq (print $c.Position) "first"}}selected{{end}}>Primera (después de la cortina)</option>
+        <option value="last" {{if eq (print $c.Position) "last"}}selected{{end}}>Última (antes de la cortina)</option>
+      </select></label>
+    <label>Prioridad
+      <select name="priority">
+        <option value="1" {{if eq $c.Priority 1}}selected{{end}}>Alta (entra primero si no hay espacio)</option>
+        <option value="2" {{if eq $c.Priority 2}}selected{{end}}>Normal</option>
+        <option value="3" {{if eq $c.Priority 3}}selected{{end}}>Baja (cede su lugar)</option>
+      </select></label>
   </div>
 
   <div class="grid grid-2">
-    <label>Desde (opcional)<input type="datetime-local" name="starts_at" value="{{datetimeInput $s.StartsAt}}"></label>
-    <label class="{{if .FieldError "ends_at"}}has-error{{end}}">Hasta (opcional)<input type="datetime-local" name="ends_at" value="{{datetimeInput $s.EndsAt}}">
+    <label>Desde (opcional)<input type="datetime-local" name="starts_at" value="{{datetimeInput $c.StartsAt}}"></label>
+    <label class="{{if .FieldError "ends_at"}}has-error{{end}}">Hasta (opcional)<input type="datetime-local" name="ends_at" value="{{datetimeInput $c.EndsAt}}">
       {{with .FieldError "ends_at"}}<span class="err">{{.}}</span>{{end}}</label>
   </div>
+  <label class="check"><input type="checkbox" name="active" {{if $c.Active}}checked{{end}}> Activa</label>
 
-  <label class="check"><input type="checkbox" name="active" {{if $s.Active}}checked{{end}}> Activa</label>
+  {{if not $c.ID}}
+  <fieldset>
+    <legend>Primera versión (opcional; se pueden agregar más después)</legend>
+    <div class="grid grid-3">
+      <label>Nombre de la versión<input type="text" name="version_name" maxlength="120" placeholder="Ej.: 20 s"></label>
+      <label>Audio<input type="file" name="file" accept="audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav">
+        <span class="hint">Máximo {{.Data.MaxUploadMB}} MB.</span></label>
+      <label>Duración (s, opcional)<input type="number" name="duration" min="0" max="600" value="0"></label>
+    </div>
+  </fieldset>
+  {{end}}
 
   <div class="form-actions">
-    <button class="btn" type="submit">Guardar</button>
-    <a class="btn btn-ghost" href="/admin/fm-spots">Cancelar</a>
+    <button class="btn" type="submit">Guardar campaña</button>
+    <a class="btn btn-ghost" href="/admin/fm-spots">Volver</a>
   </div>
 </form>
+
+{{if $c.ID}}
+<section class="box">
+  <h2>Versiones (audios)</h2>
+  <p class="small muted">Si hay varias, rotan entre sí según su peso (peso 2 suena el doble que peso 1). Las veces por día son de la campaña, no de cada versión.</p>
+  {{if $c.Versions}}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Versión</th><th>Audio</th><th class="num">Duración</th><th>Peso · activa</th><th></th></tr></thead>
+    <tbody>
+    {{range $c.Versions}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td><audio src="{{.FileURL}}" controls preload="none"></audio></td>
+        <td class="num">{{.DurationLabel}}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/fm-spots/{{$c.ID}}/versions/{{.ID}}">
+            {{template "csrf" $}}<input type="hidden" name="name" value="{{.Name}}">
+            <input type="number" name="weight" min="1" max="10" value="{{.Weight}}" style="width:4.5em" aria-label="Peso">
+            <label class="check"><input type="checkbox" name="active" {{if .Active}}checked{{end}}> activa</label>
+            <button class="btn btn-sm btn-ghost" type="submit">Guardar</button>
+          </form>
+        </td>
+        <td class="actions">
+          <form method="post" action="/admin/fm-spots/{{$c.ID}}/versions/{{.ID}}/delete" data-confirm="¿Eliminar la versión «{{.Name}}»? Su historial se conserva.">
+            {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}<div class="empty">Esta campaña no tiene audio: no sonará hasta que suba una versión.</div>{{end}}
+
+  <form class="form" method="post" enctype="multipart/form-data" action="/admin/fm-spots/{{$c.ID}}/versions">
+    {{template "csrf" .}}
+    <h3>Agregar versión</h3>
+    <div class="grid grid-3">
+      <label>Nombre<input type="text" name="name" maxlength="120" placeholder="Ej.: 30 s"></label>
+      <label>Audio<input type="file" name="file" required accept="audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav"></label>
+      <label>Peso<input type="number" name="weight" min="1" max="10" value="1"></label>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Subir versión</button></div>
+  </form>
+</section>
+
+<form method="post" action="/admin/fm-spots/{{$c.ID}}/delete" data-confirm="¿Eliminar la campaña «{{$c.Name}}» y sus audios? El comprobante se conserva.">
+  {{template "csrf" .}}<button class="btn btn-danger" type="submit">Eliminar campaña</button>
+</form>
+{{end}}
 {{end}}

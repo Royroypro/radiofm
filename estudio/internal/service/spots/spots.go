@@ -10,7 +10,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"radioclub25/estudio/internal/domain"
@@ -39,6 +41,20 @@ type Service struct {
 	loc    func() *time.Location
 	log    *slog.Logger
 	now    func() time.Time
+	limits func() Limits
+
+	mu      sync.Mutex
+	missing map[string][]Missing // día → lo que no entró en la última replanificación
+}
+
+// SetLimits fija de dónde salen los topes de una tanda (Ajustes → Programación).
+func (s *Service) SetLimits(f func() Limits) { s.limits = f }
+
+// Missing devuelve lo que no entró en las tandas de un día (última replanificación).
+func (s *Service) Missing(day string) []Missing {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Missing(nil), s.missing[day]...)
 }
 
 // New crea el servicio.
@@ -103,6 +119,37 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.spots.Delete(ctx, id)
 }
 
+// needs agrupa las cuñas por campaña: lo que falta hoy de cada una, con sus
+// versiones (activas y con archivo).
+func needs(list []domain.Spot, aired map[int64]int) []Need {
+	byCampaign := map[int64]*Need{}
+	var keys []int64
+	for _, sp := range list {
+		k := sp.CampaignKey()
+		n, ok := byCampaign[k]
+		if !ok {
+			n = &Need{}
+			byCampaign[k] = n
+			keys = append(keys, k)
+		}
+		n.Aired += aired[sp.ID]
+		if sp.Active && sp.Path != "" {
+			n.Versions = append(n.Versions, sp)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	out := make([]Need, 0, len(keys))
+	for _, k := range keys {
+		n := byCampaign[k]
+		if len(n.Versions) == 0 {
+			continue
+		}
+		n.Count = n.Versions[0].PlaysPerDay - n.Aired
+		out = append(out, *n)
+	}
+	return out
+}
+
 // AiredToday cuenta las emisiones de cada cuña hoy (hora de la radio).
 func (s *Service) AiredToday(ctx context.Context) (map[int64]int, error) {
 	loc := s.loc()
@@ -153,8 +200,10 @@ func (s *Service) CortinaCategory(ctx context.Context) int64 {
 }
 
 // Replan vuelve a repartir las cuñas en las tandas pendientes de un día y
-// actualiza la duración y el título de cada tanda en la playlist.
-func (s *Service) Replan(ctx context.Context, day string) (map[int64]int, error) {
+// actualiza la duración y el título de cada tanda en la playlist. Como cuenta
+// lo ya emitido hoy, replanificar después de una tanda que no salió (evento
+// duro, PC apagada) repone esas cuñas en las tandas que quedan de su franja.
+func (s *Service) Replan(ctx context.Context, day string) (map[int64]Missing, error) {
 	loc := s.loc()
 	list, err := s.spots.List(ctx)
 	if err != nil {
@@ -168,13 +217,16 @@ func (s *Service) Replan(ctx context.Context, day string) (map[int64]int, error)
 		}
 	}
 	byID := map[int64]domain.Spot{}
-	var needs []Need
 	for _, sp := range list {
 		byID[sp.ID] = sp
-		needs = append(needs, Need{Spot: sp, Count: sp.PlaysPerDay - aired[sp.ID]})
+	}
+	want := needs(list, aired)
+	var lim Limits
+	if s.limits != nil {
+		lim = s.limits()
 	}
 	cortinas := s.cortinaLen(ctx)
-	var missing map[int64]int
+	var missing map[int64]Missing
 	err = s.days.Apply(ctx, day, func(items []domain.LogItem) []domain.LogItem {
 		var tandas []Tanda
 		for _, it := range items {
@@ -183,7 +235,7 @@ func (s *Service) Replan(ctx context.Context, day string) (map[int64]int, error)
 			}
 		}
 		var plan map[int64][]int64
-		plan, missing = Plan(tandas, needs, loc)
+		plan, missing = Plan(tandas, want, loc, lim)
 		for i := range items {
 			it := &items[i]
 			if it.Kind != domain.SlotSpots || it.Status != domain.LogPending || !it.At.After(now) {
@@ -207,6 +259,22 @@ func (s *Service) Replan(ctx context.Context, day string) (map[int64]int, error)
 		}
 		return items
 	}, false)
+	if err == nil {
+		var list []Missing
+		for _, m := range missing {
+			list = append(list, m)
+		}
+		sort.Slice(list, func(i, j int) bool { return list[i].Advertiser < list[j].Advertiser })
+		s.mu.Lock()
+		if s.missing == nil {
+			s.missing = map[string][]Missing{}
+		}
+		s.missing[day] = list
+		s.mu.Unlock()
+		for _, m := range list {
+			s.log.Warn("cuñas que no entran", "day", day, "anunciante", m.Advertiser, "cuña", m.Name, "faltan", m.Count, "motivo", m.Reason)
+		}
+	}
 	return missing, err
 }
 

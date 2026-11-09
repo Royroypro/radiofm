@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Spots, SaveSpot, DeleteSpot, ReplanDay, DayTandas, Today, PickFile } from '../../wailsjs/go/ui/App'
+  import { Spots, SaveSpot, DeleteSpot, ReplanDay, DayTandas, Today, PickFile, SpotsMissing } from '../../wailsjs/go/ui/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { domain, type ui, type spots } from '../../wailsjs/go/models'
   import { dur, dateInput, fromDateInput } from '../lib/format'
@@ -15,16 +15,29 @@
   let day = $state('')
   let tandas: spots.TandaView[] = $state([])
   let edit: any = $state(null)
+  let missing: spots.Missing[] = $state([])
 
   async function load() {
     list = (await Spots()) ?? []
     tandas = (await DayTandas(day)) ?? []
+    missing = (await SpotsMissing(day)) ?? []
   }
+
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  function days(mask: number): string {
+    if (!mask || mask === 127) return 'Todos'
+    if (mask === 0b0111110) return 'Lun–Vie'
+    if (mask === 0b1000001) return 'Sáb y Dom'
+    return [1, 2, 3, 4, 5, 6, 0].filter((d) => mask & (1 << d)).map((d) => dayNames[d]).join(', ')
+  }
+  const posLabel: Record<string, string> = { first: 'primera', last: 'última' }
+  const prioLabel: Record<number, string> = { 1: 'alta', 3: 'baja' }
 
   function open(s: ui.SpotView | null) {
     edit = s
       ? { ...s, from: dateInput(s.starts_at as any), to: dateInput(s.ends_at as any) }
-      : { id: 0, advertiser: '', name: '', path: '', plays_per_day: 6, hour_from: 6, hour_to: 22, active: true, from: '', to: '' }
+      : { id: 0, advertiser: '', name: '', path: '', plays_per_day: 6, hour_from: 6, hour_to: 22, active: true, from: '', to: '',
+          sector: '', position: 'any', priority: 2, weight: 1, days_mask: 0 }
   }
 
   async function pick() {
@@ -36,6 +49,7 @@
     try {
       await SaveSpot(domain.Spot.createFrom({
         ...edit, plays_per_day: Number(edit.plays_per_day), hour_from: Number(edit.hour_from), hour_to: Number(edit.hour_to),
+        priority: Number(edit.priority), weight: Number(edit.weight) || 1,
         starts_at: fromDateInput(edit.from), ends_at: fromDateInput(edit.to),
       }))
       edit = null
@@ -60,7 +74,7 @@
   async function replan() {
     try {
       const r = await ReplanDay(day)
-      const faltan = Object.values(r.missing ?? {}).reduce((a: number, b: any) => a + Number(b), 0)
+      const faltan = (r.missing ?? []).reduce((a: number, m: spots.Missing) => a + m.count, 0)
       toast.show(faltan ? `Replanificado; ${faltan} emisiones no caben en las tandas del día` : 'Tandas replanificadas', faltan > 0)
       await load()
     } catch (e) {
@@ -87,12 +101,15 @@
 
   <section class="panel scroll list">
     <table>
-      <thead><tr><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th class="num">Veces/día</th><th>Franja</th><th>Vigencia</th><th class="num">Hoy</th><th>Origen</th></tr></thead>
+      <thead><tr><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th class="num">Veces/día</th><th>Franja · días</th><th>Tanda</th><th>Vigencia</th><th class="num">Hoy</th><th>Origen</th></tr></thead>
       <tbody>
         {#each list as s (s.id)}
           <tr onclick={() => (s.from_web ? toast.show('Esta cuña viene del panel web: edítela allí.') : open(s))}>
-            <td>{s.advertiser}</td><td>{s.name}</td><td class="num">{dur(s.duration)}</td><td class="num">{s.plays_per_day}</td>
-            <td>{range(s)}</td>
+            <td>{s.advertiser}{#if s.sector}<div class="small muted">{s.sector}</div>{/if}</td>
+            <td>{s.name}{#if s.campaign_id && s.weight > 1}<div class="small muted">peso {s.weight}</div>{/if}</td>
+            <td class="num">{dur(s.duration)}</td><td class="num">{s.plays_per_day}</td>
+            <td>{range(s)}<div class="small muted">{days(s.days_mask)}</div></td>
+            <td class="small">{posLabel[s.position] ?? '—'}{#if prioLabel[s.priority]}<div class="muted">prioridad {prioLabel[s.priority]}</div>{/if}</td>
             <td class="small">{s.starts_at ? dateInput(s.starts_at as any) : '—'} → {s.ends_at ? dateInput(s.ends_at as any) : 'sin fin'}</td>
             <td class="num">{s.aired_today}</td>
             <td>{#if s.from_web}<span class="pill ok">Panel web</span>{:else}<span class="pill">Local</span>{/if}
@@ -103,6 +120,14 @@
     </table>
     {#if !list.length}<p class="muted">No hay cuñas. Llegan solas del panel web al configurar la sincronización, o cree una local.</p>{/if}
   </section>
+
+  {#if missing.length}
+    <section class="panel warnbox">
+      <h2>No entran en las tandas de este día</h2>
+      {#each missing as m}<div class="small"><strong>{m.advertiser}</strong> · {m.name}: faltan {m.count} — {m.reason}</div>{/each}
+      <p class="small muted">Se reponen solas si se liberan tandas (cada replanificación cuenta lo que ya sonó). Si es habitual, agregue tandas a los relojes o suba el tope por tanda en Ajustes → Programación.</p>
+    </section>
+  {/if}
 
   <section class="panel scroll tandas">
     <div class="row"><h2 class="grow">Tandas del día</h2>
@@ -136,6 +161,9 @@
         <label class="field">Vigente desde<input type="date" bind:value={edit.from} /></label>
         <label class="field">Hasta<input type="date" bind:value={edit.to} /></label>
         <label class="check" style="align-self:end"><input type="checkbox" bind:checked={edit.active} /> Activa</label>
+        <label class="field">Rubro (competencia)<input bind:value={edit.sector} placeholder="Ej.: banca" /></label>
+        <label class="field">Posición<select bind:value={edit.position}><option value="any">Cualquiera</option><option value="first">Primera</option><option value="last">Última</option></select></label>
+        <label class="field">Prioridad<select bind:value={edit.priority}><option value={1}>Alta</option><option value={2}>Normal</option><option value={3}>Baja</option></select></label>
       </div>
       <div class="actions">
         {#if edit.id}<button class="danger" onclick={remove}>Borrar</button>{/if}
@@ -154,4 +182,5 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
   .card { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; border-left: 3px solid var(--orange); }
   .card.done { opacity: .5; }
+  .warnbox { border-color: var(--orange); }
 </style>

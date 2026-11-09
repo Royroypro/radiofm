@@ -59,16 +59,22 @@ func (a *App) replanSoon() { a.core.ReplanSoon() }
 
 // ReplanResult resume una replanificación.
 type ReplanResult struct {
-	Missing map[int64]int `json:"missing"` // cuña → emisiones que no cupieron
+	Missing []spots.Missing `json:"missing"` // campañas con emisiones que no entraron (y por qué)
 }
 
 // ReplanDay vuelve a repartir las cuñas en las tandas pendientes de un día.
 func (a *App) ReplanDay(day string) (ReplanResult, error) {
-	m, err := a.core.Spots.Replan(context.Background(), day)
+	_, err := a.core.Spots.Replan(context.Background(), day)
+	return ReplanResult{Missing: a.SpotsMissing(day)}, err
+}
+
+// SpotsMissing devuelve lo que no entró en las tandas de un día (última replanificación).
+func (a *App) SpotsMissing(day string) []spots.Missing {
+	m := a.core.Spots.Missing(day)
 	if m == nil {
-		m = map[int64]int{}
+		m = []spots.Missing{}
 	}
-	return ReplanResult{Missing: m}, err
+	return m
 }
 
 // DayTandas devuelve las tandas de un día con sus cuñas.

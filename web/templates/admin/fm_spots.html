@@ -1,41 +1,41 @@
-{{/* Lista de cuñas FM (las que programa la PC del estudio). .Data: Spots []domain.FMSpot, Today map[int64]int, Now time.Time */}}
+{{/* Campañas de publicidad FM. .Data: Rows []admin.CampaignRow, Now time.Time */}}
 {{define "content"}}
 {{$d := .Data}}
 <div class="toolbar">
-  <p class="small muted">Cuñas que suenan en la emisión FM. La PC del estudio (Club25 Estudio) las descarga y las reparte en las tandas según las veces por día y la franja horaria.</p>
+  <p class="small muted" style="margin:0">Campañas que suenan en la emisión FM. La PC del estudio arma las tandas con estas reglas:
+    veces por día dentro de la franja y los días elegidos, sin dos anunciantes del mismo rubro en una tanda, respetando la
+    posición pedida y la prioridad; si una cuña no entra, la repone en la siguiente tanda.</p>
   <div class="form-actions">
-    <a class="btn btn-ghost" href="/admin/fm-spots/report">Comprobante de emisión</a>
-    <a class="btn" href="/admin/fm-spots/new">Nueva cuña FM</a>
+    <a class="btn btn-ghost" href="/admin/fm-advertisers">Anunciantes</a>
+    <a class="btn btn-ghost" href="/admin/fm-spots/report">Comprobante y cumplimiento</a>
+    <a class="btn" href="/admin/fm-spots/new">Nueva campaña</a>
   </div>
 </div>
 
 <div class="table-wrap">
-{{if $d.Spots}}
+{{if $d.Rows}}
 <table>
-  <thead><tr><th>Anunciante</th><th>Cuña</th><th>Frecuencia</th><th class="num">Duración</th><th class="num">Veces/día</th><th>Franja</th><th>Vigencia</th><th class="num">Hoy</th><th>Estado</th><th></th></tr></thead>
+  <thead><tr><th>Anunciante</th><th>Campaña</th><th>Frecuencia</th><th class="num">Versiones</th><th class="num">Veces/día</th>
+    <th>Franja · días</th><th>Posición · prioridad</th><th>Vigencia</th><th class="num">Hoy</th><th>Estado</th></tr></thead>
   <tbody>
-  {{range $d.Spots}}
+  {{range $d.Rows}}{{$c := .C}}
     <tr>
-      <td>{{.Advertiser}}</td>
-      <td><a href="/admin/fm-spots/{{.ID}}">{{.Name}}</a><div><audio src="{{.FileURL}}" controls preload="none"></audio></div></td>
-      <td>{{if .FrequencyID}}{{$.FrequencyCity .FrequencyID}}{{else}}<span class="muted">Todas</span>{{end}}</td>
-      <td class="num">{{.DurationLabel}}</td>
-      <td class="num">{{.PlaysPerDay}}</td>
-      <td>{{.HoursLabel}}</td>
-      <td class="small">{{with .StartsAt}}{{datetime .}}{{else}}Siempre{{end}}<br>{{with .EndsAt}}→ {{datetime .}}{{else}}→ sin fin{{end}}</td>
-      <td class="num">{{index $d.Today .ID}}</td>
-      <td>{{if .IsLive $d.Now}}<span class="pill ok">Vigente</span>{{else if .Active}}<span class="pill warn">Fuera de fecha</span>{{else}}<span class="pill">Pausada</span>{{end}}</td>
-      <td class="actions">
-        <a class="btn btn-sm btn-ghost" href="/admin/fm-spots/{{.ID}}">Editar</a>
-        <form method="post" action="/admin/fm-spots/{{.ID}}/delete" data-confirm="¿Eliminar la cuña «{{.Name}}»? Su historial de emisiones se conserva.">
-          {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
-        </form>
-      </td>
+      <td>{{$c.Advertiser}}{{with $c.Sector}}<div class="small muted">{{.}}</div>{{end}}</td>
+      <td><a href="/admin/fm-spots/{{$c.ID}}">{{$c.Name}}</a></td>
+      <td>{{if $c.FrequencyID}}{{$.FrequencyCity $c.FrequencyID}}{{else}}<span class="muted">Todas</span>{{end}}</td>
+      <td class="num">{{if .Versions}}{{.Versions}}{{else}}<span class="pill warn">sin audio</span>{{end}}</td>
+      <td class="num">{{$c.PlaysPerDay}}</td>
+      <td class="small">{{$c.HoursLabel}}<br>{{$c.DaysLabel}}</td>
+      <td class="small">{{$c.Position.Label}}<br>{{$c.PriorityLabel}}</td>
+      <td class="small">{{with $c.StartsAt}}{{datetime .}}{{else}}Siempre{{end}}<br>{{with $c.EndsAt}}→ {{datetime .}}{{else}}→ sin fin{{end}}</td>
+      <td class="num">{{.Today.Aired}}{{if .Today.Scheduled}} / {{.Today.Scheduled}}{{end}}
+        {{if .Today.Missing}}<div><span class="pill warn" title="Debía haber sonado más hasta ahora">faltan {{.Today.Missing}}</span></div>{{end}}</td>
+      <td>{{if $c.IsLive $d.Now}}<span class="pill ok">Vigente</span>{{else if $c.Active}}<span class="pill warn">Fuera de fecha</span>{{else}}<span class="pill">Pausada</span>{{end}}</td>
     </tr>
   {{end}}
   </tbody>
 </table>
-{{else}}<div class="empty">No hay cuñas FM. Cree la primera con «Nueva cuña FM».</div>{{end}}
+{{else}}<div class="empty">Aún no hay campañas FM.</div>{{end}}
 </div>
-<p class="small muted">«Hoy» cuenta las emisiones que la PC ya reportó hoy. Si la PC no tiene internet las guarda y las envía al reconectar.</p>
+<p class="small muted">«Hoy» = emisiones registradas por la PC / las que ya debían haber sonado según la parte de la franja que pasó.</p>
 {{end}}

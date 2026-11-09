@@ -12,6 +12,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -80,6 +81,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"OnAir":     onAir,
 		"TopAds":    top,
 		"AdsActive": h.Ads.Enabled(),
+		"FMShort":   h.fmShortfall(ctx),
 	})
 }
 
@@ -143,4 +145,14 @@ func Upload(r *http.Request, field string, kind storage.Kind, category string, s
 		return "", err
 	}
 	return url, nil
+}
+
+// fmShortfall son las campañas FM atrasadas hoy (para el aviso del resumen).
+func (h *Handler) fmShortfall(ctx context.Context) []studio.CampaignCompliance {
+	list, err := h.Studio.TodayShortfall(ctx)
+	if err != nil {
+		h.Log.Error("cumplimiento de campañas", "err", err)
+		return nil
+	}
+	return list
 }
