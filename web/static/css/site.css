@@ -290,6 +290,8 @@ button { font: inherit; cursor: pointer; }
 .page-head { background: var(--navy); padding: 40px 0 34px; position: relative; overflow: hidden; }
 .page-head .circles .c3 { width: 260px; height: 260px; top: -140px; right: -80px; border-width: 34px; }
 .page-head .circles .c1 { width: 200px; height: 200px; left: -110px; top: auto; bottom: -120px; border-width: 30px; }
+/* La franja es baja: los círculos grandes del hero (c2 en especial) quedarían detrás del título y lo taparían. */
+.page-head .circles .c2, .page-head .circles .c4, .page-head .circles .c5, .page-head .circles .dot-w { display: none; }
 .page-head .container { position: relative; z-index: 2; }
 .notice { max-width: 640px; margin: 80px auto; text-align: center; padding: 0 var(--gutter); }
 .notice img { width: 300px; margin: 0 auto 24px; }

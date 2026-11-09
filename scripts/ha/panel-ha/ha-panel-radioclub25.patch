@@ -1,0 +1,707 @@
+--- original/app.py
++++ app.py
+@@ -4,7 +4,8 @@
+ Expone estado de: MySQL Orchestrator, HAProxy, servicios systemd, WireGuard,
+ recursos del VPS y eventos; y acciones: enable/disable de servers HAProxy
+ y failover manual (invoca failover-manual.sh). También el estado y el redeploy de
+-Kipu (app.sehuacho.com), que corre aparte con Postgres (ver sección Kipu).
++Kipu (app.sehuacho.com), que corre aparte con Postgres (ver sección Kipu), y de
++RadioClub25 (radioclub25peru.com, ver sección RadioClub25).
+ 
+ Stdlib-only (Python 3.8). Escucha SOLO en 127.0.0.1:9099 — el acceso externo
+ pasa por HAProxy (TLS + basic auth, path /panel-ha).
+@@ -1171,6 +1172,179 @@
+     return {"ok": True, "target": _kipu_deploy["target"]}
+ 
+ 
++# ── RadioClub25 (radioclub25peru.com) ─────────────────────────────────────────
++# Radio + TV del cliente RadioClub25 (repo radioclub25, scripts/ha). App Go con
++# SQLite, Icecast y MediaMTX en Docker; un nginx "edge" por nodo en :8125 de su IP
++# de WireGuard. A es la principal; B y C tienen el stack PARADO y reciben copia de
++# data/ cada 5 min (cron en A). HAProxy: backend radioclub25_nodes, servers
++# rc25_a/b/c (no nodo_*: el desacople del legado no debe arrastrar a la radio).
++# Aquí solo se lee su estado y se disparan sus scripts; la lógica vive en el repo.
++RC25_REPO = {"10.10.0.2": "/home/lima/sehuacho/radioclub25",
++             "10.10.0.3": "/home/oyon/sehuacho/radioclub25",
++             "10.10.0.4": "/home/server3/sehuacho/radioclub25"}
++RC25_EDGE_PORT = 8125
++RC25_PUBLIC = "https://radioclub25peru.com"
++_rc25 = {"ts": 0, "nodes": [], "aire": None}
++_rc25_lock = threading.Lock()
++_rc25_op = {"running": False, "op": None, "started": None, "output": "", "rc": None}
++_rc25_op_lock = threading.Lock()
++
++
++def _rc25_probe(repo):
++    return (
++        "cd %s 2>/dev/null || { echo NOREPO; exit 0; }; "
++        "echo RUN $(docker ps --filter label=com.docker.compose.project=radioclub25 --format '{{.Label \"com.docker.compose.service\"}}' | sort | tr '\\n' ','); "
++        "echo SYNC $(cat data/.ha-sync 2>/dev/null || echo -); "
++        "echo PROM $(cat data/.ha-principal 2>/dev/null || echo -); "
++        "echo DBSZ $(du -sm data/radioclub25.db 2>/dev/null | cut -f1); "
++        "echo UPSZ $(du -sm data/uploads 2>/dev/null | cut -f1); "
++        "echo GIT $(git log --oneline -1 2>/dev/null | cut -c1-70)"
++    ) % repo
++
++
++def _rc25_http(url, timeout=4):
++    try:
++        with urllib.request.urlopen(url, timeout=timeout) as r:
++            return r.status, r.read(200000)
++    except urllib.error.HTTPError as e:
++        return e.code, b""
++    except Exception:
++        return None, b""
++
++
++def _rc25_collect_one(ip, out_list, idx):
++    res = {"ip": ip, "name": NODE_NAMES.get(ip, ip), "reachable": False, "repo": False,
++           "running": [], "sync": None, "promovido": None, "db_mb": None, "uploads_mb": None,
++           "git": "", "health": None}
++    rc, out = node_ssh(ip, _rc25_probe(RC25_REPO[ip]), timeout=12)
++    if rc == 0:
++        res["reachable"] = True
++        res["repo"] = "NOREPO" not in out
++        for l in out.splitlines():
++            k, _, v = l.partition(" ")
++            v = v.strip()
++            if k == "RUN":
++                res["running"] = [s for s in v.split(",") if s]
++            elif k == "SYNC" and v != "-":
++                res["sync"] = v
++            elif k == "PROM" and v != "-":
++                res["promovido"] = v
++            elif k == "DBSZ" and v.isdigit():
++                res["db_mb"] = int(v)
++            elif k == "UPSZ" and v.isdigit():
++                res["uploads_mb"] = int(v)
++            elif k == "GIT":
++                res["git"] = v
++    else:
++        res["error"] = out.strip()[:120]
++    res["health"], _ = _rc25_http("http://%s:%s/healthz" % (ip, RC25_EDGE_PORT))
++    out_list[idx] = res
++
++
++def rc25_collect():
++    ips = list(RC25_REPO)
++    out = [None] * len(ips)
++    th = [threading.Thread(target=_rc25_collect_one, args=(ip, out, i)) for i, ip in enumerate(ips)]
++    for t in th:
++        t.start()
++    for t in th:
++        t.join(20)
++    # Estado al aire leído del nodo que atiende (el primero sano), por WireGuard.
++    aire = None
++    for n in out:
++        if n and n.get("health") == 200:
++            code, body = _rc25_http("http://%s:%s/api/status" % (n["ip"], RC25_EDGE_PORT))
++            if code == 200:
++                try:
++                    st = json.loads(body)
++                    aire = {"desde": n["name"], "tv": (st.get("tv") or {}).get("online"),
++                            "estaciones": [{"label": s.get("label"), "city": s.get("city"),
++                                            "online": s.get("online"), "listeners": s.get("listeners"),
++                                            "external": s.get("external")}
++                                           for s in (st.get("stations") or [])]}
++                except ValueError:
++                    pass
++            break
++    pub, _ = _rc25_http(RC25_PUBLIC + "/healthz", timeout=6)
++    with _rc25_lock:
++        _rc25.update(ts=time.time(), nodes=[n for n in out if n], aire=aire, publico=pub)
++
++
++def rc25_loop():
++    while True:
++        try:
++            rc25_collect()
++        except Exception as e:
++            log("radioclub25 status error: %s" % e)
++        time.sleep(30)
++
++
++def _rc25_snapshot():
++    with _rc25_lock:
++        return {"ts": _rc25["ts"], "nodes": list(_rc25["nodes"]), "aire": _rc25["aire"],
++                "publico": _rc25.get("publico"), "url": RC25_PUBLIC}
++
++
++def start_rc25_op(accion, nodo=""):
++    """accion: check | sync | deploy | promover (nodo B/C). Una operación a la vez."""
++    a = RC25_REPO["10.10.0.2"]
++    if accion == "check":
++        ip = "10.10.0.2"
++        script = ("cd %s && echo '== Código (copia de trabajo de A)' && git rev-parse --abbrev-ref HEAD && git log --oneline -1 && "
++                  "echo \"cambios sin commit: $(git status --short | wc -l)\" && "
++                  "echo '== Contenedores' && docker compose ps --format '{{.Service}} {{.Status}}' && "
++                  "echo '== Edge' && curl -s -m 4 -o /dev/null -w 'healthz %%{http_code}\\n' http://10.10.0.2:8125/healthz && "
++                  "echo '== Última sincronización' && tail -n 3 /home/lima/logs/radioclub25-sync.log 2>/dev/null; "
++                  "echo '== Disco' && df -h / | tail -1 && "
++                  "for f in scripts/ha/*.sh; do bash -n \"$f\" || echo \"ERROR sintaxis $f\"; done && echo 'scripts OK'") % a
++    elif accion == "sync":
++        ip, script = "10.10.0.2", "cd %s && scripts/ha/sincronizar-nodos.sh 2>&1" % a
++    elif accion == "deploy":
++        ip = "10.10.0.2"
++        script = ("cd %s && docker compose up -d --build 2>&1 | grep -v -E '^ *(#|=>)' ; "
++                  "sleep 4 && curl -s -m 4 -o /dev/null -w 'edge A healthz %%{http_code}\\n' http://10.10.0.2:8125/healthz && "
++                  "scripts/ha/desplegar-nodos.sh 2>&1") % a
++    elif accion == "promover":
++        ip = LETTER_IP.get(nodo)
++        if ip not in ("10.10.0.3", "10.10.0.4"):
++            return {"ok": False, "error": "solo se promueve B o C"}
++        script = "cd %s && CONFIRMAR=si scripts/ha/promover.sh 2>&1" % RC25_REPO[ip]
++    else:
++        return {"ok": False, "error": "acción inválida"}
++    etiqueta = {"check": "verificar", "sync": "sincronizar B y C", "deploy": "redesplegar (A + B/C)",
++                "promover": "promover Nodo %s" % nodo}[accion]
++    with _rc25_op_lock:
++        if _rc25_op["running"]:
++            return {"ok": False, "error": "ya hay una operación de RadioClub25 en curso"}
++        _rc25_op.update(running=True, op=etiqueta, started=time.time(), output="", rc=None)
++    log("RADIOCLUB25 %s desde panel -> %s" % (etiqueta, ip))
++
++    def run():
++        info = NODES[ip]
++        cmd = ["ssh", "-i", SSH_KEY, "-p", str(info["port"]), "-o", "BatchMode=yes",
++               "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
++               "%s@%s" % (info["user"], ip), script]
++        try:
++            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
++            for line in p.stdout:
++                with _rc25_op_lock:
++                    _rc25_op["output"] += line
++            p.wait(timeout=1800)
++            rc = p.returncode
++        except Exception as e:
++            with _rc25_op_lock:
++                _rc25_op["output"] += "\nERROR: %s" % e
++            rc = -1
++        with _rc25_op_lock:
++            _rc25_op["running"] = False
++            _rc25_op["rc"] = rc
++        log("RADIOCLUB25 %s terminado rc=%s" % (etiqueta, rc))
++        threading.Thread(target=rc25_collect, daemon=True).start()
++
++    threading.Thread(target=run, daemon=True).start()
++    return {"ok": True, "op": etiqueta}
++
++
+ # ── HTTP ──────────────────────────────────────────────────────────────────────
+ 
+ class Handler(BaseHTTPRequestHandler):
+@@ -1231,6 +1405,8 @@
+                 "kipu": _kipu_snapshot(),
+                 "kipu_deploy": {k: _kipu_deploy[k] for k in ("running", "target", "rc")},
+                 "kipu_op": {k: _kipu_op[k] for k in ("running", "op", "rc")},
++                "radioclub25": _rc25_snapshot(),
++                "rc25_op": {k: _rc25_op[k] for k in ("running", "op", "rc")},
+             })
+         if p == "/api/logs":
+             q = self._query()
+@@ -1258,6 +1434,10 @@
+             with _kipu_op_lock:
+                 st = dict(_kipu_op)
+             return self._send(200, st)
++        if p == "/api/radioclub25/status":
++            with _rc25_op_lock:
++                st = dict(_rc25_op)
++            return self._send(200, st)
+         if p == "/api/kipu/deploy/status":
+             with _kipu_deploy_lock:
+                 st = dict(_kipu_deploy)
+@@ -1309,6 +1489,13 @@
+                 return self._send(400, {"ok": False, "error": "confirmación requerida (KIPU)"})
+             res = start_kipu_deploy(check=check)
+             return self._send(200 if res.get("ok") else 400, res)
++        if p == "/api/radioclub25":
++            accion = body.get("accion", "")
++            requerido = {"deploy": "RADIO", "promover": "PROMOVER"}.get(accion)
++            if requerido and body.get("confirm") != requerido:
++                return self._send(400, {"ok": False, "error": "confirmación requerida (%s)" % requerido})
++            res = start_rc25_op(accion, body.get("nodo", ""))
++            return self._send(200 if res.get("ok") else 400, res)
+         if p == "/api/node/decouple":
+             if body.get("confirm") != "AISLAR":
+                 return self._send(400, {"ok": False, "error": "confirmación requerida (AISLAR)"})
+@@ -1325,6 +1512,7 @@
+ def main():
+     threading.Thread(target=node_resources_loop, daemon=True).start()
+     threading.Thread(target=kipu_loop, daemon=True).start()
++    threading.Thread(target=rc25_loop, daemon=True).start()
+     srv = ThreadingHTTPServer(BIND, Handler)
+     log("ha-panel iniciado en %s:%s" % BIND)
+     srv.serve_forever()
+--- original/index.html
++++ index.html
+@@ -8,12 +8,35 @@
+   :root{--bg:#0f1419;--card:#1a2027;--border:#2a3441;--txt:#d8dee6;--dim:#8a95a3;
+         --ok:#2ecc71;--warn:#f1c40f;--bad:#e74c3c;--accent:#3498db;--mono:ui-monospace,Menlo,Consolas,monospace}
+   *{box-sizing:border-box;margin:0}
+-  body{background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,sans-serif;padding:16px;max-width:1200px;margin:0 auto}
++  body{background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,sans-serif;margin:0}
++  .layout{display:flex;min-height:100vh}
++  .side{width:220px;flex:none;background:#0b1015;border-right:1px solid var(--border);padding:16px 10px;
++        position:sticky;top:0;height:100vh;overflow-y:auto}
++  .side .brand{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;padding:0 8px 14px}
++  .side .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);padding:12px 8px 4px}
++  .side a{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:7px;color:var(--txt);
++          text-decoration:none;font-size:13.5px;margin-bottom:2px}
++  .side a:hover{background:var(--card)}
++  .side a.on{background:var(--card);box-shadow:inset 3px 0 0 var(--accent)}
++  .side a .led{margin-top:6px;flex:none}
++  .side a small{display:block;color:var(--dim);font-size:11px;line-height:1.3}
++  .main{flex:1;min-width:0;padding:16px;max-width:1200px}
++  .sys-title{font-size:17px;margin:2px 0 12px;display:flex;align-items:center;gap:8px}
++  .sys-title small{color:var(--dim);font-size:12.5px;font-weight:400}
++  [data-sys][hidden]{display:none!important}
++  @media (max-width:760px){
++    .layout{flex-direction:column}
++    .side{width:auto;height:auto;position:static;display:flex;gap:4px;overflow-x:auto;padding:8px;border-right:none;border-bottom:1px solid var(--border)}
++    .side .brand,.side .grp{display:none}
++    .side a{white-space:nowrap;margin:0}
++    .side a small{display:none}
++    .main{padding:12px 16px}
++  }
+   h1{font-size:19px;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+   h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:10px}
+   .sub{color:var(--dim);font-size:12px;margin-bottom:16px}
+   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+-  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
++  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;min-width:0;overflow-x:auto}
+   .card.wide{grid-column:1/-1}
+   .led{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+   .ok{background:var(--ok)} .bad{background:var(--bad)} .warn{background:var(--warn)}
+@@ -48,34 +71,46 @@
+ </style>
+ </head>
+ <body>
+-<h1><span id="globalLed" class="led ok"></span>HA Panel — Sehuacho</h1>
++<div class="layout">
++<nav class="side" id="side">
++  <div class="brand"><span id="globalLed" class="led ok"></span>HA Panel</div>
++  <div class="grp">Plataforma</div>
++  <a href="#infra" data-nav="infra"><span class="led" id="nav-infra"></span><span>Infraestructura<small>VPS · nodos A/B/C · HAProxy · WireGuard</small></span></a>
++  <div class="grp">Sistemas desplegados</div>
++  <a href="#legado" data-nav="legado"><span class="led" id="nav-legado"></span><span>Restaurante (legado)<small>estacion24 · asistencia · MySQL</small></span></a>
++  <a href="#kipu" data-nav="kipu"><span class="led" id="nav-kipu"></span><span>Kipu<small>app.sehuacho.com · estacion24v1</small></span></a>
++  <a href="#radio" data-nav="radio"><span class="led" id="nav-radio"></span><span>RadioClub25<small>radioclub25peru.com</small></span></a>
++</nav>
++<main class="main">
++<h1>HA Panel — Sehuacho</h1>
+ <div class="sub">Orquestación MySQL + HAProxy · VPS · <span id="lastUpd">cargando…</span>
+   · <span id="masterNow">master: ?</span>
+   · refresco 10s <button onclick="refresh()" style="margin-left:6px">Actualizar</button></div>
+ 
++<div class="sys-title" id="sysTitle"></div>
+ <div class="grid">
+-  <div class="card">
++  <div class="card" data-sys="legado">
+     <h2>Topología MySQL</h2>
+     <div id="topo">…</div>
+     <div id="problems"></div>
+   </div>
+ 
+-  <div class="card">
++  <div class="card" data-sys="infra">
+     <h2>Servicios VPS · Recursos · WireGuard</h2>
+     <div id="services">…</div>
+   </div>
+ 
+-  <div class="card wide">
++  <div class="card wide" data-sys="infra">
+     <h2>Recursos por nodo</h2>
+     <div id="nodesSys">…</div>
+   </div>
+ 
+-  <div class="card wide">
++  <div class="card wide" data-sys="infra">
+     <h2>HAProxy — Backends</h2>
+     <div id="haproxy">…</div>
+   </div>
+ 
+-  <div class="card">
++  <div class="card" data-sys="legado">
+     <h2>⚠ Failover manual</h2>
+     <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+       Promueve un nodo a master MySQL, repunta su app, flipea HAProxy y pone el otro como réplica.
+@@ -89,7 +124,7 @@
+     <pre id="foOut" style="display:none;margin-top:8px"></pre>
+   </div>
+ 
+-  <div class="card">
++  <div class="card" data-sys="legado">
+     <h2>🔌 Acoplamiento de nodos</h2>
+     <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+       <b>Desacoplar</b>: aísla un nodo del cluster (lo saca de HAProxy y detiene su replicación).
+@@ -100,7 +135,7 @@
+     <pre id="npOut" style="display:none;margin-top:8px"></pre>
+   </div>
+ 
+-  <div class="card">
++  <div class="card" data-sys="legado">
+     <h2>🚀 Deploy</h2>
+     <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+       Corre <code>deploy.sh</code> en el <b>master actual</b> (git pull, build, migraciones,
+@@ -117,7 +152,7 @@
+     <div id="pcOut" style="display:none;margin-top:6px;max-height:340px;overflow:auto"></div>
+   </div>
+ 
+-  <div class="card wide">
++  <div class="card wide" data-sys="kipu">
+     <h2>🟣 Kipu — app.sehuacho.com</h2>
+     <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+       Va aparte del legado: Postgres con una base <b>principal</b> y réplicas en streaming (scripts/ha del repo kipu).
+@@ -135,7 +170,43 @@
+     <pre id="kdOut" style="display:none;margin-top:8px"></pre>
+   </div>
+ 
+-  <div class="card">
++  <div class="card wide" data-sys="radio">
++    <h2>📻 RadioClub25 — radioclub25peru.com</h2>
++    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
++      Radio y TV en vivo del cliente RadioClub25 (repo radioclub25, <code>scripts/ha</code>). App Go + SQLite, Icecast y
++      MediaMTX en Docker; HAProxy (<code>radioclub25_nodes</code>) entra al nginx <i>edge</i> de cada nodo en <code>:8125</code>.
++      <b>A</b> es la principal; <b>B</b> y <b>C</b> tienen el stack parado y reciben copia de la base y los archivos cada 5 min,
++      así que figuran DOWN hasta que se promueven, y es lo esperado.</p>
++    <div id="rc25Pub" style="margin-bottom:10px;font-size:12.5px"></div>
++    <div id="rc25">sondeando…</div>
++    <div id="rc25Aire" style="margin-top:12px"></div>
++    <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:12px">
++      <button onclick="rc25Op('check')">Verificar</button>
++      <button onclick="rc25Op('sync')">Sincronizar B y C ahora</button>
++      <button class="danger" onclick="askRc25('deploy')">Redesplegar RadioClub25</button>
++      <span id="rc25Promover" style="display:contents"></span>
++    </div>
++    <div id="rcStatus" style="margin-top:10px;font-size:12.5px"></div>
++    <pre id="rcOut" style="display:none;margin-top:8px"></pre>
++  </div>
++
++  <div class="card wide" data-sys="radio">
++    <h2>Puntos de RadioClub25</h2>
++    <table>
++      <tr><th>Qué</th><th>Dónde</th><th>Notas</th></tr>
++      <tr><td>Web, paneles, API del estudio</td><td><code>https://radioclub25peru.com</code></td><td style="color:var(--dim)">VPS → HAProxy (TLS) → edge del nodo activo · www redirige al dominio</td></tr>
++      <tr><td>Radio (oyentes)</td><td><code>/radio</code>, <code>/radio-&lt;frecuencia&gt;</code></td><td style="color:var(--dim)">mismo dominio; stream largo (timeout 24 h en HAProxy)</td></tr>
++      <tr><td>TV (HLS)</td><td><code>/hls/tv/index.m3u8</code></td><td style="color:var(--dim)">mismo dominio</td></tr>
++      <tr><td>Ingesta del estudio (BUTT / Club25 Estudio)</td><td><code>radioclub25.sehuacho.com:8010</code></td><td style="color:var(--dim)">directo al Nodo A (IP pública 8.243.126.126), no pasa por el VPS</td></tr>
++      <tr><td>Ingesta de video (OBS)</td><td><code>rtmp://radioclub25.sehuacho.com:1935</code> · SRT <code>:8890/udp</code></td><td style="color:var(--dim)">directo al Nodo A</td></tr>
++      <tr><td>Nodo A (principal)</td><td><code>10.10.0.2:8125</code></td><td style="color:var(--dim)">/home/lima/sehuacho/radioclub25 · cron de copia cada 5 min</td></tr>
++      <tr><td>Nodo B (reserva)</td><td><code>10.10.0.3:8125</code></td><td style="color:var(--dim)">/home/oyon/sehuacho/radioclub25 · RTMP 1945, SRT 8900 (B ya usa 1935/8890)</td></tr>
++      <tr><td>Nodo C (reserva)</td><td><code>10.10.0.4:8125</code></td><td style="color:var(--dim)">/home/server3/sehuacho/radioclub25</td></tr>
++      <tr><td>Dirección anterior</td><td><code>https://radioclub25.sehuacho.com</code></td><td style="color:var(--dim)">sigue sirviendo desde el nginx de A</td></tr>
++    </table>
++  </div>
++
++  <div class="card" data-sys="infra">
+     <h2>Eventos / Logs
+       <select id="logSel" onchange="loadLog()" style="float:right">
+         <option value="events">events.log</option>
+@@ -223,6 +294,19 @@
+   </div>
+ </dialog>
+ 
++<dialog id="rcDlg">
++  <h2 style="color:var(--bad)" id="rcTitulo"></h2>
++  <p style="font-size:13px" id="rcTexto"></p>
++  <p style="font-size:13px;margin-top:8px">Escribe <b id="rcPalabra"></b> para confirmar:</p>
++  <input id="rcConfirm" autocomplete="off">
++  <div class="row">
++    <button onclick="rcDlg.close()">Cancelar</button>
++    <button class="danger" onclick="doRc25()">Confirmar</button>
++  </div>
++</dialog>
++
++</main>
++</div>
+ <div class="flash" id="flash"></div>
+ 
+ <script>
+@@ -233,6 +317,27 @@
+ let npPending = null, npPolling = null;
+ let kdPolling = null;
+ let khPending = null, khPolling = null;
++let rcPending = null, rcPolling = null;
++let bad = {};
++const mark = sys => { bad[sys] = true; };
++const SYS = {
++  infra:  ['Infraestructura', 'VPS sehuacho, nodos A/B/C, HAProxy y WireGuard'],
++  legado: ['Restaurante (legado)', 'estacion24.sehuacho.com · asistencia.sehuacho.com · MySQL + Orchestrator'],
++  kipu:   ['Kipu', 'app.sehuacho.com · estacion24v1.sehuacho.com · Postgres'],
++  radio:  ['RadioClub25', 'radioclub25peru.com · radio y TV en vivo'],
++};
++// Backend de HAProxy → sistema al que pertenece (para el indicador del menú).
++const sysOfBackend = n => n.startsWith('kipu') ? 'kipu' : n.startsWith('radioclub25') ? 'radio'
++  : (n === 'ha_panel' || n === 'acme_certbot' || n.endsWith('_in')) ? 'infra' : 'legado';
++
++function showSys(){
++  let cur = (location.hash || '#infra').slice(1);
++  if (!SYS[cur]) cur = 'infra';
++  document.querySelectorAll('[data-sys]').forEach(el => { el.hidden = el.dataset.sys !== cur; });
++  document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === cur));
++  document.getElementById('sysTitle').innerHTML = esc(SYS[cur][0]) + ' <small>' + esc(SYS[cur][1]) + '</small>';
++}
++window.addEventListener('hashchange', showSys);
+ 
+ const fmtAge = s => s==null ? '—' : s<60 ? s+'s' : s<3600 ? Math.floor(s/60)+'m' : Math.floor(s/3600)+'h';
+ const esc = t => (t??'').toString().replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+@@ -252,7 +357,7 @@
+ 
+ function render(d){
+   document.getElementById('lastUpd').textContent = 'actualizado ' + new Date(d.ts*1000).toLocaleTimeString();
+-  let anyBad = false;
++  bad = {};
+   const masterIp = ((d.current_master || '').split(':')[0] || '').trim();
+ 
+   // Topología
+@@ -270,17 +375,17 @@
+       : isMaster ? '<span class="tag master">MASTER</span>'
+       : '<span class="tag">réplica de '+esc(n.master || masterIp || '?')+'</span>';
+     const repOk = isMaster ? true : (isDec ? true : n.replication_ok);
+-    if (!repOk) anyBad = true;
++    if (!repOk) mark('legado');
+     const led = isDec ? 'warn' : (repOk ? 'ok' : 'bad');
+     h += `<tr><td><span class="led ${led}"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}:${n.port}</span></td>
+       <td>${roleTag}</td><td>${n.lag==null?'—':n.lag+'s'}</td>
+       <td style="color:var(--dim)">${n.read_only?'read-only':'writable'} · MySQL ${esc(n.version.split('-')[0])}</td></tr>`;
+   }
+   h += '</table>';
+-  if (d.topology.error){ h = '<span style="color:var(--bad)">Orchestrator no responde: '+esc(d.topology.error)+'</span>'; anyBad = true; }
++  if (d.topology.error){ h = '<span style="color:var(--bad)">Orchestrator no responde: '+esc(d.topology.error)+'</span>'; mark('legado'); }
+   const sy = d.semisync || {};
+   if (sy.master_ip){
+-    if (sy.ok === false) anyBad = true;
++    if (sy.ok === false) mark('legado');
+     const syLed = sy.ok ? 'ok' : 'bad';
+     h += `<div style="margin-top:8px;font-size:12.5px"><span class="led ${syLed}"></span>Semi-sync: <b>${sy.status_on?'ON':'OFF'}</b> · ${sy.clients==null?'?':sy.clients} réplica(s) ACK`
+        + (sy.ok ? ' <span style="color:var(--dim)">· escrituras protegidas (anti-pérdida)</span>'
+@@ -293,12 +398,12 @@
+     ? '<div style="margin-top:8px;color:var(--warn);font-size:12.5px">⚠ ' +
+       probs.map(p=>esc(p.node)+': '+esc((p.problems||[]).join(', '))).join(' · ') + '</div>'
+     : '<div style="margin-top:8px;color:var(--ok);font-size:12.5px">✓ Sin problemas reportados por el orchestrator</div>';
+-  if (probs.length) anyBad = true;
++  if (probs.length) mark('legado');
+ 
+   // Servicios + recursos + WG
+   let sv = '';
+   for (const s of d.services||[]){
+-    if (!s.active) anyBad = true;
++    if (!s.active) mark('infra');
+     sv += `<div class="kv"><span><span class="led ${s.active?'ok':'bad'}"></span>${esc(s.name)}</span><b>${esc(s.state)}</b></div>`;
+   }
+   const r = d.sys||{};
+@@ -309,7 +414,7 @@
+   for (const p of d.wireguard||[]){
+     if (p.error) continue;
+     sv += `<div class="kv"><span><span class="led ${p.ok?'ok':(p.ip==='10.10.0.4'?'warn':'bad')}"></span>WG ${esc(p.name)}</span><b>handshake ${fmtAge(p.handshake_age)}</b></div>`;
+-    if (!p.ok && p.ip !== '10.10.0.4') anyBad = true;
++    if (!p.ok && p.ip !== '10.10.0.4') mark('infra');
+   }
+   document.getElementById('services').innerHTML = sv;
+ 
+@@ -320,7 +425,7 @@
+       <table style="margin-top:4px"><tr><th>Server</th><th>Dirección</th><th>Estado</th><th>Check</th><th></th></tr>`;
+     for (const s of b.servers){
+       const isDown = (s.status||'').startsWith('DOWN');
+-      if (isDown && !s.is_backup) anyBad = true;
++      if (isDown && !s.is_backup){ mark('infra'); mark(sysOfBackend(b.name)); }
+       const inMaint = (s.status||'').includes('MAINT');
+       hp += `<tr><td>${esc(s.name)}${s.is_backup?' <span class="tag">backup</span>':''}</td>
+         <td style="color:var(--dim)">${esc(s.addr)}</td><td>${statusTag(s.status)}</td>
+@@ -337,7 +442,7 @@
+     let nh = '<table><tr><th>Nodo</th><th>CPU (load · cores)</th><th>RAM</th><th>Disco /</th><th>Uptime</th></tr>';
+     for (const n of ns.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
+       if (!n.reachable){
+-        anyBad = true;
++        mark('infra');
+         nh += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+           <td colspan="4" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
+         continue;
+@@ -346,7 +451,7 @@
+       const dpct = dk.pct ?? null;
+       const dLed = dpct==null?'':(dpct>=95?'bad':dpct>=85?'warn':'ok');
+       const mLed = n.mem_pct==null?'':(n.mem_pct>=95?'bad':n.mem_pct>=88?'warn':'ok');
+-      if (dpct!=null && dpct>=95) anyBad = true;
++      if (dpct!=null && dpct>=95) mark('infra');
+       const load = (n.load||[]).map(x=>x.toFixed(2)).join(' ');
+       nh += `<tr><td><span class="led ok"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+         <td>${load||'—'} <span style="color:var(--dim)">· ${n.nproc??'?'}</span></td>
+@@ -384,11 +489,11 @@
+   const kp = (d.kipu && d.kipu.nodes) || [];
+   if (kp.length){
+     const principales = kp.filter(n => n.role === 'principal');
+-    if (principales.length !== 1) anyBad = true;
++    if (principales.length !== 1) mark('kipu');
+     let kh = '<table><tr><th>Nodo</th><th>Base</th><th>Replicación</th><th>API</th><th>Salud (HAProxy)</th></tr>';
+     for (const n of kp.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
+       if (!n.reachable){
+-        anyBad = true;
++        mark('kipu');
+         kh += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+           <td colspan="4" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
+         continue;
+@@ -400,11 +505,11 @@
+           ? n.replicas.map(r => `${esc(r.name)}: ${esc(r.state)}${r.lag_s?' · '+r.lag_s+'s':''}`).join('<br>')
+           : '<span style="color:var(--warn)">sin réplicas conectadas</span>';
+         if (!(n.replicas||[]).length){ led = 'warn'; }
+-        if (n.health !== 200){ led = 'bad'; anyBad = true; }
++        if (n.health !== 200){ led = 'bad'; mark('kipu'); }
+       } else if (n.role === 'replica'){
+         rol = '<span class="tag">réplica</span>';
+         rep = n.wal === 'streaming' ? 'recibiendo (streaming)' : `<span style="color:var(--bad)">${esc(n.wal||'sin conexión a la principal')}</span>`;
+-        if (n.wal !== 'streaming'){ led = 'bad'; anyBad = true; }
++        if (n.wal !== 'streaming'){ led = 'bad'; mark('kipu'); }
+       } else {
+         rol = '<span class="tag down">sin base</span>'; rep = '—'; led = 'warn';
+       }
+@@ -430,13 +535,13 @@
+     document.getElementById('kipuAuto').innerHTML = '<span class="led warn"></span>Failover automático de Kipu: <b>no instalado</b> (scripts/ha/vps/instalar-vps.sh)';
+     document.getElementById('kipuAcciones').innerHTML = '';
+   } else {
+-    if (au.pausado) anyBad = true;
++    if (au.pausado) mark('kipu');
+     const ais = au.aislados || {};
+     let ah = au.pausado
+       ? `<span class="led warn"></span>Failover automático: <b style="color:var(--warn)">EN PAUSA</b> <button ${khRunning?'disabled':''} onclick="kipuHa('reanudar')">Reanudar</button>`
+       : `<span class="led ok"></span>Failover automático: <b>activo</b> <span style="color:var(--dim)">(detecta en 30 s con testigos · reconcilia cada 60 s · tolera datos no críticos)</span> <button ${khRunning?'disabled':''} onclick="kipuHa('pausar')">Pausar</button>`;
+     for (const [L, motivo] of Object.entries(ais)){
+-      anyBad = true;
++      mark('kipu');
+       ah += `<div style="margin-top:6px;color:var(--warn)">⚠ Nodo ${esc(L)} AISLADO: ${esc(motivo)}</div>`;
+     }
+     document.getElementById('kipuAuto').innerHTML = ah;
+@@ -456,7 +561,11 @@
+   // Deploy en curso
+   if (d.deploy && d.deploy.running && !dpPolling) pollDeploy();
+ 
+-  document.getElementById('globalLed').className = 'led ' + (anyBad ? 'bad' : 'ok');
++  renderRc25(d);
++  for (const k of Object.keys(SYS)){
++    const el = document.getElementById('nav-'+k); if (el) el.className = 'led ' + (bad[k] ? 'bad' : 'ok');
++  }
++  document.getElementById('globalLed').className = 'led ' + (Object.keys(bad).length ? 'bad' : 'ok');
+ }
+ 
+ async function refresh(){
+@@ -711,6 +820,121 @@
+   }, 2000);
+ }
+ 
++// ── RadioClub25 ──
++function renderRc25(d){
++  const rc = d.radioclub25 || {};
++  const ns = rc.nodes || [];
++  const running = d.rc25_op && d.rc25_op.running;
++  const pub = rc.publico;
++  document.getElementById('rc25Pub').innerHTML = pub === 200
++    ? `<span class="led ok"></span>Público: <a href="${esc(rc.url)}" target="_blank" style="color:var(--accent)">${esc(rc.url)}</a> responde 200`
++    : `<span class="led bad"></span>Público: ${esc(rc.url||'')} <b style="color:var(--bad)">${pub==null?'sin respuesta':pub}</b>`;
++  if (pub !== 200) mark('radio');
++  if (!ns.length){ document.getElementById('rc25').innerHTML = '<span style="color:var(--dim)">sondeando nodos…</span>'; }
++  else {
++    const activos = ns.filter(n => n.health === 200);
++    if (activos.length !== 1) mark('radio');
++    let h = '<table><tr><th>Nodo</th><th>Rol</th><th>Contenedores</th><th>Edge :8125</th><th>Copia desde A</th><th>Datos</th></tr>';
++    for (const n of ns.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
++      if (!n.reachable){
++        mark('radio');
++        h += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td><td colspan="5" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
++        continue;
++      }
++      const esA = n.ip === '10.10.0.2';
++      const corre = (n.running||[]).includes('app');
++      let led = 'ok', rol, copia = '—';
++      if (!n.repo){ rol = '<span class="tag down">sin desplegar</span>'; led = 'warn'; mark('radio'); }
++      else if (esA){ rol = '<span class="tag master">PRINCIPAL</span>'; if (n.health !== 200){ led = 'bad'; } }
++      else if (corre){ rol = '<span class="tag maint">PROMOVIDO</span>'; led = 'warn';
++        copia = `<span style="color:var(--warn)">principal desde ${esc((n.promovido||'?').replace('T',' ').slice(0,16))}</span>`; }
++      else {
++        rol = '<span class="tag">reserva</span>';
++        if (n.sync){
++          const age = Math.round((Date.now() - Date.parse(n.sync))/1000);
++          const viejo = age > 900;
++          if (viejo){ led = 'warn'; mark('radio'); }
++          copia = `<span style="color:${viejo?'var(--warn)':'var(--txt)'}">hace ${fmtAge(age)}</span>`;
++        } else { copia = '<span style="color:var(--warn)">nunca</span>'; led = 'warn'; mark('radio'); }
++      }
++      const salud = n.health === 200 ? '<span class="tag up">200 · atiende</span>'
++        : (!esA && !corre) ? '<span class="tag">en espera</span>'
++        : `<span class="tag down">${n.health==null?'sin respuesta':n.health}</span>`;
++      const svcs = (n.running||[]).length ? esc(n.running.join(' · ')) : '<span style="color:var(--dim)">parado</span>';
++      const datos = n.db_mb==null ? '—' : `base ${n.db_mb} MB · archivos ${n.uploads_mb??'?'} MB`;
++      h += `<tr><td><span class="led ${led}"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
++        <td>${rol}</td><td style="font-size:12.5px">${svcs}</td><td>${salud}</td><td style="font-size:12.5px">${copia}</td>
++        <td style="font-size:12.5px;color:var(--dim)">${datos}</td></tr>`;
++    }
++    h += '</table>';
++    if (activos.length > 1) h += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Más de un nodo atendiendo: dos bases separadas. Detener el que no corresponda.</div>';
++    if (activos.length === 0) h += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Ningún nodo atiende: la web está caída. Promover B o C (botones de abajo).</div>';
++    if (rc.ts) h += `<div style="color:var(--dim);font-size:11px;margin-top:6px">medido ${new Date(rc.ts*1000).toLocaleTimeString()}</div>`;
++    document.getElementById('rc25').innerHTML = h;
++
++    let ph = '';
++    for (const n of ns){
++      const L = LET[n.ip];
++      if (L !== 'A' && n.repo && !(n.running||[]).includes('app'))
++        ph += `<button class="danger" ${running?'disabled':''} onclick="askRc25('promover','${L}')">Promover RadioClub25 → Nodo ${L}</button>`;
++    }
++    document.getElementById('rc25Promover').innerHTML = ph;
++  }
++  const ai = rc.aire;
++  if (ai){
++    let ah = `<div style="font-size:12.5px;color:var(--dim);margin-bottom:4px">Al aire (según ${esc(ai.desde)}) · TV: ${ai.tv?'<span class="tag up">en vivo</span>':'<span class="tag">sin señal</span>'}</div>`;
++    ah += '<table><tr><th>Frecuencia</th><th>Ciudad</th><th>Señal</th><th>Oyentes</th></tr>';
++    for (const e of ai.estaciones||[]){
++      ah += `<tr><td>${esc(e.label)}</td><td>${esc(e.city)}</td><td>${e.online?'<span class="tag up">en vivo</span>':'<span class="tag">sin señal</span>'}${e.external?' <span class="tag">externa</span>':''}</td><td>${e.listeners??0}</td></tr>`;
++    }
++    document.getElementById('rc25Aire').innerHTML = ah + '</table>';
++  } else document.getElementById('rc25Aire').innerHTML = '';
++  if (running && !rcPolling) pollRc25();
++}
++
++async function rc25Op(accion, extra){
++  const d = await api('/radioclub25', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
++    body: JSON.stringify(Object.assign({accion}, extra||{}))});
++  if (!d.ok){ flash('Error: '+d.error); return; }
++  flash('RadioClub25: '+d.op+' iniciado'); pollRc25();
++}
++
++function askRc25(accion, nodo){
++  rcPending = {accion, nodo};
++  const palabra = accion === 'deploy' ? 'RADIO' : 'PROMOVER';
++  document.getElementById('rcTitulo').textContent = accion === 'deploy' ? 'Redesplegar RadioClub25' : `Promover Nodo ${nodo} a principal de RadioClub25`;
++  document.getElementById('rcTexto').textContent = accion === 'deploy'
++    ? 'En el Nodo A: docker compose up -d --build con la copia de trabajo del repo (sin git pull; corte de unos segundos, las migraciones se aplican solas). Después copia el código a B y C y les deja las imágenes listas sin arrancarlas.'
++    : `Arranca el stack en el Nodo ${nodo} con la última copia de A y HAProxy le manda el tráfico. Solo si A está caída (el script se niega si A sigue sirviendo). La PC del estudio seguirá emitiendo hacia A: hay que cambiarle el host para volver al aire.`;
++  document.getElementById('rcPalabra').textContent = palabra;
++  document.getElementById('rcConfirm').value = '';
++  document.getElementById('rcDlg').showModal();
++}
++
++async function doRc25(){
++  const palabra = rcPending.accion === 'deploy' ? 'RADIO' : 'PROMOVER';
++  if (document.getElementById('rcConfirm').value.trim() !== palabra){ flash('Debes escribir '+palabra); return; }
++  document.getElementById('rcDlg').close();
++  rc25Op(rcPending.accion, {nodo: rcPending.nodo, confirm: palabra});
++}
++
++function pollRc25(){
++  if (rcPolling) return;
++  const st = document.getElementById('rcStatus'), out = document.getElementById('rcOut');
++  out.style.display = 'block';
++  rcPolling = setInterval(async ()=>{
++    const d = await api('/radioclub25/status');
++    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
++    if (d.running){ st.innerHTML = '<span class="led warn"></span>En curso → '+esc(d.op||''); }
++    else if (d.rc !== null){
++      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>'+esc(d.op||'')+' terminado OK'
++                              : '<span class="led bad"></span>'+esc(d.op||'')+' terminó con error (rc='+d.rc+')';
++      clearInterval(rcPolling); rcPolling = null; refresh();
++    }
++  }, 2000);
++}
++
++showSys();
+ refresh(); loadLog();
+ setInterval(refresh, 10000);
+ </script>

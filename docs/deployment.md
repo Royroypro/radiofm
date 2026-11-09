@@ -1,7 +1,12 @@
 # Despliegue
 
-Servidor actual: `radioclub25.sehuacho.com` → 8.243.126.126 (Ubuntu, Docker, nginx del host con
-certbot y otros sitios). Carpeta del proyecto: `/home/lima/sehuacho/radioclub25`.
+Dominio del cliente: **`radioclub25peru.com`** → VPS (146.181.41.183, HAProxy) → Nodo A por
+WireGuard, con B y C en reserva. Ese montaje (edge, copia a B/C, HAProxy, panel HA, failover)
+está en **[scripts/ha/README.md](../scripts/ha/README.md)**.
+
+Servidor de la app (Nodo A): `radioclub25.sehuacho.com` → 8.243.126.126 (Ubuntu, Docker, nginx
+del host con certbot y otros sitios). Sigue sirviendo la web y es el host de **ingesta** de la PC
+del estudio. Carpeta del proyecto: `/home/lima/sehuacho/radioclub25`.
 
 ## Puertos
 
@@ -14,6 +19,7 @@ certbot y otros sitios). Carpeta del proyecto: `/home/lima/sehuacho/radioclub25`
 | 1935/tcp | MediaMTX RTMP | Internet | OBS |
 | 8890/udp | MediaMTX SRT | Internet | OBS (alternativa) |
 | 8010/tcp | Icecast | Internet | BUTT (fuente) y nginx |
+| 8125 | edge (nginx del compose) | IP de WireGuard | HAProxy del VPS (radioclub25peru.com) |
 
 El puerto 8000 del host ya estaba ocupado; por eso Icecast usa el 8010.
 
@@ -84,7 +90,10 @@ Programar a diario con cron (`crontab -e`):
 Restaurar: detener la app, descomprimir en `data/` renombrando `backup-*.db` a
 `radioclub25.db`, y arrancar.
 
-## Cambiar a un dominio propio (cuando el cliente lo contrate)
+## Cambiar a un dominio propio sin el VPS (alternativa)
+
+El dominio actual entra por el VPS (ver scripts/ha/README.md). Si algún día se quiere servir
+directo desde el nginx de A:
 
 1. Apuntar el DNS del dominio (registro A) a 8.243.126.126.
 2. Copiar el vhost con el nuevo nombre:

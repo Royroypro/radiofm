@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HA Panel — Sehuacho</title>
+<style>
+  :root{--bg:#0f1419;--card:#1a2027;--border:#2a3441;--txt:#d8dee6;--dim:#8a95a3;
+        --ok:#2ecc71;--warn:#f1c40f;--bad:#e74c3c;--accent:#3498db;--mono:ui-monospace,Menlo,Consolas,monospace}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,sans-serif;margin:0}
+  .layout{display:flex;min-height:100vh}
+  .side{width:220px;flex:none;background:#0b1015;border-right:1px solid var(--border);padding:16px 10px;
+        position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side .brand{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;padding:0 8px 14px}
+  .side .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);padding:12px 8px 4px}
+  .side a{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:7px;color:var(--txt);
+          text-decoration:none;font-size:13.5px;margin-bottom:2px}
+  .side a:hover{background:var(--card)}
+  .side a.on{background:var(--card);box-shadow:inset 3px 0 0 var(--accent)}
+  .side a .led{margin-top:6px;flex:none}
+  .side a small{display:block;color:var(--dim);font-size:11px;line-height:1.3}
+  .main{flex:1;min-width:0;padding:16px;max-width:1200px}
+  .sys-title{font-size:17px;margin:2px 0 12px;display:flex;align-items:center;gap:8px}
+  .sys-title small{color:var(--dim);font-size:12.5px;font-weight:400}
+  [data-sys][hidden]{display:none!important}
+  @media (max-width:760px){
+    .layout{flex-direction:column}
+    .side{width:auto;height:auto;position:static;display:flex;gap:4px;overflow-x:auto;padding:8px;border-right:none;border-bottom:1px solid var(--border)}
+    .side .brand,.side .grp{display:none}
+    .side a{white-space:nowrap;margin:0}
+    .side a small{display:none}
+    .main{padding:12px 16px}
+  }
+  h1{font-size:19px;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:10px}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;min-width:0;overflow-x:auto}
+  .card.wide{grid-column:1/-1}
+  .led{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .ok{background:var(--ok)} .bad{background:var(--bad)} .warn{background:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--dim);text-align:left;font-weight:500;padding:3px 8px 3px 0}
+  td{padding:4px 8px 4px 0;border-top:1px solid var(--border)}
+  .tag{font-size:11px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--dim)}
+  .tag.master{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .tag.up{color:var(--ok);border-color:var(--ok)} .tag.down{color:var(--bad);border-color:var(--bad)}
+  .tag.maint{color:var(--warn);border-color:var(--warn)}
+  button{background:transparent;border:1px solid var(--border);color:var(--txt);border-radius:6px;
+         padding:3px 10px;font-size:12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger{border-color:var(--bad);color:var(--bad)}
+  button.danger:hover{background:var(--bad);color:#fff}
+  button.pending{border-color:var(--warn);color:var(--warn);animation:pcPulse 1.4s ease-in-out infinite}
+  @keyframes pcPulse{50%{box-shadow:0 0 0 4px rgba(241,196,15,.25)}}
+  pre{font-family:var(--mono);font-size:11.5px;background:#0a0e12;border:1px solid var(--border);
+      border-radius:8px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--border);font-size:13px}
+  .kv:first-of-type{border-top:none}
+  .kv b{font-weight:500}
+  dialog{background:var(--card);color:var(--txt);border:1px solid var(--bad);border-radius:12px;
+         padding:22px;max-width:440px}
+  dialog::backdrop{background:rgba(0,0,0,.65)}
+  dialog input{background:#0a0e12;border:1px solid var(--border);color:var(--txt);border-radius:6px;
+               padding:6px 10px;width:100%;margin:12px 0;font-size:14px}
+  .row{display:flex;gap:8px;justify-content:flex-end}
+  select{background:var(--card);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:3px 8px}
+  .flash{position:fixed;bottom:18px;right:18px;background:var(--card);border:1px solid var(--accent);
+         border-radius:8px;padding:10px 16px;font-size:13px;display:none;z-index:10}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side" id="side">
+  <div class="brand"><span id="globalLed" class="led ok"></span>HA Panel</div>
+  <div class="grp">Plataforma</div>
+  <a href="#infra" data-nav="infra"><span class="led" id="nav-infra"></span><span>Infraestructura<small>VPS · nodos A/B/C · HAProxy · WireGuard</small></span></a>
+  <div class="grp">Sistemas desplegados</div>
+  <a href="#legado" data-nav="legado"><span class="led" id="nav-legado"></span><span>Restaurante (legado)<small>estacion24 · asistencia · MySQL</small></span></a>
+  <a href="#kipu" data-nav="kipu"><span class="led" id="nav-kipu"></span><span>Kipu<small>app.sehuacho.com · estacion24v1</small></span></a>
+  <a href="#radio" data-nav="radio"><span class="led" id="nav-radio"></span><span>RadioClub25<small>radioclub25peru.com</small></span></a>
+</nav>
+<main class="main">
+<h1>HA Panel — Sehuacho</h1>
+<div class="sub">Orquestación MySQL + HAProxy · VPS · <span id="lastUpd">cargando…</span>
+  · <span id="masterNow">master: ?</span>
+  · refresco 10s <button onclick="refresh()" style="margin-left:6px">Actualizar</button></div>
+
+<div class="sys-title" id="sysTitle"></div>
+<div class="grid">
+  <div class="card" data-sys="legado">
+    <h2>Topología MySQL</h2>
+    <div id="topo">…</div>
+    <div id="problems"></div>
+  </div>
+
+  <div class="card" data-sys="infra">
+    <h2>Servicios VPS · Recursos · WireGuard</h2>
+    <div id="services">…</div>
+  </div>
+
+  <div class="card wide" data-sys="infra">
+    <h2>Recursos por nodo</h2>
+    <div id="nodesSys">…</div>
+  </div>
+
+  <div class="card wide" data-sys="infra">
+    <h2>HAProxy — Backends</h2>
+    <div id="haproxy">…</div>
+  </div>
+
+  <div class="card" data-sys="legado">
+    <h2>⚠ Failover manual</h2>
+    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+      Promueve un nodo a master MySQL, repunta su app, flipea HAProxy y pone el otro como réplica.
+      Igual que <code>failover-manual.sh</code>. Úsalo solo si un nodo cayó o en ventana planificada.</p>
+    <div class="row" style="justify-content:flex-start">
+      <button class="danger" onclick="askFailover('A')">Promover Nodo A</button>
+      <button class="danger" onclick="askFailover('B')">Promover Nodo B</button>
+      <button class="danger" onclick="askFailover('C')">Promover Nodo C</button>
+    </div>
+    <div id="foStatus" style="margin-top:10px;font-size:12.5px"></div>
+    <pre id="foOut" style="display:none;margin-top:8px"></pre>
+  </div>
+
+  <div class="card" data-sys="legado">
+    <h2>🔌 Acoplamiento de nodos</h2>
+    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+      <b>Desacoplar</b>: aísla un nodo del cluster (lo saca de HAProxy y detiene su replicación).
+      <b>Acoplar</b>: lo reintegra como réplica del master <b>reclonándolo desde cero</b> (mysqldump del
+      master) — descarta cualquier cambio local. No aplica al master.</p>
+    <div id="coupleNodes" style="margin-bottom:8px"></div>
+    <div id="npStatus" style="margin-top:6px;font-size:12.5px"></div>
+    <pre id="npOut" style="display:none;margin-top:8px"></pre>
+  </div>
+
+  <div class="card" data-sys="legado">
+    <h2>🚀 Deploy</h2>
+    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+      Corre <code>deploy.sh</code> en el <b>master actual</b> (git pull, build, migraciones,
+      sync a la réplica y health-check). El script se auto-protege: aborta si el nodo no es
+      master o hay cambios sin commitear.</p>
+    <div class="row" style="justify-content:flex-start">
+      <button onclick="runDeploy(true)">Verificar (sin desplegar)</button>
+      <button class="danger" onclick="askDeploy()">Desplegar al master</button>
+      <button id="pcBtn" onclick="runPostcheck()" title="Solo lectura: override, server-id, report-host, commit, replicación, /up y Orchestrator en los 3 nodos">✔ Comprobar post-deploy</button>
+    </div>
+    <div id="dpStatus" style="margin-top:10px;font-size:12.5px"></div>
+    <pre id="dpOut" style="display:none;margin-top:8px"></pre>
+    <div id="pcStatus" style="margin-top:10px;font-size:12.5px"></div>
+    <div id="pcOut" style="display:none;margin-top:6px;max-height:340px;overflow:auto"></div>
+  </div>
+
+  <div class="card wide" data-sys="kipu">
+    <h2>🟣 Kipu — app.sehuacho.com</h2>
+    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+      Va aparte del legado: Postgres con una base <b>principal</b> y réplicas en streaming (scripts/ha del repo kipu).
+      Las réplicas no corren API: en HAProxy (<code>kipu_frontend_nodes</code>) figuran DOWN hasta que se promueven, y es lo esperado.</p>
+    <div id="kipuAuto" style="margin-bottom:10px;font-size:12.5px"></div>
+    <div id="kipu">sondeando…</div>
+    <div id="kipuAcciones" class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:10px"></div>
+    <div id="khStatus" style="margin-top:8px;font-size:12.5px"></div>
+    <pre id="khOut" style="display:none;margin-top:8px"></pre>
+    <div class="row" style="justify-content:flex-start;margin-top:10px">
+      <button onclick="runKipuDeploy(true)">Verificar Kipu (sin desplegar)</button>
+      <button class="danger" onclick="askKipuDeploy()">Redesplegar Kipu</button>
+    </div>
+    <div id="kdStatus" style="margin-top:10px;font-size:12.5px"></div>
+    <pre id="kdOut" style="display:none;margin-top:8px"></pre>
+  </div>
+
+  <div class="card wide" data-sys="radio">
+    <h2>📻 RadioClub25 — radioclub25peru.com</h2>
+    <p style="font-size:12.5px;color:var(--dim);margin-bottom:10px">
+      Radio y TV en vivo del cliente RadioClub25 (repo radioclub25, <code>scripts/ha</code>). App Go + SQLite, Icecast y
+      MediaMTX en Docker; HAProxy (<code>radioclub25_nodes</code>) entra al nginx <i>edge</i> de cada nodo en <code>:8125</code>.
+      <b>A</b> es la principal; <b>B</b> y <b>C</b> tienen el stack parado y reciben copia de la base y los archivos cada 5 min,
+      así que figuran DOWN hasta que se promueven, y es lo esperado.</p>
+    <div id="rc25Pub" style="margin-bottom:10px;font-size:12.5px"></div>
+    <div id="rc25">sondeando…</div>
+    <div id="rc25Aire" style="margin-top:12px"></div>
+    <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:12px">
+      <button onclick="rc25Op('check')">Verificar</button>
+      <button onclick="rc25Op('sync')">Sincronizar B y C ahora</button>
+      <button class="danger" onclick="askRc25('deploy')">Redesplegar RadioClub25</button>
+      <span id="rc25Promover" style="display:contents"></span>
+    </div>
+    <div id="rcStatus" style="margin-top:10px;font-size:12.5px"></div>
+    <pre id="rcOut" style="display:none;margin-top:8px"></pre>
+  </div>
+
+  <div class="card wide" data-sys="radio">
+    <h2>Puntos de RadioClub25</h2>
+    <table>
+      <tr><th>Qué</th><th>Dónde</th><th>Notas</th></tr>
+      <tr><td>Web, paneles, API del estudio</td><td><code>https://radioclub25peru.com</code></td><td style="color:var(--dim)">VPS → HAProxy (TLS) → edge del nodo activo · www redirige al dominio</td></tr>
+      <tr><td>Radio (oyentes)</td><td><code>/radio</code>, <code>/radio-&lt;frecuencia&gt;</code></td><td style="color:var(--dim)">mismo dominio; stream largo (timeout 24 h en HAProxy)</td></tr>
+      <tr><td>TV (HLS)</td><td><code>/hls/tv/index.m3u8</code></td><td style="color:var(--dim)">mismo dominio</td></tr>
+      <tr><td>Ingesta del estudio (BUTT / Club25 Estudio)</td><td><code>radioclub25.sehuacho.com:8010</code></td><td style="color:var(--dim)">directo al Nodo A (IP pública 8.243.126.126), no pasa por el VPS</td></tr>
+      <tr><td>Ingesta de video (OBS)</td><td><code>rtmp://radioclub25.sehuacho.com:1935</code> · SRT <code>:8890/udp</code></td><td style="color:var(--dim)">directo al Nodo A</td></tr>
+      <tr><td>Nodo A (principal)</td><td><code>10.10.0.2:8125</code></td><td style="color:var(--dim)">/home/lima/sehuacho/radioclub25 · cron de copia cada 5 min</td></tr>
+      <tr><td>Nodo B (reserva)</td><td><code>10.10.0.3:8125</code></td><td style="color:var(--dim)">/home/oyon/sehuacho/radioclub25 · RTMP 1945, SRT 8900 (B ya usa 1935/8890)</td></tr>
+      <tr><td>Nodo C (reserva)</td><td><code>10.10.0.4:8125</code></td><td style="color:var(--dim)">/home/server3/sehuacho/radioclub25</td></tr>
+      <tr><td>Dirección anterior</td><td><code>https://radioclub25.sehuacho.com</code></td><td style="color:var(--dim)">sigue sirviendo desde el nginx de A</td></tr>
+    </table>
+  </div>
+
+  <div class="card" data-sys="infra">
+    <h2>Eventos / Logs
+      <select id="logSel" onchange="loadLog()" style="float:right">
+        <option value="events">events.log</option>
+        <option value="orchestrator">orchestrator.log</option>
+        <option value="bot">bot.log</option>
+        <option value="panel">panel.log</option>
+        <option value="kipu-ha">kipu-ha (Kipu)</option>
+      </select></h2>
+    <pre id="logBox">…</pre>
+  </div>
+</div>
+
+<dialog id="foDlg">
+  <h2 style="color:var(--bad)">Confirmar failover</h2>
+  <p style="font-size:13px">Vas a promover el <b id="foNode"></b> a master. El otro nodo pasará a réplica
+     y HAProxy redirigirá el tráfico. Esta acción toca producción.</p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b>SI</b> para confirmar:</p>
+  <input id="foConfirm" autocomplete="off" placeholder="SI">
+  <div class="row">
+    <button onclick="foDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doFailover()">Ejecutar failover</button>
+  </div>
+</dialog>
+
+<dialog id="dpDlg">
+  <h2 style="color:var(--bad)">Confirmar deploy</h2>
+  <p style="font-size:13px">Vas a correr <code>deploy.sh</code> en el <b>master actual</b>: git pull,
+     build del frontend, migraciones y sync a la réplica. Toca producción.</p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b>DEPLOY</b> para confirmar:</p>
+  <input id="dpConfirm" autocomplete="off" placeholder="DEPLOY">
+  <div class="row">
+    <button onclick="dpDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doDeploy()">Ejecutar deploy</button>
+  </div>
+</dialog>
+
+<dialog id="kdDlg">
+  <h2 style="color:var(--bad)">Confirmar redeploy de Kipu</h2>
+  <p style="font-size:13px">Vas a correr <code>redeploy-banco.sh</code> en el nodo con la base <b>principal</b> de Kipu:
+     backup de la base, build desde la copia de trabajo del repo (sin git pull), migraciones, recreación de API y web
+     (corte de unos segundos) y actualización de las réplicas. Toca producción de Kipu; no toca el legado.</p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b>KIPU</b> para confirmar:</p>
+  <input id="kdConfirm" autocomplete="off" placeholder="KIPU">
+  <div class="row">
+    <button onclick="kdDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doKipuDeploy()">Redesplegar</button>
+  </div>
+</dialog>
+
+<dialog id="khDlg">
+  <h2 style="color:var(--bad)" id="khTitulo"></h2>
+  <p style="font-size:13px" id="khTexto"></p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b id="khPalabra"></b> para confirmar:</p>
+  <input id="khConfirm" autocomplete="off">
+  <div class="row">
+    <button onclick="khDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doKipuHa()">Confirmar</button>
+  </div>
+</dialog>
+
+<dialog id="dcDlg">
+  <h2 style="color:var(--warn)">Desacoplar nodo</h2>
+  <p style="font-size:13px">Vas a <b>aislar</b> el <b id="dcNode"></b> del cluster: se saca de HAProxy
+     (deja de recibir tráfico) y se detiene su replicación (queda congelado, read-only). La BD y la app
+     del nodo siguen corriendo. El reconciliador no lo tocará hasta que lo acoples.</p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b>AISLAR</b> para confirmar:</p>
+  <input id="dcConfirm" autocomplete="off" placeholder="AISLAR">
+  <div class="row">
+    <button onclick="dcDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doDecouple()">Desacoplar</button>
+  </div>
+</dialog>
+
+<dialog id="cpDlg">
+  <h2 style="color:var(--bad)">⚠ Acoplar nodo (reclonado)</h2>
+  <p style="font-size:13px">Vas a reintegrar el <b id="cpNode"></b> como <b>réplica del master</b>.
+     Esto <b style="color:var(--bad)">DESCARTA todos los datos locales del nodo</b> y lo reclona desde
+     el master con <code>mysqldump</code>, sin importar si hubo cambios en el nodo desacoplado.
+     <b>Es irreversible.</b> Luego se reactiva en HAProxy.</p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b>CLONAR</b> para confirmar:</p>
+  <input id="cpConfirm" autocomplete="off" placeholder="CLONAR">
+  <div class="row">
+    <button onclick="cpDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doCouple()">Acoplar (reclonar)</button>
+  </div>
+</dialog>
+
+<dialog id="rcDlg">
+  <h2 style="color:var(--bad)" id="rcTitulo"></h2>
+  <p style="font-size:13px" id="rcTexto"></p>
+  <p style="font-size:13px;margin-top:8px">Escribe <b id="rcPalabra"></b> para confirmar:</p>
+  <input id="rcConfirm" autocomplete="off">
+  <div class="row">
+    <button onclick="rcDlg.close()">Cancelar</button>
+    <button class="danger" onclick="doRc25()">Confirmar</button>
+  </div>
+</dialog>
+
+</main>
+</div>
+<div class="flash" id="flash"></div>
+
+<script>
+const API = location.pathname.replace(/\/$/,'') + '/api';
+const LET = {'10.10.0.2':'A','10.10.0.3':'B','10.10.0.4':'C'};
+let foPending = null, foPolling = null;
+let dpPolling = null;
+let npPending = null, npPolling = null;
+let kdPolling = null;
+let khPending = null, khPolling = null;
+let rcPending = null, rcPolling = null;
+let bad = {};
+const mark = sys => { bad[sys] = true; };
+const SYS = {
+  infra:  ['Infraestructura', 'VPS sehuacho, nodos A/B/C, HAProxy y WireGuard'],
+  legado: ['Restaurante (legado)', 'estacion24.sehuacho.com · asistencia.sehuacho.com · MySQL + Orchestrator'],
+  kipu:   ['Kipu', 'app.sehuacho.com · estacion24v1.sehuacho.com · Postgres'],
+  radio:  ['RadioClub25', 'radioclub25peru.com · radio y TV en vivo'],
+};
+// Backend de HAProxy → sistema al que pertenece (para el indicador del menú).
+const sysOfBackend = n => n.startsWith('kipu') ? 'kipu' : n.startsWith('radioclub25') ? 'radio'
+  : (n === 'ha_panel' || n === 'acme_certbot' || n.endsWith('_in')) ? 'infra' : 'legado';
+
+function showSys(){
+  let cur = (location.hash || '#infra').slice(1);
+  if (!SYS[cur]) cur = 'infra';
+  document.querySelectorAll('[data-sys]').forEach(el => { el.hidden = el.dataset.sys !== cur; });
+  document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === cur));
+  document.getElementById('sysTitle').innerHTML = esc(SYS[cur][0]) + ' <small>' + esc(SYS[cur][1]) + '</small>';
+}
+window.addEventListener('hashchange', showSys);
+
+const fmtAge = s => s==null ? '—' : s<60 ? s+'s' : s<3600 ? Math.floor(s/60)+'m' : Math.floor(s/3600)+'h';
+const esc = t => (t??'').toString().replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+function flash(msg){ const f=document.getElementById('flash'); f.textContent=msg; f.style.display='block';
+  setTimeout(()=>f.style.display='none', 4000); }
+
+async function api(path, opts){ const r = await fetch(API+path, opts); return r.json(); }
+
+function statusTag(st){
+  const s = (st||'').toUpperCase();
+  if (s.startsWith('UP')) return '<span class="tag up">'+esc(st)+'</span>';
+  if (s.startsWith('DOWN')) return '<span class="tag down">'+esc(st)+'</span>';
+  if (s.includes('MAINT')||s.includes('DRAIN')) return '<span class="tag maint">'+esc(st)+'</span>';
+  return '<span class="tag">'+esc(st||'?')+'</span>';
+}
+
+function render(d){
+  document.getElementById('lastUpd').textContent = 'actualizado ' + new Date(d.ts*1000).toLocaleTimeString();
+  bad = {};
+  const masterIp = ((d.current_master || '').split(':')[0] || '').trim();
+
+  // Topología
+  const t = d.topology.nodes || [];
+  const masterNode = t.find(n => n.ip === masterIp);
+  document.getElementById('masterNow').textContent = masterIp
+    ? `master: ${(masterNode ? masterNode.name + ' (' + masterIp + ')' : masterIp)}`
+    : 'master: ?';
+  const decoupled = d.decoupled || [];
+  let h = '<table><tr><th>Nodo</th><th>Rol</th><th>Lag</th><th>Estado</th></tr>';
+  for (const n of t){
+    const isMaster = masterIp ? n.ip === masterIp : n.role === 'master';
+    const isDec = decoupled.includes(LET[n.ip]);
+    const roleTag = isDec ? '<span class="tag maint">DESACOPLADO</span>'
+      : isMaster ? '<span class="tag master">MASTER</span>'
+      : '<span class="tag">réplica de '+esc(n.master || masterIp || '?')+'</span>';
+    const repOk = isMaster ? true : (isDec ? true : n.replication_ok);
+    if (!repOk) mark('legado');
+    const led = isDec ? 'warn' : (repOk ? 'ok' : 'bad');
+    h += `<tr><td><span class="led ${led}"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}:${n.port}</span></td>
+      <td>${roleTag}</td><td>${n.lag==null?'—':n.lag+'s'}</td>
+      <td style="color:var(--dim)">${n.read_only?'read-only':'writable'} · MySQL ${esc(n.version.split('-')[0])}</td></tr>`;
+  }
+  h += '</table>';
+  if (d.topology.error){ h = '<span style="color:var(--bad)">Orchestrator no responde: '+esc(d.topology.error)+'</span>'; mark('legado'); }
+  const sy = d.semisync || {};
+  if (sy.master_ip){
+    if (sy.ok === false) mark('legado');
+    const syLed = sy.ok ? 'ok' : 'bad';
+    h += `<div style="margin-top:8px;font-size:12.5px"><span class="led ${syLed}"></span>Semi-sync: <b>${sy.status_on?'ON':'OFF'}</b> · ${sy.clients==null?'?':sy.clients} réplica(s) ACK`
+       + (sy.ok ? ' <span style="color:var(--dim)">· escrituras protegidas (anti-pérdida)</span>'
+                : ' <span style="color:var(--bad)">· ⚠ async: sin garantía en failover</span>') + '</div>';
+  }
+  document.getElementById('topo').innerHTML = h;
+
+  const probs = d.problems||[];
+  document.getElementById('problems').innerHTML = probs.length
+    ? '<div style="margin-top:8px;color:var(--warn);font-size:12.5px">⚠ ' +
+      probs.map(p=>esc(p.node)+': '+esc((p.problems||[]).join(', '))).join(' · ') + '</div>'
+    : '<div style="margin-top:8px;color:var(--ok);font-size:12.5px">✓ Sin problemas reportados por el orchestrator</div>';
+  if (probs.length) mark('legado');
+
+  // Servicios + recursos + WG
+  let sv = '';
+  for (const s of d.services||[]){
+    if (!s.active) mark('infra');
+    sv += `<div class="kv"><span><span class="led ${s.active?'ok':'bad'}"></span>${esc(s.name)}</span><b>${esc(s.state)}</b></div>`;
+  }
+  const r = d.sys||{};
+  sv += `<div class="kv"><span>RAM disponible</span><b>${r.mem_avail_mb} / ${r.mem_total_mb} MB</b></div>`;
+  sv += `<div class="kv"><span>Swap usado</span><b>${r.swap_used_mb} MB</b></div>`;
+  if (r.disk && r.disk.total_gb) sv += `<div class="kv"><span>Disco /</span><b>${r.disk.used_gb} / ${r.disk.total_gb} GB (${r.disk.pct}%)</b></div>`;
+  sv += `<div class="kv"><span>Load</span><b>${(r.load||[]).map(x=>x.toFixed(2)).join(' · ')}</b></div>`;
+  for (const p of d.wireguard||[]){
+    if (p.error) continue;
+    sv += `<div class="kv"><span><span class="led ${p.ok?'ok':(p.ip==='10.10.0.4'?'warn':'bad')}"></span>WG ${esc(p.name)}</span><b>handshake ${fmtAge(p.handshake_age)}</b></div>`;
+    if (!p.ok && p.ip !== '10.10.0.4') mark('infra');
+  }
+  document.getElementById('services').innerHTML = sv;
+
+  // HAProxy
+  let hp = '';
+  for (const b of d.haproxy||[]){
+    hp += `<div style="margin-bottom:10px"><b style="font-size:13px">${esc(b.name)}</b> ${statusTag(b.status)}
+      <table style="margin-top:4px"><tr><th>Server</th><th>Dirección</th><th>Estado</th><th>Check</th><th></th></tr>`;
+    for (const s of b.servers){
+      const isDown = (s.status||'').startsWith('DOWN');
+      if (isDown && !s.is_backup){ mark('infra'); mark(sysOfBackend(b.name)); }
+      const inMaint = (s.status||'').includes('MAINT');
+      hp += `<tr><td>${esc(s.name)}${s.is_backup?' <span class="tag">backup</span>':''}</td>
+        <td style="color:var(--dim)">${esc(s.addr)}</td><td>${statusTag(s.status)}</td>
+        <td style="color:var(--dim)">${esc(s.check)}</td>
+        <td style="text-align:right"><button onclick="srvAction('${esc(b.name)}','${esc(s.name)}','${inMaint?'enable':'disable'}')">${inMaint?'Activar':'Pausar'}</button></td></tr>`;
+    }
+    hp += '</table></div>';
+  }
+  document.getElementById('haproxy').innerHTML = hp || 'sin datos';
+
+  // Recursos por nodo
+  const ns = (d.nodes_sys && d.nodes_sys.nodes) || [];
+  if (ns.length){
+    let nh = '<table><tr><th>Nodo</th><th>CPU (load · cores)</th><th>RAM</th><th>Disco /</th><th>Uptime</th></tr>';
+    for (const n of ns.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
+      if (!n.reachable){
+        mark('infra');
+        nh += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+          <td colspan="4" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
+        continue;
+      }
+      const dk = n.disk || {};
+      const dpct = dk.pct ?? null;
+      const dLed = dpct==null?'':(dpct>=95?'bad':dpct>=85?'warn':'ok');
+      const mLed = n.mem_pct==null?'':(n.mem_pct>=95?'bad':n.mem_pct>=88?'warn':'ok');
+      if (dpct!=null && dpct>=95) mark('infra');
+      const load = (n.load||[]).map(x=>x.toFixed(2)).join(' ');
+      nh += `<tr><td><span class="led ok"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+        <td>${load||'—'} <span style="color:var(--dim)">· ${n.nproc??'?'}</span></td>
+        <td><span class="led ${mLed}"></span>${n.mem_avail_mb??'?'} / ${n.mem_total_mb??'?'} MB disp <span style="color:var(--dim)">(${n.mem_pct??'?'}% uso)</span></td>
+        <td><span class="led ${dLed}"></span>${dk.used_gb??'?'} / ${dk.total_gb??'?'} GB <span style="color:var(--dim)">(${dpct??'?'}%)</span></td>
+        <td style="color:var(--dim)">${fmtAge(n.uptime_s)}</td></tr>`;
+    }
+    nh += '</table>';
+    if (d.nodes_sys.ts) nh += `<div style="color:var(--dim);font-size:11px;margin-top:6px">medido ${new Date(d.nodes_sys.ts*1000).toLocaleTimeString()}</div>`;
+    document.getElementById('nodesSys').innerHTML = nh;
+  } else {
+    document.getElementById('nodesSys').innerHTML = '<span style="color:var(--dim)">sondeando nodos…</span>';
+  }
+
+  // Acoplamiento de nodos: un botón por nodo no-master
+  const decs = d.decoupled || [];
+  const opRunning = d.nodeop && d.nodeop.running;
+  let cp = '<div class="row" style="justify-content:flex-start;flex-wrap:wrap">';
+  for (const ip of Object.keys(LET)){
+    const L = LET[ip];
+    const nInfo = t.find(x=>x.ip===ip);
+    const nm = nInfo ? nInfo.name : ('Nodo '+L);
+    const isMaster = masterIp ? ip===masterIp : (nInfo && nInfo.role==='master');
+    if (isMaster){ cp += `<span class="tag master" style="align-self:center">${esc(nm)}: MASTER</span>`; continue; }
+    if (decs.includes(L))
+      cp += `<button class="danger" ${opRunning?'disabled':''} onclick="askCouple('${L}','${esc(nm)}')">Acoplar ${esc(nm)}</button>`;
+    else
+      cp += `<button ${opRunning?'disabled':''} onclick="askDecouple('${L}','${esc(nm)}')">Desacoplar ${esc(nm)}</button>`;
+  }
+  cp += '</div>';
+  document.getElementById('coupleNodes').innerHTML = cp;
+  if (opRunning && !npPolling) pollNodeOp();
+
+  // Kipu
+  const kp = (d.kipu && d.kipu.nodes) || [];
+  if (kp.length){
+    const principales = kp.filter(n => n.role === 'principal');
+    if (principales.length !== 1) mark('kipu');
+    let kh = '<table><tr><th>Nodo</th><th>Base</th><th>Replicación</th><th>API</th><th>Salud (HAProxy)</th></tr>';
+    for (const n of kp.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
+      if (!n.reachable){
+        mark('kipu');
+        kh += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+          <td colspan="4" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
+        continue;
+      }
+      let rol, rep, led = 'ok';
+      if (n.role === 'principal'){
+        rol = '<span class="tag master">PRINCIPAL</span>';
+        rep = (n.replicas||[]).length
+          ? n.replicas.map(r => `${esc(r.name)}: ${esc(r.state)}${r.lag_s?' · '+r.lag_s+'s':''}`).join('<br>')
+          : '<span style="color:var(--warn)">sin réplicas conectadas</span>';
+        if (!(n.replicas||[]).length){ led = 'warn'; }
+        if (n.health !== 200){ led = 'bad'; mark('kipu'); }
+      } else if (n.role === 'replica'){
+        rol = '<span class="tag">réplica</span>';
+        rep = n.wal === 'streaming' ? 'recibiendo (streaming)' : `<span style="color:var(--bad)">${esc(n.wal||'sin conexión a la principal')}</span>`;
+        if (n.wal !== 'streaming'){ led = 'bad'; mark('kipu'); }
+      } else {
+        rol = '<span class="tag down">sin base</span>'; rep = '—'; led = 'warn';
+      }
+      const salud = n.health === 200 ? '<span class="tag up">200 · atiende</span>'
+        : (n.role === 'replica' && n.health == null) ? '<span class="tag">en espera</span>'
+        : `<span class="tag down">${n.health==null?'sin respuesta':n.health}</span>`;
+      kh += `<tr><td><span class="led ${led}"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+        <td>${rol}</td><td style="font-size:12.5px">${rep}</td>
+        <td>${n.api?'<span class="tag up">en marcha</span>':'<span class="tag">parado</span>'}</td><td>${salud}</td></tr>`;
+    }
+    kh += '</table>';
+    if (principales.length > 1) kh += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Más de una base principal (split-brain): no redesplegar ni promover hasta revisar.</div>';
+    if (principales.length === 0) kh += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Ninguna base principal: Kipu no puede atender. Ver scripts/ha/README.md (Failover).</div>';
+    if (d.kipu.ts) kh += `<div style="color:var(--dim);font-size:11px;margin-top:6px">medido ${new Date(d.kipu.ts*1000).toLocaleTimeString()}</div>`;
+    document.getElementById('kipu').innerHTML = kh;
+  }
+  if (d.kipu_deploy && d.kipu_deploy.running && !kdPolling) pollKipuDeploy();
+
+  // Orquestador de Kipu (failover automático + reconciliador)
+  const au = (d.kipu && d.kipu.auto) || {};
+  const khRunning = d.kipu_op && d.kipu_op.running;
+  if (!au.instalado){
+    document.getElementById('kipuAuto').innerHTML = '<span class="led warn"></span>Failover automático de Kipu: <b>no instalado</b> (scripts/ha/vps/instalar-vps.sh)';
+    document.getElementById('kipuAcciones').innerHTML = '';
+  } else {
+    if (au.pausado) mark('kipu');
+    const ais = au.aislados || {};
+    let ah = au.pausado
+      ? `<span class="led warn"></span>Failover automático: <b style="color:var(--warn)">EN PAUSA</b> <button ${khRunning?'disabled':''} onclick="kipuHa('reanudar')">Reanudar</button>`
+      : `<span class="led ok"></span>Failover automático: <b>activo</b> <span style="color:var(--dim)">(detecta en 30 s con testigos · reconcilia cada 60 s · tolera datos no críticos)</span> <button ${khRunning?'disabled':''} onclick="kipuHa('pausar')">Pausar</button>`;
+    for (const [L, motivo] of Object.entries(ais)){
+      mark('kipu');
+      ah += `<div style="margin-top:6px;color:var(--warn)">⚠ Nodo ${esc(L)} AISLADO: ${esc(motivo)}</div>`;
+    }
+    document.getElementById('kipuAuto').innerHTML = ah;
+    let bh = '';
+    const letras = {'10.10.0.2':'A','10.10.0.3':'B','10.10.0.4':'C'};
+    for (const n of kp){
+      const L = letras[n.ip];
+      if (n.role === 'replica' && !ais[L]) bh += `<button class="danger" ${khRunning?'disabled':''} onclick="askKipuHa('failover','${L}')">Promover Kipu → Nodo ${L}</button>`;
+      if (ais[L]) bh += `<button class="danger" ${khRunning?'disabled':''} onclick="askKipuHa('reintegrar','${L}')">Reintegrar Nodo ${L} (descarta su base)</button>`;
+    }
+    document.getElementById('kipuAcciones').innerHTML = bh;
+  }
+  if (khRunning && !khPolling) pollKipuHa();
+
+  // Failover en curso
+  if (d.failover && d.failover.running && !foPolling) pollFailover();
+  // Deploy en curso
+  if (d.deploy && d.deploy.running && !dpPolling) pollDeploy();
+
+  renderRc25(d);
+  for (const k of Object.keys(SYS)){
+    const el = document.getElementById('nav-'+k); if (el) el.className = 'led ' + (bad[k] ? 'bad' : 'ok');
+  }
+  document.getElementById('globalLed').className = 'led ' + (Object.keys(bad).length ? 'bad' : 'ok');
+}
+
+async function refresh(){
+  try { render(await api('/overview')); }
+  catch(e){ document.getElementById('lastUpd').textContent = 'error: '+e; }
+}
+
+async function loadLog(){
+  const name = document.getElementById('logSel').value;
+  try { const d = await api('/logs?name='+name+'&lines=80');
+        const box = document.getElementById('logBox');
+        box.textContent = d.content || '(vacío)'; box.scrollTop = box.scrollHeight; }
+  catch(e){ document.getElementById('logBox').textContent = 'error: '+e; }
+}
+
+async function srvAction(backend, server, action){
+  if (action==='disable' && !confirm(`¿Pausar ${backend}/${server}? HAProxy dejará de mandarle tráfico.`)) return;
+  const d = await api('/haproxy/server', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({backend, server, action})});
+  flash(d.ok ? `OK: ${action} ${backend}/${server}` : 'Error: '+(d.error||d.output));
+  setTimeout(refresh, 800);
+}
+
+function askFailover(node){
+  foPending = node;
+  document.getElementById('foNode').textContent = 'Nodo '+node;
+  document.getElementById('foConfirm').value = '';
+  document.getElementById('foDlg').showModal();
+}
+
+async function doFailover(){
+  const val = document.getElementById('foConfirm').value.trim();
+  if (val !== 'SI'){ flash('Debes escribir SI'); return; }
+  document.getElementById('foDlg').close();
+  const d = await api('/failover', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({node: foPending, confirm:'SI'})});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash('Failover iniciado → Nodo '+foPending);
+  pollFailover();
+}
+
+function pollFailover(){
+  const st = document.getElementById('foStatus'), out = document.getElementById('foOut');
+  out.style.display = 'block';
+  foPolling = setInterval(async ()=>{
+    const d = await api('/failover/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>Failover en curso → Nodo '+esc(d.node); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>Failover terminado OK (Nodo '+esc(d.node)+')'
+                              : '<span class="led bad"></span>Failover terminó con error (rc='+d.rc+')';
+      clearInterval(foPolling); foPolling = null; refresh();
+    }
+  }, 2000);
+}
+
+function askDeploy(){
+  document.getElementById('dpConfirm').value = '';
+  document.getElementById('dpDlg').showModal();
+}
+
+async function doDeploy(){
+  const val = document.getElementById('dpConfirm').value.trim();
+  if (val !== 'DEPLOY'){ flash('Debes escribir DEPLOY'); return; }
+  document.getElementById('dpDlg').close();
+  runDeploy(false);
+}
+
+async function runDeploy(check){
+  const body = check ? {check:true} : {confirm:'DEPLOY'};
+  const d = await api('/deploy', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify(body)});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash((check?'Verificación':'Deploy')+' iniciado → '+(d.target||'master'));
+  pollDeploy();
+}
+
+function pollDeploy(){
+  const st = document.getElementById('dpStatus'), out = document.getElementById('dpOut');
+  out.style.display = 'block';
+  dpPolling = setInterval(async ()=>{
+    const d = await api('/deploy/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>Deploy en curso → '+esc(d.target||''); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>Deploy terminado OK ('+esc(d.target||'')+')'
+                              : '<span class="led bad"></span>Deploy terminó con error (rc='+d.rc+')';
+      clearInterval(dpPolling); dpPolling = null; refresh();
+      // Un deploy real (no --check) pide confirmar el estado de los nodos.
+      if (!String(d.target||'').startsWith('[check]')){
+        document.getElementById('pcBtn').classList.add('pending');
+        st.innerHTML += ' · <b>pulsa “Comprobar post-deploy” para confirmar los nodos</b>';
+      }
+    }
+  }, 2000);
+}
+
+let pcPolling = null;
+async function runPostcheck(){
+  const d = await api('/postcheck', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'}, body:'{}'});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  document.getElementById('pcBtn').classList.remove('pending');
+  pollPostcheck();
+}
+
+function pollPostcheck(){
+  const st = document.getElementById('pcStatus'), out = document.getElementById('pcOut');
+  if (pcPolling) return;
+  st.innerHTML = '<span class="led warn"></span>Comprobando los 3 nodos…';
+  pcPolling = setInterval(async ()=>{
+    const d = await api('/postcheck/status');
+    if (d.running) return;
+    clearInterval(pcPolling); pcPolling = null;
+    const cks = d.checks || [];
+    const nBad = cks.filter(c=>c.status==='bad').length, nWarn = cks.filter(c=>c.status==='warn').length;
+    const hora = d.finished ? new Date(d.finished*1000).toLocaleTimeString() : '';
+    st.innerHTML = nBad ? '<span class="led bad"></span><b>'+nBad+' problema(s)</b> tras el deploy · '+hora
+                 : '<span class="led ok"></span><b>Deploy confirmado</b>: los nodos están bien'+(nWarn?' ('+nWarn+' aviso(s))':'')+' · '+hora;
+    let html = '<table><tr><th>Nodo</th><th>Comprobación</th><th>Detalle</th></tr>', prev = null;
+    for (const c of cks){
+      html += '<tr><td>'+(c.node!==prev?esc(c.node):'')+'</td><td><span class="led '+esc(c.status)+'"></span>'+esc(c.check)+'</td><td>'+esc(c.detail)+'</td></tr>';
+      prev = c.node;
+    }
+    out.innerHTML = html+'</table>'; out.style.display = 'block';
+  }, 1500);
+}
+
+function askKipuDeploy(){
+  document.getElementById('kdConfirm').value = '';
+  document.getElementById('kdDlg').showModal();
+}
+
+async function doKipuDeploy(){
+  if (document.getElementById('kdConfirm').value.trim() !== 'KIPU'){ flash('Debes escribir KIPU'); return; }
+  document.getElementById('kdDlg').close();
+  runKipuDeploy(false);
+}
+
+async function runKipuDeploy(check){
+  const body = check ? {check:true} : {confirm:'KIPU'};
+  const d = await api('/kipu/deploy', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify(body)});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash((check?'Verificación de Kipu':'Redeploy de Kipu')+' iniciado → '+(d.target||''));
+  pollKipuDeploy();
+}
+
+function pollKipuDeploy(){
+  const st = document.getElementById('kdStatus'), out = document.getElementById('kdOut');
+  out.style.display = 'block';
+  kdPolling = setInterval(async ()=>{
+    const d = await api('/kipu/deploy/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>En curso → '+esc(d.target||''); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>Terminado OK ('+esc(d.target||'')+')'
+                              : '<span class="led bad"></span>Terminó con error (rc='+d.rc+')';
+      clearInterval(kdPolling); kdPolling = null; refresh();
+    }
+  }, 2000);
+}
+
+async function kipuHa(accion){
+  if (accion === 'pausar' && !confirm('¿Pausar el failover automático de Kipu? Si la principal cae, habrá que promover a mano.')) return;
+  const d = await api('/kipu/ha', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({accion})});
+  flash(d.ok ? (d.output || 'OK') : 'Error: '+(d.error||d.output));
+  setTimeout(refresh, 800);
+}
+
+function askKipuHa(accion, nodo){
+  khPending = {accion, nodo};
+  const palabra = accion === 'failover' ? 'PROMOVER' : 'REINTEGRAR';
+  document.getElementById('khTitulo').textContent = accion === 'failover' ? `Promover Nodo ${nodo} a principal de Kipu` : `Reintegrar Nodo ${nodo}`;
+  document.getElementById('khTexto').textContent = accion === 'failover'
+    ? `Nodo ${nodo} pasa a ser la base principal de Kipu y HAProxy le manda el tráfico. Si la principal actual vive, se cerca (sin API) y se espera a que ${nodo} tenga todo lo suyo antes de promover (planificado). Irreversible.`
+    : `La base de Nodo ${nodo} se DESCARTA (se guarda un volcado en el nodo) y se reconstruye como réplica de la principal. Hazlo solo después de rescatar los datos que tuviera.`;
+  document.getElementById('khPalabra').textContent = palabra;
+  document.getElementById('khConfirm').value = '';
+  document.getElementById('khDlg').showModal();
+}
+
+async function doKipuHa(){
+  const palabra = khPending.accion === 'failover' ? 'PROMOVER' : 'REINTEGRAR';
+  if (document.getElementById('khConfirm').value.trim() !== palabra){ flash('Debes escribir '+palabra); return; }
+  document.getElementById('khDlg').close();
+  const d = await api('/kipu/ha', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({accion: khPending.accion, nodo: khPending.nodo, confirm: palabra})});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash('Kipu HA: '+d.op+' iniciado'); pollKipuHa();
+}
+
+function pollKipuHa(){
+  const st = document.getElementById('khStatus'), out = document.getElementById('khOut');
+  out.style.display = 'block';
+  khPolling = setInterval(async ()=>{
+    const d = await api('/kipu/ha/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>En curso → '+esc(d.op||''); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>'+esc(d.op||'')+' terminado OK'
+                              : '<span class="led bad"></span>'+esc(d.op||'')+' terminó con error (rc='+d.rc+')';
+      clearInterval(khPolling); khPolling = null; refresh();
+    }
+  }, 2000);
+}
+
+function askDecouple(letter, name){
+  npPending = letter;
+  document.getElementById('dcNode').textContent = name;
+  document.getElementById('dcConfirm').value = '';
+  document.getElementById('dcDlg').showModal();
+}
+
+async function doDecouple(){
+  if (document.getElementById('dcConfirm').value.trim() !== 'AISLAR'){ flash('Debes escribir AISLAR'); return; }
+  document.getElementById('dcDlg').close();
+  const d = await api('/node/decouple', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({node: npPending, confirm:'AISLAR'})});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash('Desacoplando Nodo '+npPending); pollNodeOp();
+}
+
+function askCouple(letter, name){
+  npPending = letter;
+  document.getElementById('cpNode').textContent = name;
+  document.getElementById('cpConfirm').value = '';
+  document.getElementById('cpDlg').showModal();
+}
+
+async function doCouple(){
+  if (document.getElementById('cpConfirm').value.trim() !== 'CLONAR'){ flash('Debes escribir CLONAR'); return; }
+  document.getElementById('cpDlg').close();
+  const d = await api('/node/couple', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify({node: npPending, confirm:'CLONAR'})});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash('Acoplando (reclonando) Nodo '+npPending); pollNodeOp();
+}
+
+function pollNodeOp(){
+  const st = document.getElementById('npStatus'), out = document.getElementById('npOut');
+  out.style.display = 'block';
+  npPolling = setInterval(async ()=>{
+    const d = await api('/node/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>'+esc(d.op||'op')+' en curso → Nodo '+esc(d.node||''); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>'+esc(d.op||'op')+' OK (Nodo '+esc(d.node||'')+')'
+                              : '<span class="led bad"></span>'+esc(d.op||'op')+' terminó con error (rc='+d.rc+')';
+      clearInterval(npPolling); npPolling = null; refresh();
+    }
+  }, 2000);
+}
+
+// ── RadioClub25 ──
+function renderRc25(d){
+  const rc = d.radioclub25 || {};
+  const ns = rc.nodes || [];
+  const running = d.rc25_op && d.rc25_op.running;
+  const pub = rc.publico;
+  document.getElementById('rc25Pub').innerHTML = pub === 200
+    ? `<span class="led ok"></span>Público: <a href="${esc(rc.url)}" target="_blank" style="color:var(--accent)">${esc(rc.url)}</a> responde 200`
+    : `<span class="led bad"></span>Público: ${esc(rc.url||'')} <b style="color:var(--bad)">${pub==null?'sin respuesta':pub}</b>`;
+  if (pub !== 200) mark('radio');
+  if (!ns.length){ document.getElementById('rc25').innerHTML = '<span style="color:var(--dim)">sondeando nodos…</span>'; }
+  else {
+    const activos = ns.filter(n => n.health === 200);
+    if (activos.length !== 1) mark('radio');
+    let h = '<table><tr><th>Nodo</th><th>Rol</th><th>Contenedores</th><th>Edge :8125</th><th>Copia desde A</th><th>Datos</th></tr>';
+    for (const n of ns.slice().sort((a,b)=>(a.ip||'').localeCompare(b.ip||''))){
+      if (!n.reachable){
+        mark('radio');
+        h += `<tr><td><span class="led bad"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td><td colspan="5" style="color:var(--bad)">inalcanzable${n.error?' · '+esc(n.error):''}</td></tr>`;
+        continue;
+      }
+      const esA = n.ip === '10.10.0.2';
+      const corre = (n.running||[]).includes('app');
+      let led = 'ok', rol, copia = '—';
+      if (!n.repo){ rol = '<span class="tag down">sin desplegar</span>'; led = 'warn'; mark('radio'); }
+      else if (esA){ rol = '<span class="tag master">PRINCIPAL</span>'; if (n.health !== 200){ led = 'bad'; } }
+      else if (corre){ rol = '<span class="tag maint">PROMOVIDO</span>'; led = 'warn';
+        copia = `<span style="color:var(--warn)">principal desde ${esc((n.promovido||'?').replace('T',' ').slice(0,16))}</span>`; }
+      else {
+        rol = '<span class="tag">reserva</span>';
+        if (n.sync){
+          const age = Math.round((Date.now() - Date.parse(n.sync))/1000);
+          const viejo = age > 900;
+          if (viejo){ led = 'warn'; mark('radio'); }
+          copia = `<span style="color:${viejo?'var(--warn)':'var(--txt)'}">hace ${fmtAge(age)}</span>`;
+        } else { copia = '<span style="color:var(--warn)">nunca</span>'; led = 'warn'; mark('radio'); }
+      }
+      const salud = n.health === 200 ? '<span class="tag up">200 · atiende</span>'
+        : (!esA && !corre) ? '<span class="tag">en espera</span>'
+        : `<span class="tag down">${n.health==null?'sin respuesta':n.health}</span>`;
+      const svcs = (n.running||[]).length ? esc(n.running.join(' · ')) : '<span style="color:var(--dim)">parado</span>';
+      const datos = n.db_mb==null ? '—' : `base ${n.db_mb} MB · archivos ${n.uploads_mb??'?'} MB`;
+      h += `<tr><td><span class="led ${led}"></span>${esc(n.name)} <span style="color:var(--dim)">${esc(n.ip)}</span></td>
+        <td>${rol}</td><td style="font-size:12.5px">${svcs}</td><td>${salud}</td><td style="font-size:12.5px">${copia}</td>
+        <td style="font-size:12.5px;color:var(--dim)">${datos}</td></tr>`;
+    }
+    h += '</table>';
+    if (activos.length > 1) h += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Más de un nodo atendiendo: dos bases separadas. Detener el que no corresponda.</div>';
+    if (activos.length === 0) h += '<div style="margin-top:8px;color:var(--bad);font-size:12.5px">⚠ Ningún nodo atiende: la web está caída. Promover B o C (botones de abajo).</div>';
+    if (rc.ts) h += `<div style="color:var(--dim);font-size:11px;margin-top:6px">medido ${new Date(rc.ts*1000).toLocaleTimeString()}</div>`;
+    document.getElementById('rc25').innerHTML = h;
+
+    let ph = '';
+    for (const n of ns){
+      const L = LET[n.ip];
+      if (L !== 'A' && n.repo && !(n.running||[]).includes('app'))
+        ph += `<button class="danger" ${running?'disabled':''} onclick="askRc25('promover','${L}')">Promover RadioClub25 → Nodo ${L}</button>`;
+    }
+    document.getElementById('rc25Promover').innerHTML = ph;
+  }
+  const ai = rc.aire;
+  if (ai){
+    let ah = `<div style="font-size:12.5px;color:var(--dim);margin-bottom:4px">Al aire (según ${esc(ai.desde)}) · TV: ${ai.tv?'<span class="tag up">en vivo</span>':'<span class="tag">sin señal</span>'}</div>`;
+    ah += '<table><tr><th>Frecuencia</th><th>Ciudad</th><th>Señal</th><th>Oyentes</th></tr>';
+    for (const e of ai.estaciones||[]){
+      ah += `<tr><td>${esc(e.label)}</td><td>${esc(e.city)}</td><td>${e.online?'<span class="tag up">en vivo</span>':'<span class="tag">sin señal</span>'}${e.external?' <span class="tag">externa</span>':''}</td><td>${e.listeners??0}</td></tr>`;
+    }
+    document.getElementById('rc25Aire').innerHTML = ah + '</table>';
+  } else document.getElementById('rc25Aire').innerHTML = '';
+  if (running && !rcPolling) pollRc25();
+}
+
+async function rc25Op(accion, extra){
+  const d = await api('/radioclub25', {method:'POST', headers:{'Content-Type':'application/json','X-Panel':'1'},
+    body: JSON.stringify(Object.assign({accion}, extra||{}))});
+  if (!d.ok){ flash('Error: '+d.error); return; }
+  flash('RadioClub25: '+d.op+' iniciado'); pollRc25();
+}
+
+function askRc25(accion, nodo){
+  rcPending = {accion, nodo};
+  const palabra = accion === 'deploy' ? 'RADIO' : 'PROMOVER';
+  document.getElementById('rcTitulo').textContent = accion === 'deploy' ? 'Redesplegar RadioClub25' : `Promover Nodo ${nodo} a principal de RadioClub25`;
+  document.getElementById('rcTexto').textContent = accion === 'deploy'
+    ? 'En el Nodo A: docker compose up -d --build con la copia de trabajo del repo (sin git pull; corte de unos segundos, las migraciones se aplican solas). Después copia el código a B y C y les deja las imágenes listas sin arrancarlas.'
+    : `Arranca el stack en el Nodo ${nodo} con la última copia de A y HAProxy le manda el tráfico. Solo si A está caída (el script se niega si A sigue sirviendo). La PC del estudio seguirá emitiendo hacia A: hay que cambiarle el host para volver al aire.`;
+  document.getElementById('rcPalabra').textContent = palabra;
+  document.getElementById('rcConfirm').value = '';
+  document.getElementById('rcDlg').showModal();
+}
+
+async function doRc25(){
+  const palabra = rcPending.accion === 'deploy' ? 'RADIO' : 'PROMOVER';
+  if (document.getElementById('rcConfirm').value.trim() !== palabra){ flash('Debes escribir '+palabra); return; }
+  document.getElementById('rcDlg').close();
+  rc25Op(rcPending.accion, {nodo: rcPending.nodo, confirm: palabra});
+}
+
+function pollRc25(){
+  if (rcPolling) return;
+  const st = document.getElementById('rcStatus'), out = document.getElementById('rcOut');
+  out.style.display = 'block';
+  rcPolling = setInterval(async ()=>{
+    const d = await api('/radioclub25/status');
+    out.textContent = d.output || '…'; out.scrollTop = out.scrollHeight;
+    if (d.running){ st.innerHTML = '<span class="led warn"></span>En curso → '+esc(d.op||''); }
+    else if (d.rc !== null){
+      st.innerHTML = d.rc===0 ? '<span class="led ok"></span>'+esc(d.op||'')+' terminado OK'
+                              : '<span class="led bad"></span>'+esc(d.op||'')+' terminó con error (rc='+d.rc+')';
+      clearInterval(rcPolling); rcPolling = null; refresh();
+    }
+  }, 2000);
+}
+
+showSys();
+refresh(); loadLog();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
