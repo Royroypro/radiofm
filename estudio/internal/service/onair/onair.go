@@ -210,7 +210,7 @@ func (s *Service) handleCmd(ctx context.Context, c cmd) error {
 			s.running = true
 		}
 		s.queue = nil // saltar el resto del elemento en curso
-		s.advance(ctx, true)
+		s.advanceOpt(ctx, true, true)
 	case "mode":
 		return s.setMode(ctx, c.mode)
 	case "cart":
@@ -248,9 +248,14 @@ func (s *Service) setMode(ctx context.Context, m domain.StudioMode) error {
 
 func (s *Service) handleEvent(ctx context.Context, ev audio.Event) {
 	if ev.Type == audio.EventSilence {
-		s.warn("silencio en el aire: suena la playlist de emergencia")
 		if s.running && s.mode != domain.ModeLive {
-			s.playEmergency(ctx)
+			if s.playEmergency(ctx) {
+				s.warn("silencio en el aire: se puso una pista de emergencia")
+			} else {
+				s.warn("silencio en el aire y no hay pistas para cubrirlo")
+			}
+		} else {
+			s.warn("silencio en el aire")
 		}
 		return
 	}
@@ -348,7 +353,15 @@ func (s *Service) Refresh() {
 
 // advance arranca lo siguiente: el resto del elemento en curso o el próximo elemento.
 // crossfade = fundir lo que suena (punto de mezcla o "Siguiente").
-func (s *Service) advance(ctx context.Context, crossfade bool) {
+func (s *Service) advance(ctx context.Context, crossfade bool) { s.advanceOpt(ctx, crossfade, false) }
+
+// aheadWindow es hasta dónde se adelanta la playlist cuando el aire quedaría en
+// silencio esperando un evento duro.
+const aheadWindow = 3 * time.Hour
+
+// advanceOpt es advance; force = el operador pulsó "Siguiente" (se adelanta
+// la playlist aunque algo esté sonando).
+func (s *Service) advanceOpt(ctx context.Context, crossfade, force bool) {
 	fade := time.Duration(0)
 	if crossfade {
 		fade = s.d.Options().Crossfade
@@ -376,12 +389,39 @@ func (s *Service) advance(ctx context.Context, crossfade bool) {
 			}
 			continue
 		}
-		// nada programado ahora (p. ej. esperando un evento duro): si no suena nada, emergencia
-		if s.current == nil && len(s.pending()) == 0 {
-			s.playEmergency(ctx)
+		// Nada que arrancar ahora: lo siguiente es un evento duro que todavía no
+		// llega (p. ej. la tanda de las 19:30 y no queda nada antes). En vez de dejar
+		// el aire en silencio hasta esa hora, se adelanta lo que viene después: el
+		// evento duro cortará a su hora. Si no hay nada, emergencia o relleno.
+		if s.current == nil || force {
+			if it, ok := s.aheadItem(); ok {
+				if s.startItem(ctx, it, fade) {
+					return
+				}
+				continue
+			}
+			if s.current == nil {
+				s.playEmergency(ctx)
+			}
 		}
 		return
 	}
+}
+
+// aheadItem es el primer elemento blando pendiente de las próximas horas que
+// está después de un evento duro futuro (el que se puede adelantar).
+func (s *Service) aheadItem() (domain.LogItem, bool) {
+	limit := s.d.Now().Add(aheadWindow)
+	for _, it := range s.pending() {
+		if it.Hard || it.Optional {
+			continue
+		}
+		if it.At.After(limit) {
+			break
+		}
+		return it, true
+	}
+	return domain.LogItem{}, false
 }
 
 // startItem expande un elemento de la playlist y arranca su primer segmento.
@@ -505,26 +545,49 @@ func (s *Service) fadeOutCurrent(d time.Duration) {
 	s.silenceAt = time.Time{}
 }
 
-// playEmergency hace sonar una pista de la categoría de emergencia (o de relleno).
-func (s *Service) playEmergency(ctx context.Context) {
-	cat := s.d.Options().Emergency
-	if cat == 0 {
-		return
+// playEmergency hace sonar una pista de la categoría de emergencia (o de
+// relleno). Si esa categoría no tiene pistas, una de cualquier categoría de
+// música: el aire nunca debe quedar en silencio. Devuelve si sonó algo.
+func (s *Service) playEmergency(ctx context.Context) bool {
+	now := s.d.Now()
+	pick := func(cat int64) (domain.Track, bool) {
+		list, err := s.d.Tracks.ByCategory(ctx, cat)
+		if err != nil {
+			return domain.Track{}, false
+		}
+		var ok []domain.Track
+		for _, t := range list {
+			if t.Available(now) {
+				ok = append(ok, t)
+			}
+		}
+		if len(ok) == 0 {
+			return domain.Track{}, false
+		}
+		return ok[int(now.UnixNano()/1e6)%len(ok)], true
 	}
-	list, err := s.d.Tracks.ByCategory(ctx, cat)
-	if err != nil || len(list) == 0 {
-		s.warn("no hay pistas en la categoría de emergencia")
-		return
+	t, found := domain.Track{}, false
+	if cat := s.d.Options().Emergency; cat != 0 {
+		t, found = pick(cat)
 	}
-	x := s.expander(ctx)
-	t := list[int(s.d.Now().UnixNano()/1e6)%len(list)]
-	if !t.Available(s.d.Now()) {
-		return
+	if !found && s.d.Categories != nil {
+		if cats, err := s.d.Categories.List(ctx); err == nil {
+			for _, c := range cats {
+				if c.Kind == domain.KindMusic {
+					if t, found = pick(c.ID); found {
+						break
+					}
+				}
+			}
+		}
 	}
-	seg := x.trackSegment(t)
+	if !found {
+		return false
+	}
+	seg := s.expander(ctx).trackSegment(t)
 	seg.Last = true
 	s.queue = nil
-	s.startSegment(ctx, seg, s.d.Options().Crossfade)
+	return s.startSegment(ctx, seg, s.d.Options().Crossfade)
 }
 
 func (s *Service) expander(ctx context.Context) *expander {

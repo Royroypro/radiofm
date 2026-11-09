@@ -3,7 +3,7 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.4/club25-estudio-amd64-installer.exe`
+   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.5/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta

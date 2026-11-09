@@ -202,7 +202,7 @@
           <button class="pitem" class:current={i === 0 && air?.current?.id === it.id} class:sel={selItem === it.id} class:hard={it.hard}
             onclick={() => (selItem = selItem === it.id ? null : it.id)}>
             <div class="pl1"><span class="at">{clock(it.at)}</span> <span class="du">Dur: {dur(it.length)}</span>
-              {#if it.locked}<span class="lk">🔒</span>{/if}{#if it.optional}<span class="op">opc.</span>{/if}</div>
+              {#if it.locked}<span class="lk" title="Insertada a mano: se conserva al regenerar la playlist">🔒</span>{/if}{#if it.optional}<span class="op">opc.</span>{/if}</div>
             <div class="pl2"><span class="pi">{itemIcon[it.kind] ?? '•'}</span>
               <div class="pt"><div class="a">{it.title}</div><div class="b">{it.artist}</div></div></div>
           </button>

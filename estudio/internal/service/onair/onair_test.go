@@ -283,3 +283,30 @@ func TestAssistedWaitsForOperator(t *testing.T) {
 		t.Fatal("Siguiente debe arrancar el próximo elemento")
 	}
 }
+
+// Caso real en la PC de la radio: tras reiniciar, lo programado antes de una
+// tanda dura de las 19:30 había quedado atrasado y no quedaba nada antes de
+// ella. El aire no debe quedarse en silencio esperando: adelanta lo que sigue
+// después y la tanda corta a su hora.
+func TestPlaysAheadInsteadOfWaitingForHardEvent(t *testing.T) {
+	now := time.Now()
+	tracks := map[int64]domain.Track{
+		2: track(2, "tanda", 2*time.Second, 0),
+		3: track(3, "insertada", 20*time.Second, 19*time.Second),
+	}
+	items := []domain.LogItem{
+		{ID: 2, Kind: domain.SlotTrack, TrackID: 2, Hard: true, At: now.Add(2 * time.Second), Length: 2 * time.Second, Status: domain.LogPending},
+		{ID: 3, Kind: domain.SlotTrack, TrackID: 3, Locked: true, At: now.Add(4 * time.Second), Length: 20 * time.Second, Status: domain.LogPending},
+	}
+	e := newEnv(t, items, tracks, nil)
+	_ = e.svc.Start()
+	if !waitFor(t, time.Second, func() bool { return e.log.status(3) == domain.LogPlaying }) {
+		t.Fatalf("debe adelantar la pista en vez de esperar en silencio; emisiones %v", e.plays.titles())
+	}
+	if !waitFor(t, 3*time.Second, func() bool { return e.log.status(2) == domain.LogPlaying }) {
+		t.Fatalf("la tanda dura debe cortar a su hora; emisiones %v", e.plays.titles())
+	}
+	if el := time.Since(now); el < 1700*time.Millisecond {
+		t.Fatalf("la tanda no debe adelantarse: arrancó a los %v", el)
+	}
+}

@@ -2,6 +2,16 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.5 — el aire no espera en silencio
+
+- Si lo siguiente es un evento duro que todavía no llega (p. ej. la tanda de las 19:30) y no queda
+  nada antes (lo anterior se saltó por atrasado tras reiniciar), el aire ya no espera en silencio:
+  adelanta lo que viene después y el evento duro corta a su hora. «Siguiente» también adelanta.
+- La emergencia, si su categoría (o la de relleno) no tiene pistas, toca una canción de cualquier
+  categoría de música. El aviso de «Problemas» dice lo que realmente pasó.
+- El candado de la playlist explica qué es al pasar el ratón (pista insertada a mano: se conserva
+  al regenerar; no impide que suene).
+
 ## 1.0.4 — corrige el cierre al abrir en algunas PC
 
 - El analizador de la biblioteca se caía con archivos en los que ffmpeg informa la sonoridad como
