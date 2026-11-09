@@ -23,7 +23,7 @@
 
 <section class="section" id="en-vivo">
   <div class="container">
-    <div class="players">
+    <div class="players {{if gt (len $d.Stations) 1}}multi{{end}}">
       {{if .Site.RadioEnabled}}
       {{/* Un reproductor por frecuencia (Admin → Frecuencias). Ver site.js §5 */}}
       <div class="radio-stack {{if gt (len $d.Stations) 1}}multi{{end}}">

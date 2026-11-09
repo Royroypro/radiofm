@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,800&family=Playfair+Display:ital,wght@1,800;1,900&display=swap">
-  <link rel="stylesheet" href="/static/css/site.css?v=20261109">
+  <link rel="stylesheet" href="/static/css/site.css?v=20261110">
   {{template "theme" .}}
   {{block "head" .}}{{end}}
 </head>
@@ -70,7 +70,7 @@
 
   <audio id="radio-audio" preload="none" data-src="{{.Site.RadioStreamURL}}"></audio>
   <script>window.RC = {{json (playerConfig .Site)}};</script>
-  <script src="/static/js/site.js?v=20261109" defer></script>
+  <script src="/static/js/site.js?v=20261110" defer></script>
   {{block "scripts" .}}{{end}}
 </body>
 </html>{{end}}
