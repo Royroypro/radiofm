@@ -178,18 +178,37 @@
     function urlOf(card) { return card ? card.getAttribute('data-src') : (RC.radioURL || local.getAttribute('data-src')); }
     function nameOf(card) { return card ? card.getAttribute('data-name') : document.title; }
 
-    // Volumen compartido por todas las tarjetas.
-    var vols = $$('[data-radio-volume]');
-    var savedVol = Number(store.get('rc_volume'));
-    var volume = (!isNaN(savedVol) && store.get('rc_volume') !== null) ? savedVol : 0.9;
-    function applyVolume(v) {
-      volume = v; local.volume = v; ext.volume = v;
-      vols.forEach(function (i) { i.value = v; });
+    // Volumen propio de cada frecuencia (se recuerda por frecuencia). Mover el de una
+    // tarjeta no mueve los demás; solo cambia lo que suena si es la que está sonando.
+    var DEFAULT_VOL = 0.9;
+    function volKey(card) { return 'rc_volume_' + (card ? card.getAttribute('data-station') : '0'); }
+    function volOf(card) {
+      var raw = store.get(volKey(card));
+      var v = Number(raw);
+      return (raw === null || isNaN(v)) ? DEFAULT_VOL : Math.min(1, Math.max(0, v));
     }
-    applyVolume(volume);
-    vols.forEach(function (i) {
-      i.addEventListener('input', function () { applyVolume(Number(i.value)); store.set('rc_volume', i.value); });
+    function sliderOf(card) { return card ? card.querySelector('[data-radio-volume]') : null; }
+    function applyVolume(v) { local.volume = v; ext.volume = v; }
+    cards.forEach(function (c) {
+      var s = sliderOf(c);
+      if (!s) return;
+      s.value = volOf(c);
+      s.addEventListener('input', function () {
+        store.set(volKey(c), s.value);
+        if (c === current) applyVolume(Number(s.value));
+      });
     });
+    // Al dar play debe sonar: si el volumen de esa frecuencia quedó en 0, vuelve al normal.
+    function audibleVolume(card) {
+      var v = volOf(card);
+      if (v < 0.05) {
+        v = DEFAULT_VOL;
+        store.set(volKey(card), String(v));
+        var s = sliderOf(card);
+        if (s) s.value = v;
+      }
+      applyVolume(v);
+    }
 
     function setPlaying(on) {
       cards.forEach(function (c) {
@@ -226,6 +245,10 @@
     function play(card) {
       if (state !== 'idle') stop();
       if (card) current = card;
+      // Dentro del clic: el navegador solo deja arrancar el audio de Web Audio
+      // (espectro) en un gesto del usuario; si no, el audio local sonaría mudo.
+      if (window.RCAudioUnlock) window.RCAudioUnlock();
+      audibleVolume(current);
       showStation();
       if (tv) tv.pause();
       setText('[data-radio-msg]', ''); // también el aviso de la frecuencia anterior
@@ -474,9 +497,15 @@
         freq = new Uint8Array(analyser.frequencyBinCount);
       } catch (e) { analyser = null; }
     }
+    // El AudioContext se crea y se reanuda dentro del clic de reproducir (lo llama
+    // radio.play): creado fuera de un gesto del usuario queda suspendido y, como el
+    // <audio> pasa por él, la radio sonaría muda.
+    window.RCAudioUnlock = function () {
+      attach();
+      if (actx && actx.state !== 'running') actx.resume().catch(function () {});
+    };
     if (audio) {
       audio.addEventListener('playing', function () {
-        attach();
         if (actx && actx.state === 'suspended') actx.resume().catch(function () {});
       });
     }
