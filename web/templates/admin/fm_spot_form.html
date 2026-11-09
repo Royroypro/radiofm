@@ -3,7 +3,7 @@
 {{$c := .Data.C}}
 <form class="box form" method="post" enctype="multipart/form-data" action="/admin/fm-spots{{if $c.ID}}/{{$c.ID}}{{end}}">
   {{template "csrf" .}}
-  <div class="grid grid-2">
+  <div class="grid grid-2" style="align-items:start">
     <label class="{{if .FieldError "advertiser"}}has-error{{end}}">Anunciante
       <select name="advertiser_id">
         <option value="0">— Nuevo (escríbalo abajo) —</option>
@@ -34,7 +34,7 @@
 
   <fieldset class="{{if .FieldError "days"}}has-error{{end}}">
     <legend>Días</legend>
-    <div class="row-checks">{{range .Data.Weekdays}}<label class="check"><input type="checkbox" name="days" value="{{.Value}}" {{if .Checked}}checked{{end}}> {{.Label}}</label>{{end}}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px 18px">{{range .Data.Weekdays}}<label class="check"><input type="checkbox" name="days" value="{{.Value}}" {{if .Checked}}checked{{end}}> {{.Label}}</label>{{end}}</div>
     {{with .FieldError "days"}}<span class="err">{{.}}</span>{{end}}
   </fieldset>
 
