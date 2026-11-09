@@ -1,16 +1,25 @@
-{{/* Estudio (PC). .Data: State *domain.StudioState, Online bool, NewToken string, APIBase string, Ingest string */}}
+{{/* Estudio (PC): una PC por frecuencia.
+     .Data: Stations []admin.StudioStation, TokenFor int64, NewToken string, APIBase string */}}
 {{define "content"}}
-{{$d := .Data}}{{$st := $d.State}}
-{{with $d.NewToken}}
-<div class="alert alert-warn">
-  <p><strong>Copie este token ahora: no se volverá a mostrar.</strong> Péguelo en Club25 Estudio → Ajustes → Sincronización. Si lo pierde, genere otro.</p>
-  <span class="copy-row"><input type="text" readonly value="{{.}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span>
-</div>
-{{end}}
+{{$d := .Data}}
+<p class="muted">Cada frecuencia tiene su propia PC con Club25 Estudio y su propio token. La PC recibe las cuñas FM
+  y la programación de su frecuencia más las marcadas para «Todas», y envía su audio a su propio montaje.
+  API para todas las PC: <code>{{$d.APIBase}}</code></p>
 
-<div class="grid grid-2">
-  <section class="box">
-    <h2>PC del estudio {{if $d.Online}}<span class="pill live">Conectada</span>{{else}}<span class="pill">Sin conexión</span>{{end}}</h2>
+{{range $d.Stations}}{{$st := .State}}
+<section class="box">
+  <h2>{{.Freq.Label}} · {{.Freq.City}}
+    {{if .Online}}<span class="pill live">PC conectada</span>{{else}}<span class="pill">PC sin conexión</span>{{end}}
+    {{if not .Freq.Active}}<span class="pill">Oculta en la web</span>{{end}}</h2>
+
+  {{if and (eq $d.TokenFor .Freq.ID) $d.NewToken}}
+  <div class="alert alert-warn">
+    <p><strong>Copie este token ahora: no se volverá a mostrar.</strong> Péguelo en el Club25 Estudio de {{.Freq.City}} → Ajustes → Sincronización. Si lo pierde, genere otro.</p>
+    <span class="copy-row"><input type="text" readonly value="{{$d.NewToken}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span>
+  </div>
+  {{end}}
+
+  <div class="grid grid-2">
     <table>
       <tbody>
         <tr><th>Última conexión</th><td>{{with $st.LastSeen}}{{datetime .}}{{else}}<span class="muted">nunca</span>{{end}}</td></tr>
@@ -21,33 +30,27 @@
         <tr><th>Codificador</th><td><code class="small">{{$st.EncoderJSON}}</code></td></tr>
       </tbody>
     </table>
-    <p class="small muted">La PC envía una señal cada minuto. Si no hay señal en 3 minutos aparece «Sin conexión»; la emisión FM no depende de internet.</p>
-  </section>
-
-  <section class="box">
-    <h2>Token de acceso</h2>
-    {{if $st.HasToken}}
-      <p>Hay un token activo, creado {{with $st.TokenCreatedAt}}{{datetime .}}{{end}}.</p>
-    {{else}}
-      <p class="muted">No hay token: la PC no puede sincronizar cuñas ni informar lo que suena.</p>
-    {{end}}
-    <div class="form-actions">
-      <form method="post" action="/admin/studio/token" {{if $st.HasToken}}data-confirm="Se generará un token nuevo y el actual dejará de funcionar. ¿Continuar?"{{end}}>
-        {{template "csrf" $}}<button class="btn" type="submit">{{if $st.HasToken}}Generar token nuevo{{else}}Generar token{{end}}</button>
-      </form>
+    <div>
       {{if $st.HasToken}}
-      <form method="post" action="/admin/studio/token/revoke" data-confirm="La PC dejará de sincronizar hasta que configure un token nuevo. ¿Revocar?">
-        {{template "csrf" $}}<button class="btn btn-danger" type="submit">Revocar</button>
-      </form>
+        <p>Token activo, creado {{with $st.TokenCreatedAt}}{{datetime .}}{{end}}.</p>
+      {{else}}
+        <p class="muted">Sin token: la PC de {{.Freq.City}} no puede sincronizar cuñas ni informar lo que suena.</p>
       {{end}}
+      <div class="form-actions">
+        <form method="post" action="/admin/studio/{{.Freq.ID}}/token" {{if $st.HasToken}}data-confirm="Se generará un token nuevo para {{.Freq.City}} y el actual dejará de funcionar. ¿Continuar?"{{end}}>
+          {{template "csrf" $}}<button class="btn" type="submit">{{if $st.HasToken}}Generar token nuevo{{else}}Generar token{{end}}</button>
+        </form>
+        {{if $st.HasToken}}
+        <form method="post" action="/admin/studio/{{.Freq.ID}}/token/revoke" data-confirm="La PC de {{.Freq.City}} dejará de sincronizar hasta que configure un token nuevo. ¿Revocar?">
+          {{template "csrf" $}}<button class="btn btn-danger" type="submit">Revocar</button>
+        </form>
+        {{end}}
+      </div>
+      <p class="small">{{if .Ingest}}Audio: <code>{{.Ingest}}</code> · usuario <code>source</code> (contraseña en «Streams y emisión»). La PC lo recibe sola al sincronizar.
+        {{else}}Audio: servidor externo <code>{{.Freq.StreamURL}}</code>. Configúrelo en la PC a mano.{{end}}</p>
     </div>
-    <h3>Datos para configurar la PC</h3>
-    <table>
-      <tbody>
-        <tr><th>API</th><td><code>{{$d.APIBase}}</code></td></tr>
-        <tr><th>Icecast</th><td><code>{{$d.Ingest}}</code> · usuario <code>source</code> (la contraseña está en «Streams y emisión»)</td></tr>
-      </tbody>
-    </table>
-  </section>
-</div>
+  </div>
+</section>
+{{end}}
+<p class="small muted">Cada PC envía una señal cada minuto. Sin señal en 3 minutos aparece «sin conexión»; la emisión FM no depende de internet.</p>
 {{end}}

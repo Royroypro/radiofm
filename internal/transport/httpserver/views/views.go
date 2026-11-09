@@ -56,6 +56,16 @@ func (p *Page) FieldError(name string) string { return p.FieldErrors[name] }
 // Banner devuelve el banner de una posición o nil.
 func (p *Page) Banner(pos string) *domain.Ad { return p.Banners[domain.AdPosition(pos)] }
 
+// FrequencyCity devuelve la ciudad de una frecuencia activa ("" si id es 0 o no está).
+func (p *Page) FrequencyCity(id int64) string {
+	for _, f := range p.Frequencies {
+		if f.ID == id {
+			return f.City
+		}
+	}
+	return ""
+}
+
 // CommonFunc rellena los datos comunes de Page a partir de la petición.
 type CommonFunc func(w http.ResponseWriter, r *http.Request, p *Page)
 

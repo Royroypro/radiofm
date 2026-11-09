@@ -37,7 +37,8 @@ Cuñas que suenan **en la emisión de radio (93.3 FM)**, no en la web. Las progr
 estudio (Club25 Estudio), que las descarga sola. Por cada cuña: **anunciante**, nombre, audio,
 **veces por día**, **franja horaria** (p. ej. 07:00–13:00) y vigencia opcional. La PC reparte las
 veces por día entre las tandas de la franja y no repite anunciante en la misma tanda.
-La columna **Hoy** muestra cuántas veces sonó hoy.
+La columna **Hoy** muestra cuántas veces sonó hoy. **Frecuencia:** «Todas» o una ciudad; la cuña
+la reciben solo las PC de esas frecuencias. El comprobante se puede filtrar por frecuencia.
 
 **Comprobante de emisión**: elija fechas y anunciante; lista cada emisión con fecha, hora,
 duración y si sonó completa. **Descargar CSV** lo abre en Excel para enviarlo al anunciante.
@@ -50,13 +51,22 @@ completados y saltados. **Descargar CSV** abre en Excel.
 ## Programación
 Programas por día y hora. El que esté en horario aparece como **Al aire** en el reproductor.
 Si un programa termina después de medianoche (22:00 a 02:00), póngalo en el día en que empieza.
+**Frecuencia:** «Todas» (lo normal) o una ciudad si ese programa solo se emite allí; sale en el
+reproductor de esa frecuencia y en la programación de la web con la ciudad al lado.
 
 ## Frecuencias
 Las frecuencias de la radio por ciudad, por ejemplo **93.3 FM** en Huacho, **103.2 FM** en Barranca
 y **105.4 FM** en Huaral. Escriba la ciudad, solo el número de la frecuencia y la banda (FM o AM).
 Con las flechas ↑ ↓ cambia el orden en que se muestran. La **primera activa es la principal**: sale
-en el título de la web, junto al logo y en el reproductor. Desmarque «Mostrar en la web» para ocultar
-una sin borrarla. Si no hay ninguna, la web usa la frecuencia de «Marca y contacto».
+en el título de la web y junto al logo. Desmarque «Mostrar en la web» para ocultar una sin borrarla.
+
+Cada frecuencia tiene **su propio reproductor** en la web y su **audio**:
+- **Nuestro servidor:** la PC de esa ciudad emite a su propio montaje (`/radio-barranca`…). Déjelo
+  vacío y se crea solo. La web muestra si está en vivo y cuántos escuchan.
+- **Servidor externo:** pegue la URL del stream (mejor `https://`).
+
+Cada frecuencia tiene también **su PC del estudio** (token en Estudio (PC)). No se puede borrar la
+última frecuencia ni una que tenga programas o cuñas propias (páselos antes a «Todas» o a otra).
 
 ## Marca y contacto (administrador)
 Nombre, frecuencia, eslogan, categorías, texto "quiénes somos", **logo**, **isotipo** (favicon),
@@ -68,9 +78,10 @@ Datos para configurar la PC emisora (ver `docs/streaming.md`), estado de las se�
 activar/desactivar radio o TV en la web y generar una clave nueva para OBS.
 
 ## Estudio (PC) (administrador)
-Estado de la PC de la radio (conectada, versión, modo, lo que suena) y su **token de acceso**:
-*Generar token* lo muestra **una sola vez** para pegarlo en Club25 Estudio. Generar uno nuevo o
-**Revocar** deja sin acceso al anterior (por ejemplo, si cambia de PC).
+Una PC por frecuencia. Para cada una: estado (conectada, versión, modo, lo que suena), a qué
+montaje envía su audio y su **token de acceso**: *Generar token* lo muestra **una sola vez** para
+pegarlo en el Club25 Estudio de esa ciudad. Generar uno nuevo o **Revocar** deja sin acceso al
+anterior (por ejemplo, si cambia de PC).
 
 ## Usuarios (administrador)
 Crear administradores y editores, desactivarlos o cambiar su contraseña.

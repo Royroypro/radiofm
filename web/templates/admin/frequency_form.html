@@ -1,6 +1,6 @@
-{{/* Alta/edición de frecuencia. .Data: *domain.Frequency */}}
+{{/* Alta/edición de frecuencia. .Data: Freq *domain.Frequency, Ingest string (servidor:puerto de nuestro Icecast) */}}
 {{define "content"}}
-{{$f := .Data}}
+{{$f := .Data.Freq}}
 <form class="box form" method="post" action="/admin/frequencies{{if $f.ID}}/{{$f.ID}}{{end}}">
   {{template "csrf" .}}
   <div class="grid grid-3">
@@ -18,6 +18,24 @@
       </select>
       {{with .FieldError "band"}}<span class="err">{{.}}</span>{{end}}</label>
   </div>
+
+  <fieldset class="box">
+    <legend>Audio en la web (servidor)</legend>
+    <label class="check"><input type="radio" name="source" value="local" {{if not $f.IsExternal}}checked{{end}}>
+      <span><strong>Nuestro servidor</strong> — la PC de esta frecuencia emite a su propio montaje en <code>{{.Data.Ingest}}</code></span></label>
+    <label class="{{if .FieldError "mount"}}has-error{{end}}">Montaje
+      <input type="text" name="mount" value="{{$f.Mount}}" maxlength="47" placeholder="/radio-barranca" pattern="/radio(-[a-z0-9\-]{1,40})?">
+      <span class="hint">Déjelo vacío para crearlo solo (/radio-ciudad). La primera frecuencia usa <code>/radio</code>.</span>
+      {{with .FieldError "mount"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="check"><input type="radio" name="source" value="external" {{if $f.IsExternal}}checked{{end}}>
+      <span><strong>Servidor externo</strong> — el audio ya está en otro servidor (Icecast, Shoutcast, Zeno…)</span></label>
+    <label class="{{if .FieldError "stream_url"}}has-error{{end}}">URL del stream
+      <input type="url" name="stream_url" value="{{$f.StreamURL}}" maxlength="300" placeholder="https://servidor.com:8000/stream">
+      <span class="hint">Use <code>https://</code>: los navegadores bloquean audio <code>http://</code> en una web segura.</span>
+      {{with .FieldError "stream_url"}}<span class="err">{{.}}</span>{{end}}</label>
+    {{with .FieldError "source"}}<span class="err">{{.}}</span>{{end}}
+  </fieldset>
+
   <label class="{{if .FieldError "sort_order"}}has-error{{end}}">Orden <span class="hint">menor primero; también puede usar las flechas de la lista</span>
     <input type="number" name="sort_order" value="{{$f.SortOrder}}" min="0" max="10000" step="1">
     {{with .FieldError "sort_order"}}<span class="err">{{.}}</span>{{end}}</label>

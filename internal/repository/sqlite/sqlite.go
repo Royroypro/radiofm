@@ -47,6 +47,14 @@ func parseTime(s string) time.Time {
 	return t
 }
 
+// nullID guarda 0 como NULL (claves foráneas opcionales).
+func nullID(id int64) any {
+	if id <= 0 {
+		return nil
+	}
+	return id
+}
+
 func parseTimePtr(ns sql.NullString) *time.Time {
 	if !ns.Valid || ns.String == "" {
 		return nil

@@ -22,6 +22,7 @@
       <span class="hint">Si termina después de medianoche, ponga la hora del día siguiente (p. ej. 01:00).</span>
       {{with .FieldError "end_time"}}<span class="err">{{.}}</span>{{end}}</label>
   </div>
+  {{template "freq_select" (freqArgs .Frequencies $p.FrequencyID "Elija una si el programa solo se emite en esa ciudad.")}}
   <label>Descripción<textarea name="description" maxlength="1000">{{$p.Description}}</textarea></label>
   <label class="{{if .FieldError "image"}}has-error{{end}}">Imagen (opcional)
     <input type="file" name="image" accept="image/jpeg,image/png,image/webp">

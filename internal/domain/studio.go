@@ -26,9 +26,13 @@ type FMSpot struct {
 	HourFrom    int // franja horaria [HourFrom, HourTo) en hora local de la radio
 	HourTo      int
 	Active      bool
+	FrequencyID int64 // 0 = todas las frecuencias
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// AppliesTo indica si la cuña se emite en la frecuencia fid.
+func (s FMSpot) AppliesTo(fid int64) bool { return s.FrequencyID == 0 || s.FrequencyID == fid }
 
 // IsLive indica si la cuña está vigente en el instante t.
 func (s FMSpot) IsLive(t time.Time) bool {
@@ -80,15 +84,16 @@ type FMSpotRepository interface {
 // Airplay es una emisión real de una cuña reportada por la PC.
 // PlayUUID lo genera la PC y hace que reenviar el mismo lote no duplique.
 type Airplay struct {
-	ID         int64
-	SpotID     int64 // 0 si la cuña se borró después
-	Advertiser string
-	SpotName   string
-	AiredAt    time.Time
-	DurationMs int64
-	Complete   bool
-	PlayUUID   string
-	CreatedAt  time.Time
+	ID          int64
+	SpotID      int64 // 0 si la cuña se borró después
+	Advertiser  string
+	SpotName    string
+	AiredAt     time.Time
+	DurationMs  int64
+	Complete    bool
+	PlayUUID    string
+	FrequencyID int64 // dónde sonó (0 = desconocido)
+	CreatedAt   time.Time
 }
 
 // DurationLabel devuelve lo que sonó para la interfaz ("19 s").
@@ -96,9 +101,10 @@ func (a Airplay) DurationLabel() string { return msLabel(a.DurationMs) }
 
 // AirplayFilter filtra el comprobante. Los campos vacíos no filtran.
 type AirplayFilter struct {
-	From, To   time.Time // rango [From, To)
-	Advertiser string
-	SpotID     int64
+	From, To    time.Time // rango [From, To)
+	Advertiser  string
+	SpotID      int64
+	FrequencyID int64
 }
 
 // AirplayRepository persiste las emisiones.
@@ -152,8 +158,9 @@ func (n NowPlaying) Display() string {
 	return n.Artist + n.Title
 }
 
-// StudioState es el estado conocido de la PC del estudio (fila única).
+// StudioState es el estado conocido de la PC del estudio de una frecuencia.
 type StudioState struct {
+	FrequencyID    int64
 	TokenHash      string // SHA-256 hex del token vigente; "" = sin token
 	TokenCreatedAt *time.Time
 	LastSeen       *time.Time
@@ -172,10 +179,14 @@ func (s StudioState) Online(now time.Time, maxAge time.Duration) bool {
 	return s.LastSeen != nil && now.Sub(*s.LastSeen) <= maxAge
 }
 
-// StudioRepository persiste el estado de la PC del estudio.
+// StudioRepository persiste el estado de la PC del estudio de cada frecuencia.
+// Get de una frecuencia sin PC devuelve un estado vacío (no ErrNotFound).
 type StudioRepository interface {
-	Get(ctx context.Context) (*StudioState, error)
-	SetToken(ctx context.Context, hash string, at time.Time) error // hash "" revoca
-	Heartbeat(ctx context.Context, at time.Time, version string, mode StudioMode, encoderJSON string) error
-	SetNowPlaying(ctx context.Context, np NowPlaying, at time.Time) error
+	Get(ctx context.Context, frequencyID int64) (*StudioState, error)
+	List(ctx context.Context) (map[int64]*StudioState, error)
+	// FindToken devuelve la frecuencia del token con ese hash (ErrNotFound si no hay).
+	FindToken(ctx context.Context, hash string) (int64, error)
+	SetToken(ctx context.Context, frequencyID int64, hash string, at time.Time) error // hash "" revoca
+	Heartbeat(ctx context.Context, frequencyID int64, at time.Time, version string, mode StudioMode, encoderJSON string) error
+	SetNowPlaying(ctx context.Context, frequencyID int64, np NowPlaying, at time.Time) error
 }

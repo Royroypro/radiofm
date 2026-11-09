@@ -7,10 +7,12 @@
   ICECAST_RELAY_PASSWORD del archivo .env. El marcador @INTERNAL_TOKEN@ lo
   reemplaza docker-compose al arrancar.
 
-  La PC emisora (BUTT, Mixxx, RadioDJ...) se conecta al puerto público 8010
-  (mapeado al 8000 del contenedor), mount /radio, usuario "source".
-  Antes de aceptarla, Icecast pregunta a la app (stream_auth) si la licencia
-  lo permite.
+  La PC emisora (Club25 Estudio, BUTT...) se conecta al puerto público 8010
+  (mapeado al 8000 del contenedor), usuario "source". Hay un montaje por
+  frecuencia: /radio (la principal), /radio-barranca, /radio-huaral… (Admin →
+  Frecuencias). Antes de aceptar una fuente, Icecast pregunta a la app
+  (stream_auth) si la licencia lo permite y si el montaje es de una frecuencia
+  activa; el <mount type="default"> aplica esa pregunta a todos los montajes.
 -->
 <icecast>
     <location>Peru</location>
@@ -18,7 +20,7 @@
 
     <limits>
         <clients>1000</clients>
-        <sources>4</sources>
+        <sources>12</sources>
         <queue-size>524288</queue-size>
         <client-timeout>30</client-timeout>
         <header-timeout>15</header-timeout>
@@ -43,6 +45,17 @@
     <http-headers>
         <header name="Access-Control-Allow-Origin" value="*" />
     </http-headers>
+
+    <!-- Valores para todos los montajes (una frecuencia por montaje) -->
+    <mount type="default">
+        <max-listeners>1000</max-listeners>
+        <public>0</public>
+        <stream-name>Radio Club 25</stream-name>
+        <authentication type="url">
+            <option name="stream_auth" value="http://app:8120/internal/icecast/source?token=@INTERNAL_TOKEN@"/>
+            <option name="timeout" value="5"/>
+        </authentication>
+    </mount>
 
     <mount type="normal">
         <mount-name>/radio</mount-name>

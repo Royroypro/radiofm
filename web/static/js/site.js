@@ -7,7 +7,7 @@
      2. Menú móvil
      3. Medición de banners (impresión al aparecer en pantalla)
      4. Publicidad previa (cuña de audio / pre-roll de video)
-     5. Radio (Icecast, <audio>)
+     5. Radio: un reproductor por frecuencia (Icecast propio o servidor externo)
      6. TV (HLS de MediaMTX, <video> + hls.js)
      7. Estado en vivo (consulta /api/status cada 15 s)
      8. Espectro de audio animado del hero (simulado o real con Web Audio)
@@ -149,59 +149,94 @@
     if (p && p.catch) p.catch(function () { finish(null); });
   }
 
-  /* ---------- 5. Radio ---------- */
+  /* ---------- 5. Radio ----------
+     Un reproductor por frecuencia (tarjetas .radio-card[data-station] con
+     data-src = montaje propio o URL externa). Suena una a la vez.
+     - Audio local (mismo dominio): <audio id="radio-audio">, el que analiza el espectro.
+     - Audio externo: un <audio> aparte, nunca conectado a Web Audio (sin CORS el
+       navegador lo silenciaría).
+     El reproductor fijo (dock) controla la última frecuencia elegida. */
 
   var radio = (function () {
-    var audio = $('#radio-audio');
-    if (!audio || !RC.radioEnabled) {
+    var local = $('#radio-audio');
+    if (!local || !RC.radioEnabled) {
       $$('[data-radio-toggle]').forEach(function (b) { b.hidden = true; });
       return null;
     }
-    var roots = $$('[data-radio-root]');
-    var state = 'idle'; // idle | ad | playing
+    var ext = new Audio();
+    ext.preload = 'none';
+    var cards = $$('.radio-card[data-station]');
+    var dock = $('.dock[data-radio-root]');
+    var current = cards[0] || null; // frecuencia elegida
+    var audio = local;              // elemento que suena ahora
+    var state = 'idle';             // idle | ad | playing
     var retries = 0;
     var retryTimer = null;
-    var spot = {
-      box: $('[data-spot]'), link: $('[data-spot-link]'), skip: $('[data-spot-skip]')
-    };
 
-    var vol = $('[data-radio-volume]');
+    function inCard(sel) { return current ? current.querySelector(sel) : null; }
+    function isExternal(card) { return !!(card && card.hasAttribute('data-external')); }
+    function urlOf(card) { return card ? card.getAttribute('data-src') : (RC.radioURL || local.getAttribute('data-src')); }
+    function nameOf(card) { return card ? card.getAttribute('data-name') : document.title; }
+
+    // Volumen compartido por todas las tarjetas.
+    var vols = $$('[data-radio-volume]');
     var savedVol = Number(store.get('rc_volume'));
-    if (!isNaN(savedVol) && store.get('rc_volume') !== null) audio.volume = savedVol;
-    if (vol) {
-      vol.value = audio.volume;
-      vol.addEventListener('input', function () { audio.volume = Number(vol.value); store.set('rc_volume', vol.value); });
+    var volume = (!isNaN(savedVol) && store.get('rc_volume') !== null) ? savedVol : 0.9;
+    function applyVolume(v) {
+      volume = v; local.volume = v; ext.volume = v;
+      vols.forEach(function (i) { i.value = v; });
     }
+    applyVolume(volume);
+    vols.forEach(function (i) {
+      i.addEventListener('input', function () { applyVolume(Number(i.value)); store.set('rc_volume', i.value); });
+    });
 
     function setPlaying(on) {
-      roots.forEach(function (r) { r.classList.toggle('is-playing', on); });
-      $$('[data-radio-toggle]').forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      cards.forEach(function (c) {
+        var mine = on && c === current;
+        c.classList.toggle('is-playing', mine);
+        $$('[data-radio-toggle]', c).forEach(function (b) { b.setAttribute('aria-pressed', mine ? 'true' : 'false'); });
+      });
+      if (dock) {
+        dock.classList.toggle('is-playing', on);
+        $$('[data-radio-toggle]', dock).forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      }
     }
-    function msg(t) { setText('[data-radio-msg]', t || ''); }
+    function msg(t) { var el = inCard('[data-radio-msg]'); if (el) el.textContent = t || ''; }
+    function showStation() { setText('[data-dock-station]', nameOf(current)); }
 
     function startStream() {
       state = 'playing';
-      var url = RC.radioURL || audio.getAttribute('data-src');
-      audio.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(); // evita cachés intermedias
+      audio = isExternal(current) ? ext : local;
+      var url = urlOf(current);
+      // En nuestro Icecast se evita la caché intermedia; a un servidor externo se le pide la URL tal cual.
+      audio.src = isExternal(current) ? url : url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
       var p = audio.play();
       if (p && p.catch) p.catch(function () { msg('Toca reproducir de nuevo para escuchar.'); stop(); });
       setPlaying(true);
       if ('mediaSession' in navigator && window.MediaMetadata) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: document.title, artist: RC.slogan || '' });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: nameOf(current), artist: RC.slogan || '' });
       }
     }
 
-    function play() {
-      if (state !== 'idle') return;
+    function spotUI() {
+      return { box: inCard('[data-spot]'), link: inCard('[data-spot-link]'), skip: inCard('[data-spot-skip]') };
+    }
+
+    function play(card) {
+      if (state !== 'idle') stop();
+      if (card) current = card;
+      showStation();
       if (tv) tv.pause();
-      msg('');
+      setText('[data-radio-msg]', ''); // también el aviso de la frecuencia anterior
       retries = 0;
       setPlaying(true);
+      var spot = spotUI();
       if (spot.box && adDue('audio')) {
         state = 'ad';
         fetchAd('audio').then(function (ad) {
           if (state !== 'ad') return;
-          if (ad) runAd(audio, ad, spot, startStream); else startStream();
+          if (ad) runAd(local, ad, spot, startStream); else startStream();
         });
       } else {
         startStream();
@@ -211,28 +246,45 @@
     function stop() {
       state = 'idle';
       clearTimeout(retryTimer);
-      audio.pause();
-      audio.removeAttribute('src');
-      audio.load(); // corta la descarga del stream
+      [local, ext].forEach(function (a) {
+        a.pause();
+        a.removeAttribute('src');
+        a.load(); // corta la descarga del stream
+      });
       setPlaying(false);
-      if (spot.box) spot.box.hidden = true;
+      cards.forEach(function (c) { var b = c.querySelector('[data-spot]'); if (b) b.hidden = true; });
     }
 
-    audio.addEventListener('playing', function () { if (state === 'playing') { retries = 0; msg(''); } });
-    audio.addEventListener('error', function () {
-      if (state !== 'playing') return;
-      if (retries >= 5) { msg('La radio no está disponible en este momento.'); stop(); return; }
-      retries += 1;
-      msg('Reconectando…');
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(function () { if (state === 'playing') startStream(); }, 3000);
+    [local, ext].forEach(function (a) {
+      a.addEventListener('playing', function () { if (state === 'playing' && a === audio) { retries = 0; msg(''); } });
+      a.addEventListener('error', function () {
+        if (state !== 'playing' || a !== audio) return;
+        if (retries >= 5) { msg('Esta frecuencia no está disponible en este momento.'); stop(); return; }
+        retries += 1;
+        msg('Reconectando…');
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(function () { if (state === 'playing') startStream(); }, 3000);
+      });
     });
 
-    $$('[data-radio-toggle]').forEach(function (b) {
-      b.addEventListener('click', function () { if (state === 'idle') play(); else stop(); });
+    cards.forEach(function (c) {
+      $$('[data-radio-toggle]', c).forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (state !== 'idle' && current === c) stop(); else play(c);
+        });
+      });
     });
+    if (dock) {
+      $$('[data-radio-toggle]', dock).forEach(function (b) {
+        b.addEventListener('click', function () { if (state === 'idle') play(current); else stop(); });
+      });
+    }
+    showStation();
 
-    return { pause: function () { if (state !== 'idle') stop(); } };
+    return {
+      pause: function () { if (state !== 'idle') stop(); },
+      currentId: function () { return current ? current.getAttribute('data-station') : null; }
+    };
   })();
 
   /* ---------- 6. TV ---------- */
@@ -327,11 +379,19 @@
 
   /* ---------- 7. Estado en vivo ---------- */
 
-  function badge(sel, online) {
-    $$(sel).forEach(function (b) {
-      b.classList.toggle('on', online);
-      b.textContent = online ? 'En vivo' : 'Fuera del aire';
-    });
+  function setBadge(el, online) {
+    el.classList.toggle('on', online);
+    el.textContent = online ? 'En vivo' : 'Fuera del aire';
+  }
+  function badge(sel, online) { $$(sel).forEach(function (b) { setBadge(b, online); }); }
+
+  function setOnAir(box, p) {
+    if (!box) return;
+    box.hidden = !p;
+    if (!p) return;
+    var t = box.querySelector('[data-on-air-title]'); if (t) t.textContent = p.title;
+    var h = box.querySelector('[data-on-air-host]'); if (h) h.textContent = (p.host ? p.host + ' · ' : '') + p.start + '–' + p.end;
+    var img = box.querySelector('[data-on-air-img]'); if (img && p.image) img.src = p.image;
   }
 
   function refreshStatus() {
@@ -339,23 +399,28 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
         if (!s) return;
+        var stations = s.stations || [];
+        var anyOnline = stations.some(function (x) { return x.online === true; });
         var pill = $('#live-pill');
-        if (pill) pill.classList.toggle('on', !!(s.radio.online || s.tv.online));
-        badge('[data-radio-badge]', s.radio.online);
+        if (pill) pill.classList.toggle('on', !!(anyOnline || s.radio.online || s.tv.online));
         badge('[data-tv-badge]', s.tv.online);
-        setText('[data-listeners]', String(s.radio.listeners || 0));
         setText('[data-viewers]', String(s.tv.viewers || 0));
-        setText('[data-now-title]', s.radio.title || RC.slogan || '');
-        var onAir = $('[data-on-air]');
-        if (onAir) {
-          onAir.hidden = !s.on_air;
-          if (s.on_air) {
-            setText('[data-on-air-title]', s.on_air.title);
-            setText('[data-on-air-host]', (s.on_air.host ? s.on_air.host + ' · ' : '') + s.on_air.start + '–' + s.on_air.end);
-            var img = $('[data-on-air-img]');
-            if (img && s.on_air.image) img.src = s.on_air.image;
-          }
-        }
+        // Cada tarjeta de radio con el estado de su frecuencia.
+        var dockTitle = s.radio.title || RC.slogan || '';
+        var cur = radio && radio.currentId();
+        stations.forEach(function (x, i) {
+          var card = $('.radio-card[data-station="' + x.id + '"]');
+          if ((cur && String(x.id) === cur) || (!cur && i === 0)) dockTitle = x.title || RC.slogan || '';
+          if (!card) return;
+          var b = card.querySelector('[data-radio-badge]');
+          if (b && x.online !== null) setBadge(b, x.online);
+          var l = card.querySelector('[data-listeners]');
+          if (l && x.listeners !== null) l.textContent = String(x.listeners || 0);
+          var t = card.querySelector('[data-now-title]');
+          if (t) t.textContent = x.title || RC.slogan || '';
+          setOnAir(card.querySelector('[data-on-air]'), x.on_air);
+        });
+        setText('.dock [data-now-title]', dockTitle);
         if (tv && tv.isIdle()) tv.setOnline(s.tv.online);
       })
       .catch(function () { /* sin conexión: se reintenta en el siguiente ciclo */ });
@@ -368,8 +433,8 @@
      Barras simétricas desde el centro, en los colores de la marca.
      - En reposo: ritmo "de fiesta" simulado (128 BPM, bombo marcado).
      - Con la radio sonando: datos reales de un AnalyserNode (Web Audio).
-       Solo si el stream es del mismo origen (/radio vía nginx); con otro
-       origen sin CORS el navegador silenciaría el audio.
+       Solo con frecuencias de nuestro servidor (/radio… vía nginx); las de un
+       servidor externo suenan en otro <audio> sin analizador.
      - Se pausa fuera de pantalla o con la pestaña oculta; con
        prefers-reduced-motion se dibuja un solo cuadro estático. */
   (function spectrum() {
@@ -397,8 +462,7 @@
     // Conecta el analizador al <audio> de la radio la primera vez que suena.
     function attach() {
       if (analyser || !audio || !window.AudioContext && !window.webkitAudioContext) return;
-      var url = (window.RC && RC.radioURL) || '';
-      if (url && !/^\//.test(url) && url.indexOf(location.origin) !== 0) return; // otro origen: no tocar
+      // #radio-audio solo reproduce montajes de este dominio (los externos usan otro <audio>).
       try {
         actx = new (window.AudioContext || window.webkitAudioContext)();
         var src = actx.createMediaElementSource(audio);

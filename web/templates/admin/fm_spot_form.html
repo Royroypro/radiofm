@@ -15,6 +15,7 @@
     </label>
   </div>
 
+  {{template "freq_select" (freqArgs .Frequencies $s.FrequencyID "Elija una si la cuña solo debe sonar en esa ciudad; la recibe solo la PC de esa frecuencia.")}}
   <label class="{{if .FieldError "file"}}has-error{{end}}">Audio {{if $s.FileURL}}(deje vacío para mantener el actual){{end}}
     <input type="file" name="file" {{if not $s.FileURL}}required{{end}} accept="audio/mpeg,audio/aac,audio/ogg,audio/mp4,audio/wav">
     <span class="hint">MP3, AAC, OGG, M4A o WAV. Máximo {{.Data.MaxUploadMB}} MB. La PC verifica el archivo con su huella SHA-256.</span>

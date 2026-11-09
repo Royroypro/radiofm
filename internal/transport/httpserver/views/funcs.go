@@ -89,6 +89,10 @@ func (rd *Renderer) funcs() template.FuncMap {
 			}
 			return template.CSS("#0A1A6B")
 		},
+		// freqArgs prepara el partial "freq_select" (frecuencia de un programa o cuña; 0 = todas).
+		"freqArgs": func(freqs []domain.Frequency, selected int64, hint string) map[string]any {
+			return map[string]any{"Freqs": freqs, "Selected": selected, "Hint": hint}
+		},
 		"colorArgs": func(name, label, value, def, err string) map[string]string {
 			return map[string]string{"Name": name, "Label": label, "Value": value, "Default": def, "Err": err}
 		},

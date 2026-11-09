@@ -28,6 +28,7 @@ import (
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
 	"radioclub25/internal/service/studio"
+	"radioclub25/internal/transport/httpserver/middleware"
 )
 
 // Handler agrupa las dependencias de la API del estudio.
@@ -47,28 +48,35 @@ func (h *Handler) Config(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	// Frecuencias por ciudad (Admin → Frecuencias). La primera es la principal
-	// y reemplaza a "frequency"; si no hay ninguna queda la de Ajustes.
+	// Cada PC es de una frecuencia (la del token): su ciudad, su frecuencia y su montaje.
+	f, err := h.Frequencies.Get(r.Context(), middleware.StudioFrequencyFrom(r.Context()))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
 	freqs := []map[string]any{}
 	if list, err := h.Frequencies.Active(r.Context()); err == nil {
-		for i, f := range list {
-			if i == 0 {
-				set.Frequency = f.Label()
-			}
-			freqs = append(freqs, map[string]any{"city": f.City, "frequency": f.Frequency, "band": f.Band, "label": f.Label()})
+		for _, o := range list {
+			freqs = append(freqs, map[string]any{"id": o.ID, "city": o.City, "frequency": o.Frequency, "band": o.Band,
+				"label": o.Label()})
 		}
+	}
+	// La clave de fuente NO se envía: se escribe una vez en la PC y se guarda cifrada (DPAPI).
+	// Si el audio de esta frecuencia sale de otro servidor, host va vacío y la PC
+	// conserva el servidor que tenga configurado.
+	ice := map[string]any{"host": "", "port": 0, "mount": "", "user": "source", "radio_enabled": set.RadioEnabled,
+		"source": string(f.Source)}
+	if !f.IsExternal() {
+		ice["host"], ice["port"], ice["mount"] = h.Cfg.IngestHost, h.Cfg.IcecastPublicPt, f.Mount
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"station": map[string]any{
-			"name": set.SiteName, "frequency": set.Frequency, "frequencies": freqs, "slogan": set.Slogan,
+			"name": set.SiteName, "frequency": f.Label(), "frequency_id": f.ID, "city": f.City,
+			"frequencies": freqs, "slogan": set.Slogan,
 			"timezone": h.Cfg.Location.String(),
 			"latitude": h.Cfg.StationLat, "longitude": h.Cfg.StationLon,
 		},
-		// La clave de fuente NO se envía: se escribe una vez en la PC y se guarda cifrada (DPAPI).
-		"icecast": map[string]any{
-			"host": h.Cfg.IngestHost, "port": h.Cfg.IcecastPublicPt, "mount": h.Cfg.IcecastMount,
-			"user": "source", "radio_enabled": set.RadioEnabled,
-		},
+		"icecast":     ice,
 		"server_time": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -92,7 +100,7 @@ type spotJSON struct {
 // Spots devuelve las cuñas FM activas y no vencidas: GET /api/studio/spots
 // Responde con ETag; si la PC envía If-None-Match igual, 304 sin cuerpo.
 func (h *Handler) Spots(w http.ResponseWriter, r *http.Request) {
-	list, err := h.Studio.SpotsForStudio(r.Context())
+	list, err := h.Studio.SpotsForStudio(r.Context(), middleware.StudioFrequencyFrom(r.Context()))
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -122,8 +130,10 @@ func (h *Handler) Spots(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(append(body, '\n'))
 }
 
-// Schedule devuelve la programación semanal activa: GET /api/studio/programs
+// Schedule devuelve la programación semanal activa de la frecuencia de la PC
+// (sus programas y los de todas): GET /api/studio/programs
 func (h *Handler) Schedule(w http.ResponseWriter, r *http.Request) {
+	fid := middleware.StudioFrequencyFrom(r.Context())
 	list, err := h.Programs.List(r.Context())
 	if err != nil {
 		h.fail(w, err)
@@ -131,7 +141,7 @@ func (h *Handler) Schedule(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []map[string]any{}
 	for _, p := range list {
-		if !p.Active {
+		if !p.Active || !p.AppliesTo(fid) {
 			continue
 		}
 		out = append(out, map[string]any{"id": p.ID, "title": p.Title, "host": p.Host, "weekday": int(p.Weekday),
@@ -146,7 +156,7 @@ func (h *Handler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in, 8<<10) {
 		return
 	}
-	if err := h.Studio.Heartbeat(r.Context(), in); err != nil {
+	if err := h.Studio.Heartbeat(r.Context(), middleware.StudioFrequencyFrom(r.Context()), in); err != nil {
 		h.fail(w, err)
 		return
 	}
@@ -159,7 +169,7 @@ func (h *Handler) NowPlaying(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in, 4<<10) {
 		return
 	}
-	if err := h.Studio.SetNowPlaying(r.Context(), in); err != nil {
+	if err := h.Studio.SetNowPlaying(r.Context(), middleware.StudioFrequencyFrom(r.Context()), in); err != nil {
 		h.fail(w, err)
 		return
 	}
@@ -175,7 +185,7 @@ func (h *Handler) Airplays(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in, 256<<10) {
 		return
 	}
-	res, err := h.Studio.RecordAirplays(r.Context(), in.Airplays)
+	res, err := h.Studio.RecordAirplays(r.Context(), middleware.StudioFrequencyFrom(r.Context()), in.Airplays)
 	if err != nil {
 		h.fail(w, err)
 		return

@@ -12,6 +12,15 @@
 </style>{{end}}
 
 {{/* "csrf": campo oculto obligatorio en todo formulario POST. Recibe *views.Page. */}}
+{{/* Selector de frecuencia. Argumento: freqArgs .Frequencies <id elegido> "<ayuda>" */}}
+{{define "freq_select"}}<label>Frecuencia
+  <select name="frequency_id">
+    <option value="0">Todas las frecuencias</option>
+    {{range .Freqs}}<option value="{{.ID}}" {{if eq .ID $.Selected}}selected{{end}}>{{.Label}} · {{.City}}{{if not .Active}} (oculta){{end}}</option>{{end}}
+  </select>
+  {{with .Hint}}<span class="hint">{{.}}</span>{{end}}
+</label>{{end}}
+
 {{define "csrf"}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}
 
 {{/* "flash": mensaje tras una redirección y error general del formulario. Recibe *views.Page. */}}

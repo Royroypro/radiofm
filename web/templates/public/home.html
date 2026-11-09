@@ -1,5 +1,6 @@
 {{/* Página principal: hero de marca + reproductores de radio y TV + programación de hoy.
-     .Data: OnAir *domain.Program, Today []domain.Program, Status media.Status, TVAllowed bool */}}
+     .Data: OnAir *domain.Program (principal), Today []domain.Program (todas las frecuencias),
+            Stations []public.Station (una por frecuencia activa), Status media.Status, TVAllowed bool */}}
 {{define "content"}}
 {{$d := .Data}}
 <section class="hero">
@@ -24,37 +25,45 @@
   <div class="container">
     <div class="players">
       {{if .Site.RadioEnabled}}
-      <article class="card radio-card" data-radio-root aria-labelledby="radio-h">
+      {{/* Un reproductor por frecuencia (Admin → Frecuencias). Ver site.js §5 */}}
+      <div class="radio-stack {{if gt (len $d.Stations) 1}}multi{{end}}">
+      {{range $d.Stations}}{{$f := .Freq}}
+      <article class="card radio-card" data-radio-root data-station="{{$f.ID}}" data-src="{{$f.ListenURL}}"
+        data-name="{{$.Site.SiteName}} {{$f.Label}} {{$f.City}}" {{if $f.IsExternal}}data-external{{end}} aria-labelledby="radio-h-{{$f.ID}}">
         <div class="card-head">
-          <h2 id="radio-h">Radio</h2>
-          <span class="badge {{if $d.Status.Radio.Online}}on{{end}}" data-radio-badge>{{if $d.Status.Radio.Online}}En vivo{{else}}Fuera del aire{{end}}</span>
+          <h2 id="radio-h-{{$f.ID}}">{{$f.City}}</h2>
+          {{if $f.IsExternal}}<span class="badge">Online</span>
+          {{else}}<span class="badge {{if .Online}}on{{end}}" data-radio-badge>{{if .Online}}En vivo{{else}}Fuera del aire{{end}}</span>{{end}}
         </div>
-        <p class="freq">{{.Site.Frequency}}</p>
-        {{with .Frequencies}}<p class="freq-cities">{{range $i, $f := .}}{{if $i}} · {{end}}{{if $i}}{{$f.Label}} {{end}}{{$f.City}}{{end}}</p>{{end}}
-        <button class="play-btn" type="button" data-radio-toggle aria-label="Escuchar la radio">
+        <p class="freq">{{$f.Label}}</p>
+        <button class="play-btn" type="button" data-radio-toggle aria-label="Escuchar {{$f.Label}} {{$f.City}}">
           <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
           <svg class="icon i-pause" aria-hidden="true"><use href="#i-pause"/></svg>
         </button>
-        <p class="now-title" data-now-title>{{with $d.Status.Radio.Title}}{{.}}{{else}}{{$.Site.Slogan}}{{end}}</p>
-        <p class="now-sub"><svg class="icon" aria-hidden="true"><use href="#i-headphones"/></svg>
-          <span data-listeners>{{$d.Status.Radio.Listeners}}</span> oyentes</p>
-        <label class="volume"><svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg>
-          <span class="sr-only">Volumen</span><input type="range" min="0" max="1" step="0.05" value="0.9" data-radio-volume></label>
+        <div class="radio-info">
+          <p class="now-title" data-now-title>{{with .Title}}{{.}}{{else}}{{$.Site.Slogan}}{{end}}</p>
+          {{if not $f.IsExternal}}<p class="now-sub"><svg class="icon" aria-hidden="true"><use href="#i-headphones"/></svg>
+            <span data-listeners>{{.Listeners}}</span> oyentes</p>{{end}}
+          <label class="volume"><svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg>
+            <span class="sr-only">Volumen</span><input type="range" min="0" max="1" step="0.05" value="0.9" data-radio-volume></label>
+        </div>
         <div class="ad-run" data-spot hidden>
           <span class="tag">Publicidad</span>
           <a href="#" target="_blank" rel="noopener sponsored" data-spot-link hidden>Visitar</a>
           <button type="button" data-spot-skip disabled>Saltar</button>
         </div>
         <p class="player-msg" data-radio-msg aria-live="polite"></p>
-        <div class="on-air" data-on-air {{if not $d.OnAir}}hidden{{end}}>
-          <img src="{{with $d.OnAir}}{{with .ImageURL}}{{.}}{{else}}{{$.Site.FaviconURL}}{{end}}{{else}}{{$.Site.FaviconURL}}{{end}}" alt="" data-on-air-img>
+        <div class="on-air" data-on-air {{if not .OnAir}}hidden{{end}}>
+          <img src="{{with .OnAir}}{{with .ImageURL}}{{.}}{{else}}{{$.Site.FaviconURL}}{{end}}{{else}}{{$.Site.FaviconURL}}{{end}}" alt="" data-on-air-img>
           <div>
             <div class="label">Al aire</div>
-            <div class="title" data-on-air-title>{{with $d.OnAir}}{{.Title}}{{end}}</div>
-            <div class="muted" data-on-air-host>{{with $d.OnAir}}{{.Host}} · {{.StartTime}}–{{.EndTime}}{{end}}</div>
+            <div class="title" data-on-air-title>{{with .OnAir}}{{.Title}}{{end}}</div>
+            <div class="muted" data-on-air-host>{{with .OnAir}}{{.Host}} · {{.StartTime}}–{{.EndTime}}{{end}}</div>
           </div>
         </div>
       </article>
+      {{end}}
+      </div>
       {{end}}
 
       {{if and .Site.TVEnabled $d.TVAllowed}}
@@ -113,7 +122,7 @@
       {{range $d.Today}}
       <li class="{{if .IsOnAir $.Now}}current{{end}}">
         <span class="time">{{.StartTime}} – {{.EndTime}}</span>
-        <div><p class="ptitle">{{.Title}}</p>{{with .Host}}<p class="phost">{{.}}</p>{{end}}</div>
+        <div><p class="ptitle">{{.Title}}{{with $.FrequencyCity .FrequencyID}} <span class="pcity">{{.}}</span>{{end}}</p>{{with .Host}}<p class="phost">{{.}}</p>{{end}}</div>
       </li>
       {{end}}
     </ul>

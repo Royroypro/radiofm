@@ -220,11 +220,11 @@ func TestGate(t *testing.T) {
 	if g.AuthorizeTV(ctx, gate.TVRequest{Action: "api", Path: "tv"}) {
 		t.Fatal("la API de MediaMTX no se autoriza por aquí")
 	}
-	if !g.RadioSourceAllowed(ctx, "fuente") || g.RadioSourceAllowed(ctx, "mala") {
+	if !g.RadioSourceAllowed(ctx, "fuente", "/radio") || g.RadioSourceAllowed(ctx, "mala", "/radio") {
 		t.Fatal("contraseña de fuente de radio mal validada")
 	}
 	lic.st.Level = domain.LicenseFull
-	if g.AuthorizeTV(ctx, pub) || g.RadioAllowed(ctx) || g.RadioSourceAllowed(ctx, "fuente") {
+	if g.AuthorizeTV(ctx, pub) || g.RadioAllowed(ctx) || g.RadioSourceAllowed(ctx, "fuente", "/radio") {
 		t.Fatal("con bloqueo total todo debe rechazarse")
 	}
 	lic.st.Level = domain.LicenseActive

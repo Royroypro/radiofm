@@ -40,17 +40,18 @@ import (
 
 // App contiene los servicios construidos y el router HTTP.
 type App struct {
-	Cfg      config.Config
-	Log      *slog.Logger
-	DB       *sql.DB
-	Auth     *auth.Service
-	Settings *settings.Service
-	License  *license.Service
-	Billing  *billing.Service
-	Ads      *ads.Service
-	Media    *media.Service
-	Studio   *studio.Service
-	Router   http.Handler
+	Cfg         config.Config
+	Log         *slog.Logger
+	DB          *sql.DB
+	Auth        *auth.Service
+	Settings    *settings.Service
+	License     *license.Service
+	Billing     *billing.Service
+	Ads         *ads.Service
+	Media       *media.Service
+	Studio      *studio.Service
+	Frequencies *frequencies.Service
+	Router      http.Handler
 }
 
 // Options permite sustituir piezas externas en los tests.
@@ -93,7 +94,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	authSvc := auth.New(userRepo, sessionRepo, auditSvc, cfg.SessionTTL)
 	settingsSvc := settings.New(settingsRepo, auditSvc)
 	programsSvc := programs.New(programRepo, auditSvc, cfg.Location)
-	frequenciesSvc := frequencies.New(frequencyRepo, auditSvc)
+	frequenciesSvc := frequencies.New(frequencyRepo, auditSvc, cfg.IcecastMount)
 	mediaSvc := media.New(opt.Radio, opt.TV, log)
 	licenseSvc := license.New(licenseRepo, billingRepo, mediaSvc, auditSvc, log, cfg.Location)
 	billingSvc := billing.New(billingRepo, auditSvc, cfg.Location)
@@ -105,6 +106,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	adsSvc := ads.New(adRepo, adEventRepo, licenseSvc, store, auditSvc, cfg.IPHashSalt)
 	studioSvc := studio.New(fmSpotRepo, airplayRepo, studioRepo, store, auditSvc, cfg.Location)
 	gateSvc := gate.New(licenseSvc, settingsSvc, cfg.MediaMTXPath, cfg.IcecastSourcePass)
+	gateSvc.SetMounts(frequenciesSvc)
 
 	// Vistas: embebidas en el binario o leídas del disco (WEB_DIR) en desarrollo
 	var webFS fs.FS = web.FS
@@ -126,7 +128,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 		Frequencies: frequenciesSvc, License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc, Studio: studioSvc,
 	})
 	return &App{Cfg: cfg, Log: log, DB: database, Auth: authSvc, Settings: settingsSvc, License: licenseSvc,
-		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Router: router}, nil
+		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Frequencies: frequenciesSvc, Router: router}, nil
 }
 
 // Prepare deja los datos iniciales listos: ajustes por defecto, clave de TV,
@@ -134,6 +136,12 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 func (a *App) Prepare(ctx context.Context) error {
 	if err := a.Settings.EnsureDefaults(ctx); err != nil {
 		return fmt.Errorf("ajustes iniciales: %w", err)
+	}
+	// Siempre hay al menos una frecuencia (la principal, con el montaje de siempre).
+	if set, err := a.Settings.Get(ctx); err == nil {
+		if err := a.Frequencies.Ensure(ctx, set.Frequency); err != nil {
+			return fmt.Errorf("frecuencia inicial: %w", err)
+		}
 	}
 	if a.Cfg.BootstrapSuperEmail != "" && a.Cfg.BootstrapSuperPass != "" {
 		has, err := a.Auth.HasSuperAdmin(ctx)

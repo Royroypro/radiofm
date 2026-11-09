@@ -1,6 +1,10 @@
 // Package studio integra la web con "Club25 Estudio", el programa de
 // automatización de radio que corre en la PC de la emisora (estudio/).
 //
+// Hay una PC por frecuencia (93.3 Huacho, 103.2 Barranca…): cada una tiene su
+// token, su estado y lo que suena; recibe las cuñas de su frecuencia más las
+// de «todas»; y sus emisiones quedan marcadas con su frecuencia.
+//
 // Qué hace:
 //   - Token de acceso de la PC: se genera desde el panel, se muestra una sola
 //     vez y solo se guarda su SHA-256. La API /api/studio/* lo exige como
@@ -21,9 +25,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -63,46 +67,53 @@ func New(spots domain.FMSpotRepository, plays domain.AirplayRepository, state do
 
 // ---------- Token y estado de la PC ----------
 
-// State devuelve el estado conocido de la PC.
-func (s *Service) State(ctx context.Context) (*domain.StudioState, error) { return s.state.Get(ctx) }
+// State devuelve el estado conocido de la PC de una frecuencia.
+func (s *Service) State(ctx context.Context, fid int64) (*domain.StudioState, error) {
+	return s.state.Get(ctx, fid)
+}
+
+// States devuelve el estado de las PC de todas las frecuencias que tienen una.
+func (s *Service) States(ctx context.Context) (map[int64]*domain.StudioState, error) {
+	return s.state.List(ctx)
+}
 
 // GenerateToken crea un token nuevo (invalida el anterior) y lo devuelve en
 // claro. Es la única vez que se puede ver: solo se guarda su hash.
-func (s *Service) GenerateToken(ctx context.Context, actor domain.Actor) (string, error) {
+func (s *Service) GenerateToken(ctx context.Context, actor domain.Actor, fid int64) (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 	token := TokenPrefix + hex.EncodeToString(b)
-	if err := s.state.SetToken(ctx, hashToken(token), s.now()); err != nil {
+	if err := s.state.SetToken(ctx, fid, hashToken(token), s.now()); err != nil {
 		return "", err
 	}
-	s.audit.Log(ctx, actor, "generate_token", "studio", 0, "token del estudio generado")
+	s.audit.Log(ctx, actor, "generate_token", "studio", fid, "token del estudio generado")
 	return token, nil
 }
 
 // RevokeToken borra el token: la PC deja de poder sincronizar.
-func (s *Service) RevokeToken(ctx context.Context, actor domain.Actor) error {
-	if err := s.state.SetToken(ctx, "", s.now()); err != nil {
+func (s *Service) RevokeToken(ctx context.Context, actor domain.Actor, fid int64) error {
+	if err := s.state.SetToken(ctx, fid, "", s.now()); err != nil {
 		return err
 	}
-	s.audit.Log(ctx, actor, "revoke_token", "studio", 0, "token del estudio revocado")
+	s.audit.Log(ctx, actor, "revoke_token", "studio", fid, "token del estudio revocado")
 	return nil
 }
 
-// Authenticate comprueba el token que envía la PC. Devuelve domain.ErrUnauthorized si no vale.
-func (s *Service) Authenticate(ctx context.Context, token string) error {
-	if !strings.HasPrefix(token, TokenPrefix) {
-		return domain.ErrUnauthorized
+// Authenticate comprueba el token que envía la PC y devuelve su frecuencia.
+// Devuelve domain.ErrUnauthorized si no vale. Se busca por el SHA-256 del
+// token (32 bytes aleatorios): medir tiempos de esa búsqueda no ayuda a
+// adivinar un token.
+func (s *Service) Authenticate(ctx context.Context, token string) (int64, error) {
+	if !strings.HasPrefix(token, TokenPrefix) || len(token) != len(TokenPrefix)+64 {
+		return 0, domain.ErrUnauthorized
 	}
-	st, err := s.state.Get(ctx)
-	if err != nil {
-		return err
+	fid, err := s.state.FindToken(ctx, hashToken(token))
+	if errors.Is(err, domain.ErrNotFound) {
+		return 0, domain.ErrUnauthorized
 	}
-	if !st.HasToken() || subtle.ConstantTimeCompare([]byte(hashToken(token)), []byte(st.TokenHash)) != 1 {
-		return domain.ErrUnauthorized
-	}
-	return nil
+	return fid, err
 }
 
 func hashToken(token string) string {
@@ -118,7 +129,7 @@ type HeartbeatInput struct {
 }
 
 // Heartbeat registra la señal de vida de la PC.
-func (s *Service) Heartbeat(ctx context.Context, in HeartbeatInput) error {
+func (s *Service) Heartbeat(ctx context.Context, fid int64, in HeartbeatInput) error {
 	in.Version = strings.TrimSpace(in.Version)
 	if in.Version == "" || len(in.Version) > 40 {
 		return domain.Invalid("version", "Versión inválida")
@@ -133,11 +144,11 @@ func (s *Service) Heartbeat(ctx context.Context, in HeartbeatInput) error {
 		}
 		enc = string(in.Encoder)
 	}
-	return s.state.Heartbeat(ctx, s.now(), in.Version, in.Mode, enc)
+	return s.state.Heartbeat(ctx, fid, s.now(), in.Version, in.Mode, enc)
 }
 
 // SetNowPlaying guarda lo que suena en la PC.
-func (s *Service) SetNowPlaying(ctx context.Context, np domain.NowPlaying) error {
+func (s *Service) SetNowPlaying(ctx context.Context, fid int64, np domain.NowPlaying) error {
 	np.Artist, np.Title, np.Kind = strings.TrimSpace(np.Artist), strings.TrimSpace(np.Title), strings.TrimSpace(np.Kind)
 	if np.Artist == "" && np.Title == "" {
 		return domain.Invalid("title", "Falta el título")
@@ -145,13 +156,13 @@ func (s *Service) SetNowPlaying(ctx context.Context, np domain.NowPlaying) error
 	if utf8.RuneCountInString(np.Artist) > 200 || utf8.RuneCountInString(np.Title) > 200 || len(np.Kind) > 20 {
 		return domain.Invalid("title", "Texto demasiado largo")
 	}
-	return s.state.SetNowPlaying(ctx, np, s.now())
+	return s.state.SetNowPlaying(ctx, fid, np, s.now())
 }
 
 // CurrentNowPlaying devuelve lo que suena si la PC lo informó hace menos de
 // maxAge; si no, nil (la web usará el título que tenga Icecast).
-func (s *Service) CurrentNowPlaying(ctx context.Context, maxAge time.Duration) *domain.NowPlaying {
-	st, err := s.state.Get(ctx)
+func (s *Service) CurrentNowPlaying(ctx context.Context, fid int64, maxAge time.Duration) *domain.NowPlaying {
+	st, err := s.state.Get(ctx, fid)
 	if err != nil || st.NowPlaying == nil || st.NowPlayingAt == nil || s.now().Sub(*st.NowPlayingAt) > maxAge {
 		return nil
 	}
@@ -233,10 +244,10 @@ func (s *Service) hashFile(sp *domain.FMSpot) error {
 	return nil
 }
 
-// SpotsForStudio devuelve las cuñas que la PC debe tener: activas y no
-// vencidas (incluye las que empiezan en el futuro, para que la PC pueda
-// programar con antelación).
-func (s *Service) SpotsForStudio(ctx context.Context) ([]domain.FMSpot, error) {
+// SpotsForStudio devuelve las cuñas que la PC de la frecuencia fid debe
+// tener: las de su frecuencia y las de todas, activas y no vencidas (incluye
+// las que empiezan en el futuro, para que la PC pueda programar con antelación).
+func (s *Service) SpotsForStudio(ctx context.Context, fid int64) ([]domain.FMSpot, error) {
 	list, err := s.spots.List(ctx, true)
 	if err != nil {
 		return nil, err
@@ -244,7 +255,7 @@ func (s *Service) SpotsForStudio(ctx context.Context) ([]domain.FMSpot, error) {
 	now := s.now()
 	out := list[:0]
 	for _, sp := range list {
-		if !sp.Expired(now) {
+		if !sp.Expired(now) && sp.AppliesTo(fid) {
 			out = append(out, sp)
 		}
 	}
@@ -304,7 +315,7 @@ type AirplayResult struct {
 // RecordAirplays registra un lote de emisiones de forma idempotente. Las
 // emisiones con datos inválidos se rechazan una a una (el resto se guarda)
 // para que un dato malo no bloquee la cola de la PC para siempre.
-func (s *Service) RecordAirplays(ctx context.Context, in []AirplayInput) (AirplayResult, error) {
+func (s *Service) RecordAirplays(ctx context.Context, fid int64, in []AirplayInput) (AirplayResult, error) {
 	res := AirplayResult{Received: len(in), Rejected: []string{}}
 	if len(in) == 0 {
 		return res, nil
@@ -325,7 +336,7 @@ func (s *Service) RecordAirplays(ctx context.Context, in []AirplayInput) (Airpla
 			continue
 		}
 		valid = append(valid, domain.Airplay{SpotID: p.SpotID, AiredAt: p.AiredAt, DurationMs: p.DurationMs,
-			Complete: p.Complete, PlayUUID: p.PlayUUID})
+			Complete: p.Complete, PlayUUID: p.PlayUUID, FrequencyID: fid})
 	}
 	n, err := s.plays.Record(ctx, valid)
 	if err != nil {

@@ -61,7 +61,8 @@ type Deps struct {
 
 // NewRouter devuelve el http.Handler con todas las rutas.
 func NewRouter(d Deps) http.Handler {
-	pub := &public.Handler{Views: d.Views, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads, Media: d.Media,
+	pub := &public.Handler{Views: d.Views, Settings: d.Settings, Programs: d.Programs, Frequencies: d.Frequencies,
+		Ads: d.Ads, Media: d.Media,
 		License: d.License, Gate: d.Gate, Studio: d.Studio, Log: d.Log, InternalToken: d.Cfg.InternalToken}
 	adm := &admin.Handler{Views: d.Views, Auth: d.Auth, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads,
 		Frequencies: d.Frequencies, Media: d.Media, License: d.License, Studio: d.Studio, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
@@ -73,9 +74,17 @@ func NewRouter(d Deps) http.Handler {
 	d.Views.SetCommon(func(w http.ResponseWriter, r *http.Request, p *views.Page) {
 		p.Site, _ = d.Settings.Get(r.Context())
 		// Frecuencias por ciudad: la primera activa es la principal (títulos, logo, reproductor).
-		p.Frequencies, _ = d.Frequencies.Active(r.Context())
-		if len(p.Frequencies) > 0 {
-			p.Site.Frequency = p.Frequencies[0].Label()
+		// En el panel se listan todas (también las ocultas) para los selectores.
+		if strings.HasPrefix(r.URL.Path, "/admin") {
+			p.Frequencies, _ = d.Frequencies.List(r.Context())
+		} else {
+			p.Frequencies, _ = d.Frequencies.Active(r.Context())
+		}
+		for _, f := range p.Frequencies {
+			if f.Active {
+				p.Site.Frequency = f.Label()
+				break
+			}
 		}
 		p.User = mw.UserFrom(r.Context())
 		p.License = d.License.Current()
@@ -175,8 +184,8 @@ func NewRouter(d Deps) http.Handler {
 			r.Get("/streams", adm.Streams)
 			r.Post("/streams", adm.StreamsSave)
 			r.Get("/studio", adm.StudioPage)
-			r.Post("/studio/token", adm.StudioTokenNew)
-			r.Post("/studio/token/revoke", adm.StudioTokenRevoke)
+			r.Post("/studio/{fid}/token", adm.StudioTokenNew)
+			r.Post("/studio/{fid}/token/revoke", adm.StudioTokenRevoke)
 			r.Get("/users", adm.UsersList)
 			r.Get("/users/new", adm.UserNew)
 			r.Post("/users", adm.UserSave)

@@ -136,9 +136,19 @@ func AdminWriteGuard(lic LicenseReader, blocked http.HandlerFunc, allow ...strin
 	}
 }
 
-// StudioAuthenticator valida el token de la PC del estudio (lo implementa service/studio).
+// StudioAuthenticator valida el token de la PC del estudio y devuelve su
+// frecuencia (lo implementa service/studio).
 type StudioAuthenticator interface {
-	Authenticate(ctx context.Context, token string) error
+	Authenticate(ctx context.Context, token string) (int64, error)
+}
+
+type studioFreqKey struct{}
+
+// StudioFrequencyFrom devuelve la frecuencia de la PC que hace la petición
+// (la pone StudioToken).
+func StudioFrequencyFrom(ctx context.Context) int64 {
+	id, _ := ctx.Value(studioFreqKey{}).(int64)
+	return id
 }
 
 // StudioToken exige "Authorization: Bearer <token>" con el token del estudio.
@@ -148,14 +158,19 @@ func StudioToken(auth StudioAuthenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if !ok || auth.Authenticate(r.Context(), strings.TrimSpace(token)) != nil {
+			var fid int64
+			var err error
+			if ok {
+				fid, err = auth.Authenticate(r.Context(), strings.TrimSpace(token))
+			}
+			if !ok || err != nil {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="studio"`)
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = w.Write([]byte(`{"error":"unauthorized"}` + "\n"))
 				return
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), studioFreqKey{}, fid)))
 		})
 	}
 }

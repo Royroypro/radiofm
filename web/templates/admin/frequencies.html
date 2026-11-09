@@ -1,13 +1,14 @@
 {{/* Frecuencias por ciudad. .Data: []domain.Frequency (en orden de la web) */}}
 {{define "content"}}
 <div class="toolbar">
-  <p class="muted" style="margin:0">Se muestran en la web en este orden. La primera activa es la principal (título, logo y reproductor).</p>
+  <p class="muted" style="margin:0">Cada frecuencia tiene su reproductor en la web, su servidor de audio y su PC del estudio
+    (token en <a href="/admin/studio">Estudio (PC)</a>). La primera activa es la principal.</p>
   <a class="btn" href="/admin/frequencies/new">Nueva frecuencia</a>
 </div>
 <div class="table-wrap">
 {{if .Data}}
 <table>
-  <thead><tr><th>Orden</th><th>Ciudad</th><th>Frecuencia</th><th>Estado</th><th></th></tr></thead>
+  <thead><tr><th>Orden</th><th>Ciudad</th><th>Frecuencia</th><th>Audio</th><th>Estado</th><th></th></tr></thead>
   <tbody>
   {{range $i, $f := .Data}}
   <tr>
@@ -17,10 +18,11 @@
     </td>
     <td><a href="/admin/frequencies/{{$f.ID}}">{{$f.City}}</a></td>
     <td><strong>{{$f.Label}}</strong></td>
+    <td class="small">{{if $f.IsExternal}}Externo: <code>{{$f.StreamURL}}</code>{{else}}Montaje <code>{{$f.Mount}}</code>{{end}}</td>
     <td>{{if $f.Active}}<span class="pill ok">En la web</span>{{else}}<span class="pill">Oculta</span>{{end}}</td>
     <td class="actions">
       <a class="btn btn-sm btn-ghost" href="/admin/frequencies/{{$f.ID}}">Editar</a>
-      <form method="post" action="/admin/frequencies/{{$f.ID}}/delete" data-confirm="¿Eliminar {{$f.Label}} de {{$f.City}}?">
+      <form method="post" action="/admin/frequencies/{{$f.ID}}/delete" data-confirm="¿Eliminar {{$f.Label}} de {{$f.City}}? Su PC del estudio dejará de sincronizar.">
         {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
       </form>
     </td>
@@ -28,6 +30,6 @@
   {{end}}
   </tbody>
 </table>
-{{else}}<div class="empty">Aún no hay frecuencias. Mientras tanto la web usa la de «Marca y contacto».</div>{{end}}
+{{else}}<div class="empty">Aún no hay frecuencias.</div>{{end}}
 </div>
 {{end}}

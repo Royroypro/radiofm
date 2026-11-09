@@ -62,7 +62,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 			live++
 		}
 	}
-	onAir, _ := h.Programs.OnAir(ctx, now)
+	onAir, _ := h.Programs.OnAir(ctx, now, 0)
 	progs, _ := h.Programs.List(ctx)
 	var top []domain.AdStats
 	if stats, err := h.Ads.Stats(ctx, now.AddDate(0, 0, -7), now.Add(time.Minute)); err == nil {

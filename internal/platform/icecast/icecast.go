@@ -9,6 +9,7 @@ package icecast
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -63,50 +64,78 @@ type sourceDoc struct {
 	IceBitrate   any    `json:"ice-bitrate"`
 }
 
-// Status consulta el estado del mount configurado.
+// Status consulta el estado del mount configurado (el principal).
 func (c *Client) Status(ctx context.Context) (MountStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/status-json.xsl", nil)
+	all, err := c.StatusAll(ctx)
 	if err != nil {
 		return MountStatus{}, err
+	}
+	return all[c.mount], nil // ausente = fuera del aire
+}
+
+// StatusAll consulta todos los montajes con fuente conectada (una frecuencia
+// por montaje: /radio, /radio-barranca…). Los que no aparecen están fuera del aire.
+func (c *Client) StatusAll(ctx context.Context) (map[string]MountStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/status-json.xsl", nil)
+	if err != nil {
+		return nil, err
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
-		return MountStatus{}, fmt.Errorf("icecast: status: %w", err)
+		return nil, fmt.Errorf("icecast: status: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return MountStatus{}, fmt.Errorf("icecast: status: HTTP %d", res.StatusCode)
+		return nil, fmt.Errorf("icecast: status: HTTP %d", res.StatusCode)
 	}
 	var doc statusDoc
 	if err := json.NewDecoder(res.Body).Decode(&doc); err != nil {
-		return MountStatus{}, fmt.Errorf("icecast: decodificar status: %w", err)
+		return nil, fmt.Errorf("icecast: decodificar status: %w", err)
 	}
 	sources, err := parseSources(doc.Icestats.Source)
 	if err != nil {
-		return MountStatus{}, err
+		return nil, err
 	}
+	out := map[string]MountStatus{}
 	for _, s := range sources {
 		u, err := url.Parse(s.ListenURL)
-		if err != nil || u.Path != c.mount {
+		if err != nil {
 			continue
 		}
 		title := s.Title
 		if s.Artist != "" && title != "" {
 			title = s.Artist + " - " + title
 		}
-		return MountStatus{
+		out[u.Path] = MountStatus{
 			Online: true, Listeners: s.Listeners, Peak: s.ListenerPeak, Title: title,
 			Bitrate: toInt(firstNonNil(s.AudioBitrate, s.Bitrate, s.IceBitrate)), Format: s.ServerType,
-		}, nil
+		}
 	}
-	return MountStatus{Online: false}, nil
+	return out, nil
 }
 
-// KillSource desconecta la fuente del mount (la PC emisora). Se usa al aplicar
-// un bloqueo total. Si la PC reconecta, los oyentes igualmente están bloqueados
-// por nginx (auth_request a /internal/gate/radio).
+// KillSource desconecta las fuentes de todos los montajes conectados (las PC
+// emisoras de cada frecuencia). Se usa al aplicar un bloqueo total. Si una PC
+// reconecta, los oyentes igualmente están bloqueados por nginx (auth_request
+// a /internal/gate/radio) y stream_auth la rechaza.
 func (c *Client) KillSource(ctx context.Context) error {
-	u := c.baseURL + "/admin/killsource?mount=" + url.QueryEscape(c.mount)
+	mounts := []string{c.mount}
+	if all, err := c.StatusAll(ctx); err == nil {
+		for m := range all {
+			if m != c.mount {
+				mounts = append(mounts, m)
+			}
+		}
+	}
+	var errs []error
+	for _, m := range mounts {
+		errs = append(errs, c.killMount(ctx, m))
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Client) killMount(ctx context.Context, mount string) error {
+	u := c.baseURL + "/admin/killsource?mount=" + url.QueryEscape(mount)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return err

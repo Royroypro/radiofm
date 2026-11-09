@@ -11,10 +11,16 @@
         {{range $d.Advertisers}}<option value="{{.}}" {{if eq . $d.Advertiser}}selected{{end}}>{{.}}</option>{{end}}
       </select>
     </label>
+    <label class="field">Frecuencia
+      <select name="f">
+        <option value="0">Todas</option>
+        {{range .Frequencies}}<option value="{{.ID}}" {{if eq .ID $d.Freq}}selected{{end}}>{{.Label}} · {{.City}}</option>{{end}}
+      </select>
+    </label>
   </div>
   <div class="form-actions">
     <button class="btn btn-dark" type="submit">Ver</button>
-    <a class="btn btn-ghost" href="/admin/fm-spots/report.csv?from={{$d.From}}&to={{$d.To}}&advertiser={{$d.Advertiser}}">Descargar CSV</a>
+    <a class="btn btn-ghost" href="/admin/fm-spots/report.csv?from={{$d.From}}&to={{$d.To}}&advertiser={{$d.Advertiser}}&f={{$d.Freq}}">Descargar CSV</a>
   </div>
 </form>
 
@@ -30,10 +36,10 @@
 <div class="table-wrap">
   {{if $d.Plays}}
   <table>
-    <thead><tr><th>Fecha y hora</th><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th>Completa</th></tr></thead>
+    <thead><tr><th>Fecha y hora</th><th>Frecuencia</th><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th>Completa</th></tr></thead>
     <tbody>
     {{range $d.Plays}}
-      <tr><td>{{datetime .AiredAt}}</td><td>{{.Advertiser}}</td><td>{{.SpotName}}</td><td class="num">{{.DurationLabel}}</td>
+      <tr><td>{{datetime .AiredAt}}</td><td>{{$.FrequencyCity .FrequencyID}}</td><td>{{.Advertiser}}</td><td>{{.SpotName}}</td><td class="num">{{.DurationLabel}}</td>
         <td>{{if .Complete}}<span class="pill ok">Sí</span>{{else}}<span class="pill warn">No</span>{{end}}</td></tr>
     {{end}}
     </tbody>

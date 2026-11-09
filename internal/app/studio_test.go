@@ -82,7 +82,7 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	}
 
 	// generar el token desde el panel: se muestra una sola vez
-	code, page := e.post("/admin/studio/token", url.Values{})
+	code, page := e.post("/admin/studio/1/token", url.Values{})
 	if code != http.StatusOK {
 		t.Fatalf("generar token = %d", code)
 	}
@@ -107,7 +107,7 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	// config
 	code, body, _ := e.studioReq(http.MethodGet, "/api/studio/config", token, "")
 	if code != http.StatusOK || !strings.Contains(body, `"mount":"/radio"`) || !strings.Contains(body, `"timezone":"America/Lima"`) ||
-		!strings.Contains(body, `"frequencies":[]`) || strings.Contains(body, "fuente123") {
+		!strings.Contains(body, `"mount":"/radio"`) || !strings.Contains(body, `"city":"Huacho"`) || strings.Contains(body, "fuente123") {
 		t.Fatalf("config = %d %s", code, body)
 	}
 
@@ -172,7 +172,7 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	if !strings.Contains(csv, "Ferretería El Sol;Verano 20 s;20.0;Sí;5f0c2b9e") {
 		t.Fatalf("CSV del comprobante inesperado:\n%s", csv)
 	}
-	if _, list := e.get("/admin/studio"); !strings.Contains(list, "Conectada") || !strings.Contains(list, "Motor y motivo") {
+	if _, list := e.get("/admin/studio"); !strings.Contains(list, "PC conectada") || !strings.Contains(list, "Motor y motivo") {
 		t.Fatal("el panel debe mostrar la PC conectada y lo que suena")
 	}
 
@@ -189,13 +189,13 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	if code, _ := e.post("/superadmin/license/unblock", url.Values{}); code != http.StatusSeeOther {
 		t.Fatal("desbloquear")
 	}
-	if code, _ := e.post("/admin/studio/token/revoke", url.Values{}); code != http.StatusSeeOther {
+	if code, _ := e.post("/admin/studio/1/token/revoke", url.Values{}); code != http.StatusSeeOther {
 		t.Fatal("revocar")
 	}
 	if code, _, _ := e.studioReq(http.MethodGet, "/api/studio/spots", token, ""); code != http.StatusUnauthorized {
 		t.Fatalf("token revocado = %d", code)
 	}
-	st, _ := e.app.Studio.State(context.Background())
+	st, _ := e.app.Studio.State(context.Background(), 1)
 	if st.Mode != domain.StudioAuto {
 		t.Fatalf("modo guardado = %q", st.Mode)
 	}

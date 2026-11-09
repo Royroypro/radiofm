@@ -57,11 +57,25 @@ func Config(t testing.TB) config.Config {
 	}
 }
 
-// FakeRadio simula Icecast.
+// FakeRadio simula Icecast. Online/Listeners son del montaje principal
+// (/radio); Mounts agrega otros montajes conectados.
 type FakeRadio struct {
 	Online    bool
 	Listeners int
 	Killed    int
+	Mounts    map[string]icecast.MountStatus
+}
+
+// StatusAll implementa media.RadioSource.
+func (f *FakeRadio) StatusAll(ctx context.Context) (map[string]icecast.MountStatus, error) {
+	out := map[string]icecast.MountStatus{}
+	for m, s := range f.Mounts {
+		out[m] = s
+	}
+	if f.Online {
+		out["/radio"], _ = f.Status(ctx)
+	}
+	return out, nil
 }
 
 // Status implementa media.RadioSource.

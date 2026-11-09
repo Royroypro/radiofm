@@ -38,7 +38,19 @@ y a Icecast con los mismos datos de arriba, y se sincroniza con el panel:
 3. Las cuñas se suben en Admin → **Cuñas FM**; la PC las descarga sola. El comprobante de emisión
    está en Cuñas FM → *Comprobante de emisión* (CSV por anunciante y fechas).
 
-No use BUTT y Club25 Estudio a la vez: Icecast acepta una sola fuente en `/radio`.
+No use BUTT y Club25 Estudio a la vez: Icecast acepta una sola fuente por montaje.
+
+### Varias frecuencias (Huacho, Barranca, Huaral…)
+
+Cada frecuencia de Admin → **Frecuencias** tiene su reproductor en la web y su audio:
+
+- **Nuestro servidor:** un montaje propio en el mismo Icecast (`/radio` para la principal,
+  `/radio-barranca`, `/radio-huaral`…). La PC de esa ciudad emite al puerto `8010`, usuario `source`,
+  la misma contraseña, y **su** montaje. Con Club25 Estudio basta con pegar el token de esa
+  frecuencia (Admin → Estudio (PC)): el montaje llega solo al sincronizar. Icecast solo acepta
+  montajes de frecuencias activas. nginx publica `/radio` y `/radio-*` en el dominio.
+- **Servidor externo:** la URL `https://…` de otro servidor (Icecast, Shoutcast, Zeno…). La web la
+  reproduce tal cual; no muestra oyentes ni "en vivo" porque no los conoce.
 
 ## 2. TV con OBS Studio
 

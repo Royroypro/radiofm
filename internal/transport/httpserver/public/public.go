@@ -18,6 +18,7 @@ import (
 
 	"radioclub25/internal/domain"
 	"radioclub25/internal/service/ads"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/gate"
 	"radioclub25/internal/service/license"
 	"radioclub25/internal/service/media"
@@ -34,6 +35,7 @@ type Handler struct {
 	Views         *views.Renderer
 	Settings      *settings.Service
 	Programs      *programs.Service
+	Frequencies   *frequencies.Service
 	Ads           *ads.Service
 	Media         *media.Service
 	License       *license.Service
@@ -52,15 +54,55 @@ func (h *Handler) page(r *http.Request, title string, data any) *views.Page {
 	return &views.Page{Title: title, Data: data, Banners: banners}
 }
 
-// Home es la página principal con los reproductores de radio y TV.
+// Station es una frecuencia con su estado en vivo (un reproductor en la web).
+type Station struct {
+	Freq      domain.Frequency
+	Online    bool   // solo se sabe con audio local (montaje en nuestro Icecast)
+	Listeners int    // ídem
+	Title     string // lo que suena (PC del estudio o metadata de Icecast)
+	OnAir     *domain.Program
+}
+
+// stations arma el estado de cada frecuencia activa.
+func (h *Handler) stations(r *http.Request, now time.Time) []Station {
+	ctx := r.Context()
+	list, _ := h.Frequencies.Active(ctx)
+	st := h.Media.Status(ctx)
+	out := make([]Station, 0, len(list))
+	for _, f := range list {
+		s := Station{Freq: f}
+		if !f.IsExternal() {
+			if m, ok := st.Mounts[f.Mount]; ok {
+				s.Online, s.Listeners, s.Title = m.Online, m.Listeners, m.Title
+			}
+		}
+		// Si la PC del estudio informó hace poco lo que suena, es más fiable que la
+		// metadata de Icecast (que puede no actualizarse con cuñas o jingles).
+		if s.Online || f.IsExternal() {
+			if np := h.Studio.CurrentNowPlaying(ctx, f.ID, 2*time.Minute); np != nil {
+				s.Title = np.Display()
+			}
+		}
+		s.OnAir, _ = h.Programs.OnAir(ctx, now, f.ID)
+		out = append(out, s)
+	}
+	return out
+}
+
+// Home es la página principal con un reproductor por frecuencia y la TV.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
-	onAir, err := h.Programs.OnAir(r.Context(), now)
+	stations := h.stations(r, now)
+	var principal int64
+	if len(stations) > 0 {
+		principal = stations[0].Freq.ID
+	}
+	onAir, err := h.Programs.OnAir(r.Context(), now, principal)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
-	week, err := h.Programs.Week(r.Context(), now)
+	week, err := h.Programs.Week(r.Context(), now, 0)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
@@ -74,19 +116,23 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	h.Views.RenderPage(w, r, http.StatusOK, "public/home", h.page(r, "", map[string]any{
 		"OnAir":     onAir,
 		"Today":     today,
+		"Stations":  stations,
 		"Status":    h.Media.Status(r.Context()),
 		"TVAllowed": h.License.Current().Limits.TVEnabled,
 	}))
 }
 
-// Schedule muestra la programación semanal completa.
+// Schedule muestra la programación semanal: GET /programacion?f=<id frecuencia>
+// (sin f: la de todas las frecuencias, con la ciudad en los programas propios).
 func (h *Handler) Schedule(w http.ResponseWriter, r *http.Request) {
-	week, err := h.Programs.Week(r.Context(), time.Now())
+	fid := form.ID(r.URL.Query().Get("f"))
+	week, err := h.Programs.Week(r.Context(), time.Now(), fid)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
-	h.Views.RenderPage(w, r, http.StatusOK, "public/schedule", h.page(r, "Programación", week))
+	h.Views.RenderPage(w, r, http.StatusOK, "public/schedule", h.page(r, "Programación",
+		map[string]any{"Week": week, "Selected": fid}))
 }
 
 // Contact muestra los datos de contacto.
@@ -115,17 +161,32 @@ func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
 // APIStatus devuelve el estado en vivo: GET /api/status
 func (h *Handler) APIStatus(w http.ResponseWriter, r *http.Request) {
 	st := h.Media.Status(r.Context())
-	// Si la PC del estudio informó hace poco lo que suena, es más fiable que la
-	// metadata de Icecast (que puede no actualizarse con cuñas o jingles).
-	if st.Radio.Online {
-		if np := h.Studio.CurrentNowPlaying(r.Context(), 2*time.Minute); np != nil {
-			st.Radio.Title = np.Display()
+	stations := h.stations(r, time.Now())
+	onAirJSON := func(p *domain.Program) any {
+		if p == nil {
+			return nil
 		}
-	}
-	resp := map[string]any{"radio": st.Radio, "tv": st.TV, "on_air": nil}
-	if p, err := h.Programs.OnAir(r.Context(), time.Now()); err == nil && p != nil {
-		resp["on_air"] = map[string]string{"title": p.Title, "host": p.Host, "start": p.StartTime, "end": p.EndTime,
+		return map[string]string{"title": p.Title, "host": p.Host, "start": p.StartTime, "end": p.EndTime,
 			"image": p.ImageURL}
+	}
+	list := make([]map[string]any, 0, len(stations))
+	for _, s := range stations {
+		item := map[string]any{"id": s.Freq.ID, "city": s.Freq.City, "label": s.Freq.Label(), "title": s.Title,
+			"external": s.Freq.IsExternal(), "online": nil, "listeners": nil, "on_air": onAirJSON(s.OnAir)}
+		if !s.Freq.IsExternal() { // de un servidor externo no sabemos si está al aire ni cuántos escuchan
+			item["online"], item["listeners"] = s.Online, s.Listeners
+		}
+		list = append(list, item)
+	}
+	// "radio" y "on_air" son los de la frecuencia principal (compatibilidad).
+	resp := map[string]any{"radio": st.Radio, "tv": st.TV, "on_air": nil, "stations": list}
+	if len(stations) > 0 {
+		p := stations[0]
+		if !p.Freq.IsExternal() {
+			st.Radio.Online, st.Radio.Listeners = p.Online, p.Listeners
+		}
+		st.Radio.Title = p.Title
+		resp["radio"], resp["on_air"] = st.Radio, onAirJSON(p.OnAir)
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, resp)
@@ -225,7 +286,7 @@ func (h *Handler) IcecastSourceAuth(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	ok := h.Gate.RadioSourceAllowed(r.Context(), r.PostFormValue("pass"))
+	ok := h.Gate.RadioSourceAllowed(r.Context(), r.PostFormValue("pass"), r.PostFormValue("mount"))
 	h.Log.Info("autorización de fuente de radio", "ok", ok, "ip", r.PostFormValue("ip"), "mount", r.PostFormValue("mount"))
 	if ok {
 		w.Header().Set("icecast-auth-user", "1")

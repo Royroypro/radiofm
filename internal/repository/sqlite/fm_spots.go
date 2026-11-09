@@ -17,17 +17,19 @@ type FMSpotRepo struct{ db *sql.DB }
 func NewFMSpotRepo(db *sql.DB) *FMSpotRepo { return &FMSpotRepo{db: db} }
 
 const fmSpotCols = `id, advertiser, name, file_url, sha256, duration_ms, starts_at, ends_at, plays_per_day,
-	hour_from, hour_to, active, created_at, updated_at`
+	hour_from, hour_to, active, created_at, updated_at, frequency_id`
 
 func scanFMSpot(r rowScanner) (*domain.FMSpot, error) {
 	var s domain.FMSpot
 	var starts, ends sql.NullString
 	var created, updated string
 	var active int
+	var fid sql.NullInt64
 	if err := r.Scan(&s.ID, &s.Advertiser, &s.Name, &s.FileURL, &s.SHA256, &s.DurationMs, &starts, &ends,
-		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &created, &updated); err != nil {
+		&s.PlaysPerDay, &s.HourFrom, &s.HourTo, &active, &created, &updated, &fid); err != nil {
 		return nil, err
 	}
+	s.FrequencyID = fid.Int64
 	s.StartsAt, s.EndsAt, s.Active = parseTimePtr(starts), parseTimePtr(ends), active == 1
 	s.CreatedAt, s.UpdatedAt = parseTime(created), parseTime(updated)
 	return &s, nil
@@ -38,10 +40,10 @@ func (r *FMSpotRepo) Create(ctx context.Context, s *domain.FMSpot) error {
 	now := time.Now()
 	s.CreatedAt, s.UpdatedAt = now, now
 	res, err := r.db.ExecContext(ctx, `INSERT INTO fm_spots (advertiser, name, file_url, sha256, duration_ms,
-		starts_at, ends_at, plays_per_day, hour_from, hour_to, active, created_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		starts_at, ends_at, plays_per_day, hour_from, hour_to, active, created_at, updated_at, frequency_id)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		s.Advertiser, s.Name, s.FileURL, s.SHA256, s.DurationMs, formatTimePtr(s.StartsAt), formatTimePtr(s.EndsAt),
-		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(now), formatTime(now))
+		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(now), formatTime(now), nullID(s.FrequencyID))
 	if err != nil {
 		return fmt.Errorf("fm_spots: create: %w", err)
 	}
@@ -82,10 +84,10 @@ func (r *FMSpotRepo) List(ctx context.Context, onlyActive bool) ([]domain.FMSpot
 func (r *FMSpotRepo) Update(ctx context.Context, s *domain.FMSpot) error {
 	s.UpdatedAt = time.Now()
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE fm_spots SET advertiser=?, name=?, file_url=?, sha256=?,
-		duration_ms=?, starts_at=?, ends_at=?, plays_per_day=?, hour_from=?, hour_to=?, active=?, updated_at=?
-		WHERE id=?`,
+		duration_ms=?, starts_at=?, ends_at=?, plays_per_day=?, hour_from=?, hour_to=?, active=?, updated_at=?,
+		frequency_id=? WHERE id=?`,
 		s.Advertiser, s.Name, s.FileURL, s.SHA256, s.DurationMs, formatTimePtr(s.StartsAt), formatTimePtr(s.EndsAt),
-		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(s.UpdatedAt), s.ID))
+		s.PlaysPerDay, s.HourFrom, s.HourTo, boolInt(s.Active), formatTime(s.UpdatedAt), nullID(s.FrequencyID), s.ID))
 }
 
 // Delete borra una cuña. Sus emisiones se conservan (spot_id pasa a NULL).
@@ -109,8 +111,8 @@ func (r *AirplayRepo) Record(ctx context.Context, plays []domain.Airplay) (int, 
 	}
 	defer func() { _ = tx.Rollback() }()
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO fm_spot_airplays
-		(spot_id, advertiser, spot_name, aired_at, duration_ms, complete, play_uuid, created_at)
-		SELECT id, advertiser, name, ?, ?, ?, ?, ? FROM fm_spots WHERE id = ?
+		(spot_id, advertiser, spot_name, aired_at, duration_ms, complete, play_uuid, created_at, frequency_id)
+		SELECT id, advertiser, name, ?, ?, ?, ?, ?, ? FROM fm_spots WHERE id = ?
 		ON CONFLICT(play_uuid) DO NOTHING`)
 	if err != nil {
 		return 0, fmt.Errorf("fm_spot_airplays: preparar: %w", err)
@@ -119,7 +121,7 @@ func (r *AirplayRepo) Record(ctx context.Context, plays []domain.Airplay) (int, 
 	now := formatTime(time.Now())
 	inserted := 0
 	for _, p := range plays {
-		res, err := stmt.ExecContext(ctx, formatTime(p.AiredAt), p.DurationMs, boolInt(p.Complete), p.PlayUUID, now, p.SpotID)
+		res, err := stmt.ExecContext(ctx, formatTime(p.AiredAt), p.DurationMs, boolInt(p.Complete), p.PlayUUID, now, nullID(p.FrequencyID), p.SpotID)
 		if err != nil {
 			return 0, fmt.Errorf("fm_spot_airplays: insertar: %w", err)
 		}
@@ -142,8 +144,11 @@ func (r *AirplayRepo) List(ctx context.Context, f domain.AirplayFilter) ([]domai
 	if f.SpotID > 0 {
 		where, args = append(where, "spot_id = ?"), append(args, f.SpotID)
 	}
+	if f.FrequencyID > 0 {
+		where, args = append(where, "frequency_id = ?"), append(args, f.FrequencyID)
+	}
 	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(spot_id, 0), advertiser, spot_name, aired_at, duration_ms,
-		complete, play_uuid, created_at FROM fm_spot_airplays WHERE `+strings.Join(where, " AND ")+
+		complete, play_uuid, created_at, COALESCE(frequency_id, 0) FROM fm_spot_airplays WHERE `+strings.Join(where, " AND ")+
 		` ORDER BY aired_at, id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("fm_spot_airplays: list: %w", err)
@@ -155,7 +160,7 @@ func (r *AirplayRepo) List(ctx context.Context, f domain.AirplayFilter) ([]domai
 		var aired, created string
 		var complete int
 		if err := rows.Scan(&a.ID, &a.SpotID, &a.Advertiser, &a.SpotName, &aired, &a.DurationMs, &complete,
-			&a.PlayUUID, &created); err != nil {
+			&a.PlayUUID, &created, &a.FrequencyID); err != nil {
 			return nil, err
 		}
 		a.AiredAt, a.CreatedAt, a.Complete = parseTime(aired), parseTime(created), complete == 1

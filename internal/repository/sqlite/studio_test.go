@@ -68,30 +68,38 @@ func TestFMSpotsAndAirplays(t *testing.T) {
 
 func TestStudioState(t *testing.T) {
 	ctx := context.Background()
-	repo := sqlite.NewStudioRepo(testutil.DB(t))
-	st, err := repo.Get(ctx)
+	d := testutil.DB(t)
+	repo := sqlite.NewStudioRepo(d)
+	f := &domain.Frequency{City: "Huacho", Frequency: "93.3", Band: "FM", Active: true, Source: domain.SourceLocal, Mount: "/radio"}
+	if err := sqlite.NewFrequencyRepo(d).Create(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	st, err := repo.Get(ctx, f.ID)
 	if err != nil || st.HasToken() || st.LastSeen != nil {
 		t.Fatalf("estado inicial = %+v, %v", st, err)
 	}
 	now := time.Now()
-	if err := repo.SetToken(ctx, "hash", now); err != nil {
+	if err := repo.SetToken(ctx, f.ID, "hash", now); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Heartbeat(ctx, now, "1.0.0", domain.StudioAuto, `{"connected":true}`); err != nil {
+	if err := repo.Heartbeat(ctx, f.ID, now, "1.0.0", domain.StudioAuto, `{"connected":true}`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.SetNowPlaying(ctx, domain.NowPlaying{Artist: "Grupo 5", Title: "Motor y motivo", Kind: "music"}, now); err != nil {
+	if err := repo.SetNowPlaying(ctx, f.ID, domain.NowPlaying{Artist: "Grupo 5", Title: "Motor y motivo", Kind: "music"}, now); err != nil {
 		t.Fatal(err)
 	}
-	st, _ = repo.Get(ctx)
+	if id, err := repo.FindToken(ctx, "hash"); err != nil || id != f.ID {
+		t.Fatalf("FindToken = %d, %v", id, err)
+	}
+	st, _ = repo.Get(ctx, f.ID)
 	if st.TokenHash != "hash" || st.Version != "1.0.0" || st.Mode != domain.StudioAuto || st.NowPlaying == nil ||
 		st.NowPlaying.Display() != "Grupo 5 - Motor y motivo" || !st.Online(now, time.Minute) {
 		t.Fatalf("estado = %+v", st)
 	}
-	if err := repo.SetToken(ctx, "", now); err != nil {
+	if err := repo.SetToken(ctx, f.ID, "", now); err != nil {
 		t.Fatal(err)
 	}
-	if st, _ = repo.Get(ctx); st.HasToken() || st.TokenCreatedAt != nil {
+	if st, _ = repo.Get(ctx, f.ID); st.HasToken() || st.TokenCreatedAt != nil {
 		t.Fatal("revocar debe borrar el token")
 	}
 }

@@ -64,15 +64,16 @@ func (s *Service) Delete(ctx context.Context, actor domain.Actor, id int64) erro
 	return nil
 }
 
-// OnAir devuelve el programa al aire en el instante now, o nil.
-func (s *Service) OnAir(ctx context.Context, now time.Time) (*domain.Program, error) {
+// OnAir devuelve el programa al aire en el instante now en la frecuencia fid
+// (0 = cualquiera), o nil.
+func (s *Service) OnAir(ctx context.Context, now time.Time, fid int64) (*domain.Program, error) {
 	list, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	local := now.In(s.loc)
 	for i := range list {
-		if list[i].IsOnAir(local) {
+		if list[i].AppliesTo(fid) && list[i].IsOnAir(local) {
 			return &list[i], nil
 		}
 	}
@@ -87,8 +88,9 @@ type DaySchedule struct {
 	IsToday  bool
 }
 
-// Week devuelve la programación activa agrupada por día, de lunes a domingo.
-func (s *Service) Week(ctx context.Context, now time.Time) ([]DaySchedule, error) {
+// Week devuelve la programación activa de la frecuencia fid (0 = todas)
+// agrupada por día, de lunes a domingo.
+func (s *Service) Week(ctx context.Context, now time.Time, fid int64) ([]DaySchedule, error) {
 	list, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
@@ -100,7 +102,7 @@ func (s *Service) Week(ctx context.Context, now time.Time) ([]DaySchedule, error
 		days[i] = DaySchedule{Weekday: wd, Name: domain.WeekdayNames[wd], IsToday: wd == today}
 	}
 	for _, p := range list {
-		if p.Active {
+		if p.Active && p.AppliesTo(fid) {
 			idx := (int(p.Weekday) + 6) % 7
 			days[idx].Programs = append(days[idx].Programs, p)
 		}

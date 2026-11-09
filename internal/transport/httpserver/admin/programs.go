@@ -60,6 +60,7 @@ func (h *Handler) ProgramSave(w http.ResponseWriter, r *http.Request) {
 	p.StartTime = form.String(r, "start_time")
 	p.EndTime = form.String(r, "end_time")
 	p.Active = form.Bool(r, "active")
+	p.FrequencyID = form.ID(form.String(r, "frequency_id"))
 	if form.Bool(r, "remove_image") {
 		_ = h.Store.Delete(p.ImageURL)
 		p.ImageURL = ""

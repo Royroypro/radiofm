@@ -12,12 +12,13 @@
 <div class="table-wrap">
 {{if $d.Spots}}
 <table>
-  <thead><tr><th>Anunciante</th><th>Cuña</th><th class="num">Duración</th><th class="num">Veces/día</th><th>Franja</th><th>Vigencia</th><th class="num">Hoy</th><th>Estado</th><th></th></tr></thead>
+  <thead><tr><th>Anunciante</th><th>Cuña</th><th>Frecuencia</th><th class="num">Duración</th><th class="num">Veces/día</th><th>Franja</th><th>Vigencia</th><th class="num">Hoy</th><th>Estado</th><th></th></tr></thead>
   <tbody>
   {{range $d.Spots}}
     <tr>
       <td>{{.Advertiser}}</td>
       <td><a href="/admin/fm-spots/{{.ID}}">{{.Name}}</a><div><audio src="{{.FileURL}}" controls preload="none"></audio></div></td>
+      <td>{{if .FrequencyID}}{{$.FrequencyCity .FrequencyID}}{{else}}<span class="muted">Todas</span>{{end}}</td>
       <td class="num">{{.DurationLabel}}</td>
       <td class="num">{{.PlaysPerDay}}</td>
       <td>{{.HoursLabel}}</td>

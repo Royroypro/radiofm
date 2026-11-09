@@ -18,6 +18,12 @@ type Program struct {
 	StartTime   string
 	EndTime     string
 	Active      bool
+	FrequencyID int64 // 0 = todas las frecuencias
+}
+
+// AppliesTo indica si el programa se emite en la frecuencia fid (0 = cualquiera).
+func (p Program) AppliesTo(fid int64) bool {
+	return fid == 0 || p.FrequencyID == 0 || p.FrequencyID == fid
 }
 
 // WeekdayNames son los nombres de los días en español, indexados por time.Weekday.

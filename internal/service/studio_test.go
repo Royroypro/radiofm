@@ -22,6 +22,16 @@ func (f *hashFiles) SHA256(u string) (string, error) { return "sha-" + u, nil }
 
 func newStudio(t *testing.T) (*studio.Service, *hashFiles) {
 	d := testutil.DB(t)
+	// dos frecuencias: 1 = Huacho (/radio), 2 = Barranca (/radio-barranca)
+	fr := sqlite.NewFrequencyRepo(d)
+	for _, f := range []*domain.Frequency{
+		{City: "Huacho", Frequency: "93.3", Band: "FM", Active: true, Source: domain.SourceLocal, Mount: "/radio"},
+		{City: "Barranca", Frequency: "103.2", Band: "FM", Active: true, Source: domain.SourceLocal, Mount: "/radio-barranca", SortOrder: 10},
+	} {
+		if err := fr.Create(context.Background(), f); err != nil {
+			t.Fatal(err)
+		}
+	}
 	files := &hashFiles{}
 	au := audit.New(sqlite.NewAuditRepo(d), testutil.Logger())
 	return studio.New(sqlite.NewFMSpotRepo(d), sqlite.NewAirplayRepo(d), sqlite.NewStudioRepo(d), files, au,
@@ -33,25 +43,43 @@ func TestStudioToken(t *testing.T) {
 	svc, _ := newStudio(t)
 	actor := domain.Actor{UserID: 1, Email: "a@b.pe", Role: domain.RoleAdmin}
 
-	if err := svc.Authenticate(ctx, "c25s_cualquiera"); !errors.Is(err, domain.ErrUnauthorized) {
+	auth := func(tok string) (int64, error) { return svc.Authenticate(ctx, tok) }
+	if _, err := auth("c25s_cualquiera"); !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatalf("sin token generado debe rechazar, dio %v", err)
 	}
-	tok, err := svc.GenerateToken(ctx, actor)
+	tok, err := svc.GenerateToken(ctx, actor, 1)
 	if err != nil || !strings.HasPrefix(tok, studio.TokenPrefix) || len(tok) != len(studio.TokenPrefix)+64 {
 		t.Fatalf("GenerateToken = %q, %v", tok, err)
 	}
-	if err := svc.Authenticate(ctx, tok); err != nil {
-		t.Fatalf("token válido rechazado: %v", err)
+	if fid, err := auth(tok); err != nil || fid != 1 {
+		t.Fatalf("token válido = %d, %v", fid, err)
 	}
-	if err := svc.Authenticate(ctx, tok+"x"); !errors.Is(err, domain.ErrUnauthorized) {
+	if _, err := auth(tok + "x"); !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatal("token alterado aceptado")
 	}
-	tok2, _ := svc.GenerateToken(ctx, actor)
-	if svc.Authenticate(ctx, tok) == nil || svc.Authenticate(ctx, tok2) != nil {
+	// la PC de Barranca tiene su propio token; no toca el de Huacho
+	tokB, _ := svc.GenerateToken(ctx, actor, 2)
+	if fid, err := auth(tokB); err != nil || fid != 2 {
+		t.Fatalf("token de Barranca = %d, %v", fid, err)
+	}
+	if fid, err := auth(tok); err != nil || fid != 1 {
+		t.Fatal("el token de Huacho debe seguir valiendo")
+	}
+	tok2, _ := svc.GenerateToken(ctx, actor, 1)
+	if _, err := auth(tok); err == nil {
 		t.Fatal("generar un token nuevo debe invalidar el anterior")
 	}
-	if err := svc.RevokeToken(ctx, actor); err != nil || svc.Authenticate(ctx, tok2) == nil {
+	if _, err := auth(tok2); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RevokeToken(ctx, actor, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := auth(tok2); err == nil {
 		t.Fatal("revocar debe invalidar el token")
+	}
+	if fid, _ := auth(tokB); fid != 2 {
+		t.Fatal("revocar Huacho no debe afectar a Barranca")
 	}
 }
 
@@ -77,7 +105,7 @@ func TestStudioSpotsAndAirplays(t *testing.T) {
 	if sp.Advertiser != "Ferretería" || sp.SHA256 != "sha-/uploads/fm/a.mp3" {
 		t.Fatalf("debe limpiar el anunciante y calcular el hash: %+v", sp)
 	}
-	live, err := svc.SpotsForStudio(ctx)
+	live, err := svc.SpotsForStudio(ctx, 1)
 	if err != nil || len(live) != 1 || live[0].ID != sp.ID {
 		t.Fatalf("SpotsForStudio debe excluir la vencida: %+v, %v", live, err)
 	}
@@ -96,18 +124,18 @@ func TestStudioSpotsAndAirplays(t *testing.T) {
 		{SpotID: sp.ID, AiredAt: now, PlayUUID: "con espacios"},                  // uuid inválido: rechazada
 		{SpotID: 999, AiredAt: now.Add(-time.Minute), PlayUUID: "sin-cuna-0001"}, // cuña inexistente: ignorada
 	}
-	res, err := svc.RecordAirplays(ctx, batch)
+	res, err := svc.RecordAirplays(ctx, 1, batch)
 	if err != nil || res.Inserted != 1 || res.Ignored != 1 || len(res.Rejected) != 2 {
 		t.Fatalf("RecordAirplays = %+v, %v", res, err)
 	}
-	if res, _ = svc.RecordAirplays(ctx, batch); res.Inserted != 0 || res.Ignored != 2 {
+	if res, _ = svc.RecordAirplays(ctx, 1, batch); res.Inserted != 0 || res.Ignored != 2 {
 		t.Fatalf("reenviar no debe duplicar: %+v", res)
 	}
 	counts, _ := svc.TodayCounts(ctx)
 	if counts[sp.ID] != 1 {
 		t.Fatalf("TodayCounts = %v", counts)
 	}
-	if _, err := svc.RecordAirplays(ctx, make([]studio.AirplayInput, studio.MaxAirplayBatch+1)); !isValidation(err) {
+	if _, err := svc.RecordAirplays(ctx, 1, make([]studio.AirplayInput, studio.MaxAirplayBatch+1)); !isValidation(err) {
 		t.Fatal("un lote demasiado grande debe ser error de validación")
 	}
 }
@@ -115,23 +143,26 @@ func TestStudioSpotsAndAirplays(t *testing.T) {
 func TestStudioHeartbeatAndNowPlaying(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newStudio(t)
-	if err := svc.Heartbeat(ctx, studio.HeartbeatInput{Version: "0.1.0", Mode: "otro"}); !isValidation(err) {
+	if err := svc.Heartbeat(ctx, 1, studio.HeartbeatInput{Version: "0.1.0", Mode: "otro"}); !isValidation(err) {
 		t.Fatal("modo desconocido debe ser error de validación")
 	}
-	if err := svc.Heartbeat(ctx, studio.HeartbeatInput{Version: "0.1.0", Mode: domain.StudioAuto,
+	if err := svc.Heartbeat(ctx, 1, studio.HeartbeatInput{Version: "0.1.0", Mode: domain.StudioAuto,
 		Encoder: []byte(`{"connected":true,"kbps":128}`)}); err != nil {
 		t.Fatal(err)
 	}
-	if svc.CurrentNowPlaying(ctx, time.Minute) != nil {
+	if svc.CurrentNowPlaying(ctx, 1, time.Minute) != nil {
 		t.Fatal("sin datos no debe haber 'lo que suena'")
 	}
-	if err := svc.SetNowPlaying(ctx, domain.NowPlaying{Artist: "Agua Marina", Title: "Paloma ajena"}); err != nil {
+	if err := svc.SetNowPlaying(ctx, 1, domain.NowPlaying{Artist: "Agua Marina", Title: "Paloma ajena"}); err != nil {
 		t.Fatal(err)
 	}
-	if np := svc.CurrentNowPlaying(ctx, time.Minute); np == nil || np.Display() != "Agua Marina - Paloma ajena" {
+	if np := svc.CurrentNowPlaying(ctx, 1, time.Minute); np == nil || np.Display() != "Agua Marina - Paloma ajena" {
 		t.Fatalf("CurrentNowPlaying = %+v", np)
 	}
-	st, _ := svc.State(ctx)
+	if svc.CurrentNowPlaying(ctx, 2, time.Minute) != nil {
+		t.Fatal("lo que suena en Huacho no es lo que suena en Barranca")
+	}
+	st, _ := svc.State(ctx, 1)
 	if st.Version != "0.1.0" || !strings.Contains(st.EncoderJSON, "128") {
 		t.Fatalf("estado = %+v", st)
 	}

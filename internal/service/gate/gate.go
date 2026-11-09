@@ -39,6 +39,7 @@ type Service struct {
 	settings   SettingsReader
 	tvPath     string
 	sourcePass string // contraseña de fuente de Icecast (ICECAST_SOURCE_PASSWORD)
+	mounts     MountChecker
 }
 
 // New crea el servicio. tvPath es el nombre del path de MediaMTX (p. ej. "tv");
@@ -91,12 +92,24 @@ func (s *Service) RadioAllowed(ctx context.Context) bool {
 	return err == nil && set.RadioEnabled
 }
 
-// RadioSourceAllowed indica si Icecast debe aceptar a la PC emisora (stream_auth).
-func (s *Service) RadioSourceAllowed(ctx context.Context, password string) bool {
-	if !s.RadioAllowed(ctx) {
+// MountChecker dice si un montaje de Icecast pertenece a una frecuencia
+// activa con audio local (lo implementa service/frequencies).
+type MountChecker interface {
+	MountAllowed(ctx context.Context, mount string) bool
+}
+
+// SetMounts configura qué montajes acepta stream_auth. Sin configurar se
+// acepta cualquiera (solo se comprueba la contraseña).
+func (s *Service) SetMounts(m MountChecker) { s.mounts = m }
+
+// RadioSourceAllowed indica si Icecast debe aceptar a una PC emisora en un
+// montaje (stream_auth): radio habilitada, licencia sin bloqueo, contraseña
+// correcta y montaje de una frecuencia activa.
+func (s *Service) RadioSourceAllowed(ctx context.Context, password, mount string) bool {
+	if !s.RadioAllowed(ctx) || !equal(password, s.sourcePass) {
 		return false
 	}
-	return equal(password, s.sourcePass)
+	return s.mounts == nil || s.mounts.MountAllowed(ctx, mount)
 }
 
 func equal(a, b string) bool {

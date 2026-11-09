@@ -18,11 +18,20 @@ Todas se registran en `internal/transport/httpserver/router.go`.
 {
   "radio": {"online": true, "listeners": 12, "title": "Artista - Canción", "bitrate": 128},
   "tv": {"online": false, "viewers": 0},
-  "on_air": {"title": "Mañanas Club", "host": "DJ", "start": "06:00", "end": "09:00", "image": ""}
+  "on_air": {"title": "Mañanas Club", "host": "DJ", "start": "06:00", "end": "09:00", "image": ""},
+  "stations": [
+    {"id": 1, "city": "Huacho", "label": "93.3 FM", "external": false, "online": true, "listeners": 12,
+     "title": "Artista - Canción", "on_air": {"title": "Mañanas Club", "host": "DJ", "start": "06:00", "end": "09:00", "image": ""}},
+    {"id": 3, "city": "Huaral", "label": "105.4 FM", "external": true, "online": null, "listeners": null,
+     "title": "", "on_air": null}
+  ]
 }
 ```
-`on_air` es `null` si no hay programa. Se cachea 5 s en el servidor. Si la PC del estudio informó
-lo que suena hace menos de 2 minutos, `radio.title` es ese título (ver API del estudio).
+`stations` tiene una entrada por frecuencia activa, en orden (la web muestra un reproductor por
+cada una). De un servidor externo no se sabe si está al aire ni cuántos escuchan: `null`.
+`radio` y `on_air` son los de la frecuencia principal (compatibilidad). `on_air` es `null` si no
+hay programa. Se cachea 5 s en el servidor. Si la PC del estudio de una frecuencia informó lo que
+suena hace menos de 2 minutos, su `title` es ese título (ver API del estudio).
 
 ### `GET /api/ads/preroll?kind=video|audio`
 - `204` si no hay anuncio (o la licencia desactivó la publicidad).
@@ -43,8 +52,11 @@ Contrato entre el servidor y el programa de automatización de la PC de la radio
 Handlers en `internal/transport/httpserver/studioapi`, lógica en `internal/service/studio`.
 **Si cambia algo aquí, actualice también el cliente de `estudio/` y sus tests.**
 
+- **Una PC por frecuencia:** cada frecuencia tiene su token. El token identifica la frecuencia:
+  `config` devuelve su ciudad y su montaje, `spots` y `programs` traen los suyos más los de
+  «todas», y `heartbeat`, `nowplaying` y `airplays` se guardan en esa frecuencia.
 - **Autenticación:** cabecera `Authorization: Bearer c25s_<64 hex>`. El token se genera en
-  Admin → Estudio (PC), se muestra una sola vez y el servidor solo guarda su SHA-256.
+  Admin → Estudio (PC) para cada frecuencia, se muestra una sola vez y el servidor solo guarda su SHA-256.
   Sin token válido: `401 {"error":"unauthorized"}` con `WWW-Authenticate: Bearer realm="studio"`.
 - **Licencia:** con bloqueo total responde `503 {"error":"suspended"}` (Icecast también rechaza
   la fuente). La PC debe seguir sonando por FM y mostrar "servicio web suspendido".
@@ -56,18 +68,20 @@ Handlers en `internal/transport/httpserver/studioapi`, lógica en `internal/serv
 ### `GET /api/studio/config`
 ```json
 {
-  "station": {"name": "Radio Club 25", "frequency": "93.3 FM",
-              "frequencies": [{"city": "Huacho", "frequency": "93.3", "band": "FM", "label": "93.3 FM"},
-                              {"city": "Barranca", "frequency": "103.2", "band": "FM", "label": "103.2 FM"}],
+  "station": {"name": "Radio Club 25", "frequency": "103.2 FM", "frequency_id": 2, "city": "Barranca",
+              "frequencies": [{"id": 1, "city": "Huacho", "frequency": "93.3", "band": "FM", "label": "93.3 FM"},
+                              {"id": 2, "city": "Barranca", "frequency": "103.2", "band": "FM", "label": "103.2 FM"}],
               "slogan": "La música que va contigo",
               "timezone": "America/Lima", "latitude": -11.1067, "longitude": -77.605},
-  "icecast": {"host": "radioclub25.sehuacho.com", "port": 8010, "mount": "/radio",
-              "user": "source", "radio_enabled": true},
+  "icecast": {"host": "radioclub25.sehuacho.com", "port": 8010, "mount": "/radio-barranca",
+              "user": "source", "radio_enabled": true, "source": "local"},
   "server_time": "2026-11-08T17:00:00Z"
 }
 ```
-`frequencies` son las activas de Admin → Frecuencias en orden (puede ser `[]`); `frequency` es la
-principal (la primera) o, si no hay ninguna, la de Marca y contacto.
+`station.frequency`, `city` y `icecast.mount` son los de la frecuencia del token; `frequencies` son
+todas las activas en orden. Si el audio de esa frecuencia sale de un servidor externo
+(`icecast.source = "external"`), `host` y `mount` van vacíos y la PC conserva el servidor que tenga
+configurado.
 La contraseña de fuente **no** se envía: se escribe una vez en la PC (que la guarda cifrada).
 Coordenadas: variables `STATION_LAT` / `STATION_LON`.
 
@@ -135,7 +149,8 @@ Respuesta:
 - `/login`, `/logout`
 - `/admin/…` (editor+): resumen, `ads`, `stats`, `stats.csv`, `fm-spots` (cuñas FM),
   `fm-spots/report` y `fm-spots/report.csv` (comprobante de emisión), `programs`, `password`;
-  (admin+): `settings`, `streams`, `studio` (token y estado de la PC), `users`.
+  (admin+): `settings`, `streams`, `studio` (token y estado de la PC de cada frecuencia:
+  `POST /admin/studio/{frecuencia}/token` y `/token/revoke`), `users`. Editor+: `frequencies`.
 - `/superadmin/…` (superadmin): `client`, `plans`, `contracts`, `payments`, `license`, `audit`.
 
 ## Archivos

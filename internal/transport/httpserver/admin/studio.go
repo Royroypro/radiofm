@@ -18,48 +18,86 @@ import (
 )
 
 // Pantallas del panel para "Club25 Estudio" (la PC de la radio):
-//   - Estudio (PC), solo admin: token de acceso y estado de la PC.
+//   - Estudio (PC), solo admin: una PC por frecuencia, cada una con su token y su estado.
 //   - Cuñas FM, editor o superior: alta/edición de cuñas y comprobante de emisión.
 
 // studioOnline es el tiempo sin heartbeat tras el que la PC se considera desconectada.
 const studioOnline = 3 * time.Minute
 
-// StudioPage muestra el estado de la PC y el token: GET /admin/studio
-func (h *Handler) StudioPage(w http.ResponseWriter, r *http.Request) {
-	h.renderStudio(w, r, "")
+// StudioStation es una frecuencia con el estado de su PC del estudio.
+type StudioStation struct {
+	Freq   domain.Frequency
+	State  *domain.StudioState
+	Online bool
+	Ingest string // servidor:puerto/montaje al que envía su audio ("" si es externo)
 }
 
-func (h *Handler) renderStudio(w http.ResponseWriter, r *http.Request, newToken string) {
-	st, err := h.Studio.State(r.Context())
+// StudioPage muestra la PC de cada frecuencia: GET /admin/studio
+func (h *Handler) StudioPage(w http.ResponseWriter, r *http.Request) {
+	h.renderStudio(w, r, 0, "")
+}
+
+func (h *Handler) renderStudio(w http.ResponseWriter, r *http.Request, tokenFor int64, newToken string) {
+	ctx := r.Context()
+	freqs, err := h.Frequencies.List(ctx)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
+	states, err := h.Studio.States(ctx)
+	if err != nil {
+		h.Views.Error(w, r, err)
+		return
+	}
+	now := time.Now()
+	list := make([]StudioStation, 0, len(freqs))
+	for _, f := range freqs {
+		st := states[f.ID]
+		if st == nil {
+			st = &domain.StudioState{FrequencyID: f.ID, EncoderJSON: "{}"}
+		}
+		s := StudioStation{Freq: f, State: st, Online: st.Online(now, studioOnline)}
+		if !f.IsExternal() {
+			s.Ingest = fmt.Sprintf("%s:%d%s", h.Cfg.IngestHost, h.Cfg.IcecastPublicPt, f.Mount)
+		}
+		list = append(list, s)
+	}
 	h.Views.Render(w, r, http.StatusOK, "admin/studio", "Estudio (PC)", map[string]any{
-		"State": st, "Online": st.Online(time.Now(), studioOnline), "NewToken": newToken,
-		"APIBase": h.Cfg.BaseURL + "/api/studio",
-		"Ingest":  fmt.Sprintf("%s:%d%s", h.Cfg.IngestHost, h.Cfg.IcecastPublicPt, h.Cfg.IcecastMount),
+		"Stations": list, "TokenFor": tokenFor, "NewToken": newToken, "APIBase": h.Cfg.BaseURL + "/api/studio",
 	})
 }
 
-// StudioTokenNew genera un token nuevo y lo muestra una sola vez: POST /admin/studio/token
+// StudioTokenNew genera un token nuevo para la PC de una frecuencia y lo
+// muestra una sola vez: POST /admin/studio/{fid}/token
 func (h *Handler) StudioTokenNew(w http.ResponseWriter, r *http.Request) {
-	tok, err := h.Studio.GenerateToken(r.Context(), middleware.ActorFrom(r))
+	ctx := r.Context()
+	f, err := h.Frequencies.Get(ctx, form.ID(chi.URLParam(r, "fid")))
+	if err != nil {
+		h.Views.Error(w, r, err)
+		return
+	}
+	tok, err := h.Studio.GenerateToken(ctx, middleware.ActorFrom(r), f.ID)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	h.renderStudio(w, r, tok)
+	h.renderStudio(w, r, f.ID, tok)
 }
 
-// StudioTokenRevoke revoca el token: POST /admin/studio/token/revoke
+// StudioTokenRevoke revoca el token de una frecuencia: POST /admin/studio/{fid}/token/revoke
 func (h *Handler) StudioTokenRevoke(w http.ResponseWriter, r *http.Request) {
-	if err := h.Studio.RevokeToken(r.Context(), middleware.ActorFrom(r)); err != nil {
+	ctx := r.Context()
+	f, err := h.Frequencies.Get(ctx, form.ID(chi.URLParam(r, "fid")))
+	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
-	views.Redirect(w, r, "/admin/studio", "ok", "Token revocado: la PC ya no puede sincronizar.")
+	if err := h.Studio.RevokeToken(ctx, middleware.ActorFrom(r), f.ID); err != nil {
+		h.Views.Error(w, r, err)
+		return
+	}
+	views.Redirect(w, r, "/admin/studio", "ok", "Token de "+f.City+" revocado: esa PC ya no puede sincronizar.")
 }
 
 // ---------- Cuñas FM ----------
@@ -123,6 +161,7 @@ func (h *Handler) FMSpotSave(w http.ResponseWriter, r *http.Request) {
 	sp.StartsAt = form.DateTimePtr(r, "starts_at", h.Cfg.Location)
 	sp.EndsAt = form.DateTimePtr(r, "ends_at", h.Cfg.Location)
 	sp.Active = form.Bool(r, "active")
+	sp.FrequencyID = form.ID(form.String(r, "frequency_id"))
 
 	title := "Nueva cuña FM"
 	if id > 0 {
@@ -166,7 +205,8 @@ func (h *Handler) FMSpotDelete(w http.ResponseWriter, r *http.Request) {
 // reportFilter lee ?from&to&advertiser (por defecto, últimos 30 días; ver statsRange).
 func (h *Handler) reportFilter(r *http.Request) (domain.AirplayFilter, string, string) {
 	from, to, fromStr, toStr := h.statsRange(r)
-	return domain.AirplayFilter{From: from, To: to, Advertiser: form.String(r, "advertiser")}, fromStr, toStr
+	return domain.AirplayFilter{From: from, To: to, Advertiser: form.String(r, "advertiser"),
+		FrequencyID: form.ID(form.String(r, "f"))}, fromStr, toStr
 }
 
 // advertiserSummary es el total por anunciante del comprobante.
@@ -228,7 +268,7 @@ func (h *Handler) FMSpotReport(w http.ResponseWriter, r *http.Request) {
 		plays = plays[len(plays)-1000:] // en pantalla, las últimas 1000; el CSV trae todas
 	}
 	h.Views.Render(w, r, http.StatusOK, "admin/fm_spot_report", "Comprobante de emisión", map[string]any{
-		"From": fromStr, "To": toStr, "Advertiser": f.Advertiser, "Advertisers": advertisers,
+		"From": fromStr, "To": toStr, "Advertiser": f.Advertiser, "Advertisers": advertisers, "Freq": f.FrequencyID,
 		"Plays": plays, "Summary": summary,
 	})
 }
@@ -250,14 +290,20 @@ func (h *Handler) FMSpotReportCSV(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("\xEF\xBB\xBF")) // BOM para que Excel lea bien las tildes
 	cw := csv.NewWriter(w)
 	cw.Comma = ';'
-	_ = cw.Write([]string{"Fecha", "Hora", "Anunciante", "Cuña", "Duración (s)", "Completa", "ID de emisión"})
+	cities := map[int64]string{}
+	if list, err := h.Frequencies.List(r.Context()); err == nil {
+		for _, fr := range list {
+			cities[fr.ID] = fr.Label() + " " + fr.City
+		}
+	}
+	_ = cw.Write([]string{"Fecha", "Hora", "Frecuencia", "Anunciante", "Cuña", "Duración (s)", "Completa", "ID de emisión"})
 	for _, p := range plays {
 		t := p.AiredAt.In(h.Cfg.Location)
 		complete := "No"
 		if p.Complete {
 			complete = "Sí"
 		}
-		_ = cw.Write([]string{t.Format("02/01/2006"), t.Format("15:04:05"), p.Advertiser, p.SpotName,
+		_ = cw.Write([]string{t.Format("02/01/2006"), t.Format("15:04:05"), cities[p.FrequencyID], p.Advertiser, p.SpotName,
 			fmt.Sprintf("%.1f", float64(p.DurationMs)/1000), complete, p.PlayUUID})
 	}
 	cw.Flush()

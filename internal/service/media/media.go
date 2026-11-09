@@ -19,6 +19,7 @@ import (
 // RadioSource es lo que se necesita de Icecast.
 type RadioSource interface {
 	Status(ctx context.Context) (icecast.MountStatus, error)
+	StatusAll(ctx context.Context) (map[string]icecast.MountStatus, error)
 	KillSource(ctx context.Context) error
 }
 
@@ -30,9 +31,12 @@ type TVSource interface {
 
 // Status es el estado combinado que se muestra en la web y en los paneles.
 type Status struct {
-	Radio     RadioStatus `json:"radio"`
-	TV        TVStatus    `json:"tv"`
-	CheckedAt time.Time   `json:"checked_at"`
+	Radio RadioStatus `json:"radio"`
+	TV    TVStatus    `json:"tv"`
+	// Mounts es el estado de cada montaje con fuente conectada (una frecuencia
+	// por montaje). Los que no están, están fuera del aire.
+	Mounts    map[string]RadioStatus `json:"-"`
+	CheckedAt time.Time              `json:"checked_at"`
 }
 
 // RadioStatus es el estado de la radio.
@@ -90,6 +94,14 @@ func (s *Service) Status(ctx context.Context) Status {
 			return
 		}
 		st.Radio = RadioStatus{Online: r.Online, Listeners: r.Listeners, Title: r.Title, Bitrate: r.Bitrate}
+		all, err := s.radio.StatusAll(ctx)
+		if err != nil {
+			return
+		}
+		st.Mounts = make(map[string]RadioStatus, len(all))
+		for m, x := range all {
+			st.Mounts[m] = RadioStatus{Online: x.Online, Listeners: x.Listeners, Title: x.Title, Bitrate: x.Bitrate}
+		}
 	}()
 	go func() {
 		defer wg.Done()
