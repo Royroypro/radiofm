@@ -40,7 +40,7 @@ Contra el servidor real (la web debe pasar a "En vivo" con el título en ~15 s):
 
 ```powershell
 $env:CLUB25_ICECAST_PASSWORD = '<clave de Admin → Streams y emisión>'
-task cli -- encode -host radioclub25.sehuacho.com -port 8010 -mount /radio C:\Musica\a.mp3 C:\Musica\b.mp3
+task cli -- encode -host radioclub25peru.com -port 8010 -mount /radio C:\Musica\a.mp3 C:\Musica\b.mp3
 ```
 
 Sin `-device` no usa tarjeta (reloj de software); con `-device "Altavoces"` también suena en la PC.

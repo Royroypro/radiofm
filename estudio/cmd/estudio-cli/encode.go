@@ -17,7 +17,7 @@ import (
 // cmdEncode: reproduce una lista con crossfade y la emite a Icecast (con
 // metadata). Sin -device no usa tarjeta: el motor avanza con el reloj de software.
 //
-//	estudio-cli encode -host radioclub25.sehuacho.com -port 8010 -mount /radio [-device X] a.mp3 b.mp3
+//	estudio-cli encode -host radioclub25peru.com -port 8010 -mount /radio [-device X] a.mp3 b.mp3
 //
 // La contraseña de fuente se pasa con -password o con la variable CLUB25_ICECAST_PASSWORD.
 func cmdEncode(args []string, stdout, stderr io.Writer) int {

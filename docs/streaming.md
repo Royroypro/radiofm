@@ -15,7 +15,7 @@ Settings → Main → Server → **ADD**:
 |---|---|
 | Name | Radio Club 25 |
 | Type | **Icecast** |
-| Address | `radioclub25.sehuacho.com` |
+| Address | `radioclub25peru.com` |
 | Port | `8010` |
 | Password | la de `ICECAST_SOURCE_PASSWORD` (se ve en el panel) |
 | Icecast mountpoint | `radio` (o `/radio`) |
@@ -59,7 +59,7 @@ Ajustes → **Emisión**:
 | Campo | Valor |
 |---|---|
 | Servicio | **Personalizado…** |
-| Servidor | `rtmp://radioclub25.sehuacho.com:1935` |
+| Servidor | `rtmp://radioclub25peru.com:1935` |
 | Clave de retransmisión | `tv?user=emisora&pass=CLAVE` (cópiela del panel) |
 
 Ajustes → **Salida** (modo avanzado):
@@ -77,7 +77,7 @@ Ajustes → **Video**: resolución de salida **1280×720**, 30 fps.
 > El audio de la TV va dentro del video (pista de OBS). Es independiente del audio de la radio.
 
 ### Alternativa SRT (conexiones inestables)
-OBS 30+: servidor `srt://radioclub25.sehuacho.com:8890?streamid=publish:tv:emisora:CLAVE&pkt_size=1316`
+OBS 30+: servidor `srt://radioclub25peru.com:8890?streamid=publish:tv:emisora:CLAVE&pkt_size=1316`
 y clave vacía.
 
 ## Cambiar la clave de la TV

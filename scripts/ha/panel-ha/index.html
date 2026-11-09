@@ -197,12 +197,12 @@
       <tr><td>Web, paneles, API del estudio</td><td><code>https://radioclub25peru.com</code></td><td style="color:var(--dim)">VPS → HAProxy (TLS) → edge del nodo activo · www redirige al dominio</td></tr>
       <tr><td>Radio (oyentes)</td><td><code>/radio</code>, <code>/radio-&lt;frecuencia&gt;</code></td><td style="color:var(--dim)">mismo dominio; stream largo (timeout 24 h en HAProxy)</td></tr>
       <tr><td>TV (HLS)</td><td><code>/hls/tv/index.m3u8</code></td><td style="color:var(--dim)">mismo dominio</td></tr>
-      <tr><td>Ingesta del estudio (BUTT / Club25 Estudio)</td><td><code>radioclub25.sehuacho.com:8010</code></td><td style="color:var(--dim)">directo al Nodo A (IP pública 8.243.126.126), no pasa por el VPS</td></tr>
-      <tr><td>Ingesta de video (OBS)</td><td><code>rtmp://radioclub25.sehuacho.com:1935</code> · SRT <code>:8890/udp</code></td><td style="color:var(--dim)">directo al Nodo A</td></tr>
+      <tr><td>Ingesta del estudio (BUTT / Club25 Estudio)</td><td><code>radioclub25peru.com:8010</code></td><td style="color:var(--dim)">VPS → HAProxy tcp (<code>radioclub25_icecast</code>) → nodo activo</td></tr>
+      <tr><td>Ingesta de video (OBS)</td><td><code>rtmp://radioclub25peru.com:1935</code> · SRT <code>:8890/udp</code></td><td style="color:var(--dim)">RTMP: HAProxy tcp (<code>radioclub25_rtmp</code>) · SRT: DNAT del VPS a A</td></tr>
       <tr><td>Nodo A (principal)</td><td><code>10.10.0.2:8125</code></td><td style="color:var(--dim)">/home/lima/sehuacho/radioclub25 · cron de copia cada 5 min</td></tr>
       <tr><td>Nodo B (reserva)</td><td><code>10.10.0.3:8125</code></td><td style="color:var(--dim)">/home/oyon/sehuacho/radioclub25 · RTMP 1945, SRT 8900 (B ya usa 1935/8890)</td></tr>
       <tr><td>Nodo C (reserva)</td><td><code>10.10.0.4:8125</code></td><td style="color:var(--dim)">/home/server3/sehuacho/radioclub25</td></tr>
-      <tr><td>Dirección anterior</td><td><code>https://radioclub25.sehuacho.com</code></td><td style="color:var(--dim)">sigue sirviendo desde el nginx de A</td></tr>
+      <tr><td>Subdominio anterior</td><td><code>radioclub25.sehuacho.com</code></td><td style="color:var(--dim)">se desactiva: nada depende de él</td></tr>
     </table>
   </div>
 

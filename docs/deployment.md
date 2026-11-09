@@ -4,9 +4,10 @@ Dominio del cliente: **`radioclub25peru.com`** → VPS (146.181.41.183, HAProxy)
 WireGuard, con B y C en reserva. Ese montaje (edge, copia a B/C, HAProxy, panel HA, failover)
 está en **[scripts/ha/README.md](../scripts/ha/README.md)**.
 
-Servidor de la app (Nodo A): `radioclub25.sehuacho.com` → 8.243.126.126 (Ubuntu, Docker, nginx
-del host con certbot y otros sitios). Sigue sirviendo la web y es el host de **ingesta** de la PC
-del estudio. Carpeta del proyecto: `/home/lima/sehuacho/radioclub25`.
+Todo entra por ese dominio, también la **ingesta** de la PC del estudio (8010, 1935, 8890 por el
+VPS). El subdominio anterior `radioclub25.sehuacho.com` (nginx del host de A, 8.243.126.126) se
+desactiva; lo que sigue sobre él es solo histórico. Carpeta del proyecto:
+`/home/lima/sehuacho/radioclub25`.
 
 ## Puertos
 

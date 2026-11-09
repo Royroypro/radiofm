@@ -62,3 +62,22 @@ func TestLoadMigratesOldServerURL(t *testing.T) {
 		t.Fatalf("valores por defecto = %+v / %+v", d.Server, d.Icecast)
 	}
 }
+
+// 1.0.8: el host de Icecast del subdominio anterior pasa al dominio nuevo; otro host se respeta.
+func TestLoadMigratesOldIngestHost(t *testing.T) {
+	for old, want := range map[string]string{
+		OldIngestHost:       IngestHost,
+		"192.168.1.50":      "192.168.1.50",
+		"radio.ejemplo.com": "radio.ejemplo.com",
+	} {
+		dir := t.TempDir()
+		body := `{"server":{"url":"` + ServerURL + `"},"icecast":{"host":"` + old + `","port":8010,"mount":"/radio"}}`
+		if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := NewStore(dir).Load()
+		if err != nil || got.Icecast.Host != want {
+			t.Errorf("%s → %q, %v (quería %q)", old, got.Icecast.Host, err, want)
+		}
+	}
+}

@@ -10,8 +10,10 @@ Internet ── radioclub25peru.com (DNS → VPS 146.181.41.183)
         ├─ rc25_b 10.10.0.3:8125   reserva: stack PARADO, copia de data/ cada 5 min
         └─ rc25_c 10.10.0.4:8125   reserva: stack PARADO, copia de data/ cada 5 min
 
-PC del estudio ── radioclub25.sehuacho.com (8.243.126.126 → Nodo A directo)
-   ├─ Icecast 8010/tcp (audio)      └─ MediaMTX 1935/tcp RTMP · 8890/udp SRT (TV)
+PC del estudio ── radioclub25peru.com (el mismo VPS)
+   ├─ 8010/tcp Icecast (audio) ─ HAProxy listen radioclub25_icecast (tcp) → A:8010 (B/C reserva)
+   ├─ 1935/tcp RTMP (TV, OBS)  ─ HAProxy listen radioclub25_rtmp (tcp)    → A:1935 (B:1945, C:1935)
+   └─ 8890/udp SRT (TV, OBS)   ─ iptables DNAT del VPS                    → A:8890
 ```
 
 - **edge**: servicio `edge` del `docker-compose.yml` (nginx, `deploy/nginx/edge.conf`).
@@ -25,12 +27,15 @@ PC del estudio ── radioclub25.sehuacho.com (8.243.126.126 → Nodo A directo
   lo correcto (dos apps con SQLite serían dos bases separadas).
 - **Mismos secretos** en los tres `.env` (los copia `desplegar-nodos.sh`): las
   sesiones, los tokens del estudio y las claves de Icecast siguen valiendo tras un failover.
-- **Ingesta directa a A**: la PC del estudio no pasa por el VPS (latencia y puertos
-  de Oracle). Tras un failover la web vuelve sola; la emisión en vivo requiere
-  cambiar el host en el estudio (ver abajo).
+- **Ingesta por el VPS**: la PC del estudio emite a `radioclub25peru.com`
+  (`INGEST_HOST`; el panel se lo envía al Estudio, que lo guarda solo). Audio y RTMP
+  siguen solos al nodo activo tras un failover; el SRT (UDP) hay que repuntarlo.
+  Se monta con `vps-radioclub25-ingesta.sh`. La red de Oracle ya deja pasar los puertos.
 - Los servers de HAProxy se llaman `rc25_*`, no `nodo_*`: el panel del legado
   deshabilita todo server `nodo_<letra>` al desacoplar un nodo.
-- `radioclub25.sehuacho.com` (nginx del host de A, certbot) sigue funcionando igual.
+- `radioclub25.sehuacho.com` (subdominio anterior, nginx del host de A) **se desactiva**:
+  nada depende de él (web, API del estudio, ingesta y archivos van por el dominio nuevo).
+  Solo queda como email del superadmin inicial, que es un identificador, no tráfico.
 
 ## Montaje (una vez, desde A)
 
@@ -51,9 +56,12 @@ scripts/ha/desplegar-nodos.sh
 # 4. VPS: certificado + HAProxy (repetible; copia previa y validación antes de recargar)
 ssh vps-restaurante 'sudo bash -s' < scripts/ha/vps-radioclub25.sh
 
-# 5. URL pública de la app
-sed -i 's|^BASE_URL=.*|BASE_URL=https://radioclub25peru.com|' .env
-docker compose up -d app && scripts/ha/desplegar-nodos.sh   # el .env nuevo llega a B y C
+# 5. VPS: ingesta del estudio (8010/tcp, 1935/tcp, 8890/udp) por el dominio
+ssh vps-restaurante 'sudo bash -s' < scripts/ha/vps-radioclub25-ingesta.sh
+
+# 6. URL pública e ingesta de la app (INGEST_HOST solo DESPUÉS del paso 5)
+sed -i 's|^BASE_URL=.*|BASE_URL=https://radioclub25peru.com|; s|^INGEST_HOST=.*|INGEST_HOST=radioclub25peru.com|' .env
+docker compose up -d app icecast && scripts/ha/desplegar-nodos.sh   # el .env nuevo llega a B y C
 ```
 
 Puertos por nodo: B ya tiene otro MediaMTX en 1935/tcp, 8888/tcp y 8890/udp, así
@@ -86,10 +94,10 @@ Arranca el stack con la última copia; en ~10 s HAProxy marca `rc25_b` UP. El
 script se niega si A sigue sirviendo (`FORZAR=si` para saltarlo, sabiendo que
 entonces habrá que detener A).
 
-**Volver al aire**: en Club25 Estudio / BUTT / OBS cambiar el host al del nodo
-promovido. B y C no tienen IP pública propia hoy: hace falta reenviar en su router
-los puertos de ingesta (B: 8010/tcp, 1945/tcp, 8900/udp; C: 8010/tcp, 1935/tcp,
-8890/udp). Mientras tanto la web, la programación y el archivo funcionan.
+**Al aire**: el audio (8010) y el RTMP (1935) los pasa HAProxy al nodo promovido
+solos; el estudio solo tiene que reconectar. El SRT es un DNAT fijo a A: para
+usarlo tras un failover, en el VPS cambiar el destino de la regla `radioclub25` de
+`iptables -t nat` a `10.10.0.3:8900` (B) o `10.10.0.4:8890` (C).
 
 ## Failback (A vuelve)
 

@@ -4,7 +4,8 @@
 
 ```
                     ┌──────────────── servidor (Docker Compose) ───────────────┐
- PC emisora         │                                                          │
+ PC emisora ─ radioclub25peru.com :8010/:1935/:8890 ─ VPS (HAProxy tcp / DNAT) ─┐
+                    │                                                          │
   BUTT ──audio────────► icecast :8000 (host :8010) ◄──── stream_auth ──┐       │
   OBS ──video+audio───► mediamtx :1935 RTMP / :8890 SRT ◄─ auth http ──┤       │
                     │        │ HLS :8888 (127.0.0.1)                   │       │
@@ -14,7 +15,7 @@
                     │        │                              SQLite + uploads   │
                     └────────┼─────────────────────────────────────────┼───────┘
                              │                                         │
- Navegador ◄── HTTPS ── nginx del host (radioclub25.sehuacho.com) ─────┘
+ Navegador ◄─ HTTPS radioclub25peru.com ─ VPS (HAProxy) ─ edge nginx :8125 ─┘
                          /radio  → Icecast   (auth_request → app /internal/gate/radio)
                          /hls/   → MediaMTX
                          /       → app
@@ -23,7 +24,9 @@
 - **Icecast** y **MediaMTX** reciben y distribuyen los medios. No se modificó su código.
 - La **app Go** sirve la web y los paneles, guarda los datos en **SQLite** y es la autoridad
   que decide quién puede publicar o escuchar (licencia y claves).
-- **nginx** (ya instalado en el servidor) termina HTTPS y reparte las rutas.
+- Todo entra por **radioclub25peru.com**: el **HAProxy del VPS** termina HTTPS y pasa la web al
+  nginx **edge** del nodo activo (A, con B y C en reserva), que reparte las rutas; la ingesta del
+  estudio pasa por TCP/UDP. Ver [scripts/ha/README.md](../scripts/ha/README.md).
 
 ## Capas de la app
 

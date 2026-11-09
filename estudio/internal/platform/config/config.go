@@ -120,14 +120,16 @@ type InterfaceSettings struct {
 // Dominios del servidor.
 //   - ServerURL: la web y la API del estudio (radioclub25peru.com, detrás del VPS con
 //     HAProxy y nodos de reserva; ver scripts/ha/README.md en la raíz del repositorio).
-//   - IngestHost: el audio va directo al Nodo A (Icecast 8010), sin pasar por el VPS.
-//   - OldServerURL: el dominio anterior de la web; las instalaciones que lo tengan
-//     guardado pasan solas a ServerURL al abrir (los tokens siguen valiendo: es el
-//     mismo servidor).
+//   - IngestHost: el audio (Icecast 8010). Entra por el mismo dominio: el VPS lo pasa
+//     por TCP al nodo activo (scripts/ha/vps-radioclub25-ingesta.sh).
+//   - OldServerURL / OldIngestHost: el subdominio anterior, que se desactiva; las
+//     instalaciones que lo tengan guardado pasan solas al dominio nuevo al abrir (los
+//     tokens y claves siguen valiendo: es el mismo servidor).
 const (
-	ServerURL    = "https://radioclub25peru.com"
-	IngestHost   = "radioclub25.sehuacho.com"
-	OldServerURL = "https://radioclub25.sehuacho.com"
+	ServerURL     = "https://radioclub25peru.com"
+	IngestHost    = "radioclub25peru.com"
+	OldServerURL  = "https://radioclub25.sehuacho.com"
+	OldIngestHost = "radioclub25.sehuacho.com"
 )
 
 // Defaults devuelve la configuración inicial del plan.
@@ -215,6 +217,10 @@ func (c *Settings) migrate() {
 	// funcionando, pero el nuevo tiene nodos de reserva).
 	if strings.TrimRight(strings.TrimSpace(c.Server.URL), "/") == OldServerURL {
 		c.Server.URL = ServerURL
+	}
+	// 1.0.8: el audio también entra por radioclub25peru.com (el subdominio se apaga).
+	if strings.EqualFold(strings.TrimSpace(c.Icecast.Host), OldIngestHost) {
+		c.Icecast.Host = IngestHost
 	}
 }
 

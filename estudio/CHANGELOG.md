@@ -41,6 +41,12 @@ Requiere el panel web con campañas (migración 0005 del servidor).
 
 > Nota: las marcas que se hubieran ajustado a mano **antes** de esta versión se recalculan una vez con el
 > nuevo análisis (no había forma de distinguirlas). Desde la 1.1.0 los ajustes manuales se conservan.
+## 1.0.8 — el audio también por radioclub25peru.com (se publica junto con 1.2.0)
+
+- El audio (Icecast 8010) va a `radioclub25peru.com`, igual que la web: el subdominio
+  `radioclub25.sehuacho.com` se desactiva. Las instalaciones que lo tenían guardado se actualizan
+  solas al abrir (además, el panel web ya envía el host nuevo). Un host puesto a mano se respeta.
+- Publicar solo con la ingesta abierta en el VPS (`scripts/ha/vps-radioclub25-ingesta.sh`).
 
 ## 1.0.7 — dominio radioclub25peru.com
 

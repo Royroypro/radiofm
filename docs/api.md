@@ -73,7 +73,7 @@ Handlers en `internal/transport/httpserver/studioapi`, lógica en `internal/serv
                               {"id": 2, "city": "Barranca", "frequency": "103.2", "band": "FM", "label": "103.2 FM"}],
               "slogan": "La música que va contigo",
               "timezone": "America/Lima", "latitude": -11.1067, "longitude": -77.605},
-  "icecast": {"host": "radioclub25.sehuacho.com", "port": 8010, "mount": "/radio-barranca",
+  "icecast": {"host": "radioclub25peru.com", "port": 8010, "mount": "/radio-barranca",
               "user": "source", "radio_enabled": true, "source": "local"},
   "server_time": "2026-11-08T17:00:00Z"
 }
@@ -91,7 +91,7 @@ antelación). Responde `ETag`; con `If-None-Match` igual devuelve `304` sin cuer
 ```json
 {"spots": [{
   "id": 7, "advertiser": "Ferretería El Sol", "name": "Verano 20 s",
-  "url": "https://radioclub25.sehuacho.com/uploads/fm/3f9a….mp3",
+  "url": "https://radioclub25peru.com/uploads/fm/3f9a….mp3",
   "sha256": "e3b0c442…", "duration_ms": 20000,
   "starts_at": null, "ends_at": "2026-12-31T05:00:00Z",
   "plays_per_day": 6, "hour_from": 7, "hour_to": 13,

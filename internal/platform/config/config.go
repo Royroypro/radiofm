@@ -20,7 +20,7 @@ import (
 type Config struct {
 	Env      string // "development" o "production"
 	HTTPAddr string // dirección donde escucha la app, p. ej. ":8120"
-	BaseURL  string // URL pública sin "/" final, p. ej. "https://radioclub25.sehuacho.com"
+	BaseURL  string // URL pública sin "/" final, p. ej. "https://radioclub25peru.com"
 	DataDir  string // carpeta de datos (base SQLite y uploads)
 	WebDir   string // si no está vacío, plantillas y estáticos se leen del disco (modo desarrollo)
 	Location *time.Location

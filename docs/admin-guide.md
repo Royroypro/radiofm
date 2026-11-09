@@ -1,6 +1,6 @@
 # Guía del panel de la radio
 
-Entrar en **https://radioclub25.sehuacho.com/login** con su email y contraseña.
+Entrar en **https://radioclub25peru.com/login** con su email y contraseña.
 
 ## Roles
 - **Administrador**: todo el panel de la radio.
