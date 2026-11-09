@@ -16,10 +16,11 @@ const (
 	SlotTemp     SlotKind = "temp"     // temperatura locutada
 	SlotMode     SlotKind = "mode"     // cambio de modo (auto/asistido/en vivo)
 	SlotSilence  SlotKind = "silence"  // silencio de N segundos
+	SlotRelay    SlotKind = "relay"    // enlace a cadena: un stream externo (URL) durante N segundos
 )
 
 // SlotKinds en el orden de la interfaz.
-var SlotKinds = []SlotKind{SlotCategory, SlotTrack, SlotSpots, SlotTime, SlotTemp, SlotMode, SlotSilence}
+var SlotKinds = []SlotKind{SlotCategory, SlotTrack, SlotSpots, SlotTime, SlotTemp, SlotMode, SlotSilence, SlotRelay}
 
 // Valid indica si el tipo es conocido.
 func (k SlotKind) Valid() bool {
@@ -41,7 +42,9 @@ type ClockSlot struct {
 	Hard       bool     `json:"hard"`
 	Minute     int      `json:"minute"`  // 0–59, solo si Hard
 	Mode       string   `json:"mode"`    // SlotMode: auto | assisted | live
-	Seconds    int      `json:"seconds"` // SlotSilence
+	Seconds    int      `json:"seconds"` // SlotSilence y SlotRelay
+	URL        string   `json:"url"`     // SlotRelay: stream de la cadena (http/https)
+	Title      string   `json:"title"`   // SlotRelay: nombre ("Noticiero RPP")
 }
 
 // Clock es una plantilla de una hora: lista ordenada de slots.
@@ -99,6 +102,7 @@ type LogItem struct {
 	Mode       string        `json:"mode"`
 	Seconds    int           `json:"seconds"`
 	Note       string        `json:"note"` // p. ej. reglas de rotación relajadas
+	URL        string        `json:"url"`  // SlotRelay
 }
 
 // Display devuelve el texto del elemento para la interfaz.

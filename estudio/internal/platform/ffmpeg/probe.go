@@ -16,6 +16,7 @@ type Info struct {
 	Artist     string
 	Album      string
 	Genre      string
+	Composer   string
 	Year       string
 	Codec      string
 	SampleRate int
@@ -84,6 +85,7 @@ func parseProbe(b []byte) (Info, error) {
 	info.Artist = strings.TrimSpace(firstNonEmpty(tags["artist"], tags["album_artist"], tags["performer"]))
 	info.Album = strings.TrimSpace(tags["album"])
 	info.Genre = strings.TrimSpace(tags["genre"])
+	info.Composer = strings.TrimSpace(tags["composer"])
 	info.Year = strings.TrimSpace(firstNonEmpty(tags["date"], tags["year"]))
 	if len(info.Year) > 4 {
 		info.Year = info.Year[:4]

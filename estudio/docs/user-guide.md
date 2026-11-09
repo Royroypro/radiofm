@@ -3,7 +3,7 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25peru.com/uploads/estudio/app/1.3.0/club25-estudio-amd64-installer.exe`
+   `https://radioclub25peru.com/uploads/estudio/app/1.4.0/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
@@ -56,6 +56,14 @@ Desinstalar no los borra.
 2. **● Grabar**, hable, **■ Detener**. Con **▶ Escuchar la transición** oye cómo queda (por los audífonos).
 3. Ajuste cuántos segundos antes del final de su voz entra la siguiente canción y pulse **Guardar en la
    playlist**. Queda bloqueada: regenerar el día no la borra.
+
+## Grabador, RDS y enlace a cadena (1.4)
+
+- **Grabador**: viene encendido (Ajustes → Grabador de la emisión). Para escuchar o sacar un tramo:
+  Reportes → Grabación de la emisión. Suba el límite de MB para guardar 30 días (≈ 21 GB).
+- **RDS**: Ajustes → RDS, con la IP:puerto o el puerto COM del codificador del transmisor.
+- **Enlace a cadena**: en Relojes agregue un slot «Enlace a cadena» con la URL del stream y la duración.
+- Detalle técnico: `docs/operacion.md`.
 
 ## Si algo falla
 

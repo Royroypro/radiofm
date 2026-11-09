@@ -179,7 +179,7 @@ type LogRepo struct{ db *sql.DB }
 func NewLogRepo(db *sql.DB) *LogRepo { return &LogRepo{db: db} }
 
 const logCols = `id, day, hour, seq, kind, track_id, category_id, hard, at, length_ms, optional, locked, status,
-	title, artist, mode, seconds, note`
+	title, artist, mode, seconds, note, url`
 
 func scanLog(r rowScanner) (*domain.LogItem, error) {
 	var l domain.LogItem
@@ -187,7 +187,7 @@ func scanLog(r rowScanner) (*domain.LogItem, error) {
 	var length int64
 	var hard, optional, locked int
 	if err := r.Scan(&l.ID, &l.Day, &l.Hour, &l.Seq, &kind, &l.TrackID, &l.CategoryID, &hard, &at, &length, &optional,
-		&locked, &status, &l.Title, &l.Artist, &l.Mode, &l.Seconds, &l.Note); err != nil {
+		&locked, &status, &l.Title, &l.Artist, &l.Mode, &l.Seconds, &l.Note, &l.URL); err != nil {
 		return nil, err
 	}
 	l.Kind, l.Status, l.At, l.Length = domain.SlotKind(kind), domain.LogStatus(status), parseTime(at), dur(length)
@@ -237,13 +237,13 @@ func (r *LogRepo) ReplaceDay(ctx context.Context, day string, items []domain.Log
 	}
 	rows.Close()
 	ins, err := tx.PrepareContext(ctx, `INSERT INTO log_items (day, hour, seq, kind, track_id, category_id, hard, at,
-		length_ms, optional, locked, status, title, artist, mode, seconds, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+		length_ms, optional, locked, status, title, artist, mode, seconds, note, url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
 	defer ins.Close()
 	upd, err := tx.PrepareContext(ctx, `UPDATE log_items SET hour=?, seq=?, kind=?, track_id=?, category_id=?, hard=?,
-		at=?, length_ms=?, optional=?, locked=?, status=?, title=?, artist=?, mode=?, seconds=?, note=? WHERE id=?`)
+		at=?, length_ms=?, optional=?, locked=?, status=?, title=?, artist=?, mode=?, seconds=?, note=?, url=? WHERE id=?`)
 	if err != nil {
 		return err
 	}
@@ -258,14 +258,14 @@ func (r *LogRepo) ReplaceDay(ctx context.Context, day string, items []domain.Log
 			delete(existing, it.ID)
 			if _, err := upd.ExecContext(ctx, it.Hour, i, string(it.Kind), it.TrackID, it.CategoryID, b2i(it.Hard),
 				fmtTime(it.At), ms(it.Length), b2i(it.Optional), b2i(it.Locked), string(it.Status), it.Title, it.Artist,
-				it.Mode, it.Seconds, it.Note, it.ID); err != nil {
+				it.Mode, it.Seconds, it.Note, it.URL, it.ID); err != nil {
 				return fmt.Errorf("log_items: actualizar: %w", err)
 			}
 			continue
 		}
 		res, err := ins.ExecContext(ctx, day, it.Hour, i, string(it.Kind), it.TrackID, it.CategoryID, b2i(it.Hard),
 			fmtTime(it.At), ms(it.Length), b2i(it.Optional), b2i(it.Locked), string(it.Status), it.Title, it.Artist,
-			it.Mode, it.Seconds, it.Note)
+			it.Mode, it.Seconds, it.Note, it.URL)
 		if err != nil {
 			return fmt.Errorf("log_items: insertar: %w", err)
 		}
@@ -288,9 +288,9 @@ func (r *LogRepo) Get(ctx context.Context, id int64) (*domain.LogItem, error) {
 // Update guarda un elemento.
 func (r *LogRepo) Update(ctx context.Context, it *domain.LogItem) error {
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE log_items SET hour=?, seq=?, kind=?, track_id=?, category_id=?,
-		hard=?, at=?, length_ms=?, optional=?, locked=?, status=?, title=?, artist=?, mode=?, seconds=?, note=? WHERE id=?`,
+		hard=?, at=?, length_ms=?, optional=?, locked=?, status=?, title=?, artist=?, mode=?, seconds=?, note=?, url=? WHERE id=?`,
 		it.Hour, it.Seq, string(it.Kind), it.TrackID, it.CategoryID, b2i(it.Hard), fmtTime(it.At), ms(it.Length),
-		b2i(it.Optional), b2i(it.Locked), string(it.Status), it.Title, it.Artist, it.Mode, it.Seconds, it.Note, it.ID))
+		b2i(it.Optional), b2i(it.Locked), string(it.Status), it.Title, it.Artist, it.Mode, it.Seconds, it.Note, it.URL, it.ID))
 }
 
 // Delete borra un elemento.

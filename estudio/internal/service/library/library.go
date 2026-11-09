@@ -243,7 +243,8 @@ func (s *Service) ImportFolder(ctx context.Context, dir string, categoryID int64
 			continue
 		}
 		t := &domain.Track{Path: r.path, Title: r.info.Title, Artist: r.info.Artist, Album: r.info.Album,
-			Genre: r.info.Genre, Year: r.info.Year, CategoryID: categoryID, Duration: r.info.Duration, Active: true}
+			Genre: r.info.Genre, Year: r.info.Year, Composer: r.info.Composer, CategoryID: categoryID, Duration: r.info.Duration,
+			Active: true}
 		if t.Title == "" {
 			t.Artist, t.Title = domain.TitleFromFilename(r.path)
 			if t.Artist == "" {
@@ -479,7 +480,7 @@ func (s *Service) ImportFile(ctx context.Context, path string, categoryID int64)
 		return nil, fmt.Errorf("leer %s: %w", filepath.Base(path), err)
 	}
 	t := &domain.Track{Path: path, Title: info.Title, Artist: info.Artist, Album: info.Album, Genre: info.Genre,
-		Year: info.Year, CategoryID: categoryID, Duration: info.Duration, Active: true}
+		Year: info.Year, Composer: info.Composer, CategoryID: categoryID, Duration: info.Duration, Active: true}
 	if t.Title == "" {
 		t.Artist, t.Title = domain.TitleFromFilename(path)
 	}

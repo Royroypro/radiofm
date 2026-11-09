@@ -431,3 +431,47 @@ func TestTimeAnnounceSwitch(t *testing.T) {
 		e.cancel()
 	}
 }
+
+// Enlace a cadena: suena el stream durante su duración y sigue la playlist; si
+// la cadena no responde, se salta y la playlist sigue igual.
+func TestRelay(t *testing.T) {
+	for _, broken := range []bool{false, true} {
+		now := time.Now()
+		tracks := map[int64]domain.Track{
+			1: withPath(track(1, "uno", 1200*time.Millisecond, 900*time.Millisecond), "uno.mp3"),
+			2: withPath(track(2, "dos", 1200*time.Millisecond, 900*time.Millisecond), "dos.mp3"),
+		}
+		url := "https://cadena.pe/stream"
+		if broken {
+			url = "falta://cadena-caida"
+		}
+		items := []domain.LogItem{
+			{ID: 10, Kind: domain.SlotCategory, TrackID: 1, At: now, Length: time.Second, Status: domain.LogPending},
+			{ID: 11, Kind: domain.SlotRelay, URL: url, Seconds: 1, Title: "Noticiero", At: now.Add(time.Second), Length: time.Second, Status: domain.LogPending},
+			{ID: 12, Kind: domain.SlotCategory, TrackID: 2, At: now.Add(2 * time.Second), Length: time.Second, Status: domain.LogPending},
+		}
+		e := newEnv(t, items, tracks, nil)
+		e.svc.d.Decode = decodeMissing
+		_ = e.svc.Start()
+		if !waitFor(t, 8*time.Second, func() bool { return e.log.status(12) == domain.LogPlayed }) {
+			t.Fatalf("caída=%v: se trabó (emisiones %v)", broken, e.plays.titles())
+		}
+		got := strings.Join(e.plays.titles(), ",")
+		if broken {
+			if strings.Contains(got, "Noticiero") || e.log.status(11) != domain.LogSkipped {
+				t.Fatalf("cadena caída: %s / %s", got, e.log.status(11))
+			}
+		} else {
+			if !strings.HasPrefix(got, "uno,Noticiero,dos") {
+				t.Fatalf("emisiones = %s", got)
+			}
+			e.plays.mu.Lock()
+			k := e.plays.plays[1].Kind
+			e.plays.mu.Unlock()
+			if k != domain.PlayRelay {
+				t.Fatalf("el enlace se registra como %q", k)
+			}
+		}
+		e.cancel()
+	}
+}

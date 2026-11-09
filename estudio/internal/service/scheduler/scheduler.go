@@ -90,6 +90,10 @@ func (s *Service) SaveClock(ctx context.Context, c *domain.Clock) error {
 			return domain.Invalid("slots", fmt.Sprintf("Slot %d: modo inválido", n))
 		case sl.Kind == domain.SlotSilence && (sl.Seconds <= 0 || sl.Seconds > 600):
 			return domain.Invalid("slots", fmt.Sprintf("Slot %d: el silencio debe durar entre 1 y 600 s", n))
+		case sl.Kind == domain.SlotRelay && (sl.Seconds < 10 || sl.Seconds > 4*3600):
+			return domain.Invalid("slots", fmt.Sprintf("Slot %d: el enlace debe durar entre 10 s y 4 h", n))
+		case sl.Kind == domain.SlotRelay && !strings.HasPrefix(sl.URL, "http://") && !strings.HasPrefix(sl.URL, "https://"):
+			return domain.Invalid("slots", fmt.Sprintf("Slot %d: escriba la URL del stream de la cadena (http:// o https://)", n))
 		}
 	}
 	// los eventos duros deben estar en orden de minuto

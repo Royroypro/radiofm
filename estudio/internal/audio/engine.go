@@ -126,6 +126,8 @@ type Engine struct {
 	recRing  *RingBuffer // copia del micrófono para grabar (voice tracking); lo vacía el grabador
 	recOn    atomic.Bool
 	encRing  *RingBuffer // lo vacía el codificador
+	logRing  *RingBuffer // copia de la salida FM para el grabador legal (airlog)
+	logTapOn atomic.Bool
 	micOn    atomic.Bool
 	duckOn   atomic.Bool
 	encTapOn atomic.Bool
@@ -140,6 +142,7 @@ type Engine struct {
 	agcGain     atomic.Uint32
 	dropouts    atomic.Int64 // frames de silencio por decodificador lento
 	encDropped  atomic.Int64 // muestras descartadas hacia el codificador
+	logDropped  atomic.Int64 // muestras descartadas hacia el grabador
 	renderedFrm atomic.Int64
 }
 
@@ -166,6 +169,7 @@ func NewEngine(cfg Config) *Engine {
 		micRing:   NewRingBuffer(int(DurationToFrames(time.Second)) * Channels),
 		recRing:   NewRingBuffer(int(DurationToFrames(4*time.Second)) * Channels),
 		encRing:   NewRingBuffer(int(DurationToFrames(cfg.EncoderBuffer)) * Channels),
+		logRing:   NewRingBuffer(int(DurationToFrames(5*time.Second)) * Channels),
 	}
 	e.duckGain.Store(math.Float32bits(1))
 	e.limitGain.Store(math.Float32bits(1))
@@ -267,6 +271,13 @@ func (e *Engine) RecordOutput() *RingBuffer { return e.recRing }
 
 // MicInput es el buffer donde el callback de captura escribe el micrófono.
 func (e *Engine) MicInput() *RingBuffer { return e.micRing }
+
+// SetLoggerTap activa la copia de la salida FM hacia el grabador de la emisión.
+func (e *Engine) SetLoggerTap(on bool) { e.logTapOn.Store(on) }
+
+// LoggerOutput es el buffer del que lee el grabador de la emisión (lo que sale
+// por la tarjeta, después del procesador y el limitador).
+func (e *Engine) LoggerOutput() *RingBuffer { return e.logRing }
 
 // EncoderOutput es el buffer del que lee el codificador de Icecast.
 func (e *Engine) EncoderOutput() *RingBuffer { return e.encRing }
@@ -466,6 +477,11 @@ func (e *Engine) renderBlock(out []float32) {
 	}
 
 	// 6. copia hacia el codificador (si se atasca, se descarta: nunca frena la salida)
+	if e.logTapOn.Load() { // grabador legal: siempre lo que sale por la tarjeta
+		if w := e.logRing.Write(out); w < n {
+			e.logDropped.Add(int64(n - w))
+		}
+	}
 	if e.encTapOn.Load() {
 		if w := e.encRing.Write(stream); w < n {
 			e.encDropped.Add(int64(n - w))

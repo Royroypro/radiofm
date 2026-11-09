@@ -98,6 +98,18 @@ export function LogDay(arg1) {
   return window['go']['ui']['App']['LogDay'](arg1);
 }
 
+export function LoggerExport(arg1, arg2) {
+  return window['go']['ui']['App']['LoggerExport'](arg1, arg2);
+}
+
+export function LoggerFiles() {
+  return window['go']['ui']['App']['LoggerFiles']();
+}
+
+export function LoggerStatus() {
+  return window['go']['ui']['App']['LoggerStatus']();
+}
+
 export function MoveLogItem(arg1, arg2) {
   return window['go']['ui']['App']['MoveLogItem'](arg1, arg2);
 }
@@ -126,6 +138,10 @@ export function OnAirStopAfter() {
   return window['go']['ui']['App']['OnAirStopAfter']();
 }
 
+export function OpenRecordings() {
+  return window['go']['ui']['App']['OpenRecordings']();
+}
+
 export function PickFile(arg1) {
   return window['go']['ui']['App']['PickFile'](arg1);
 }
@@ -142,6 +158,10 @@ export function PreviewTransition(arg1, arg2) {
   return window['go']['ui']['App']['PreviewTransition'](arg1, arg2);
 }
 
+export function RDSStatus() {
+  return window['go']['ui']['App']['RDSStatus']();
+}
+
 export function ReanalyzeTrack(arg1) {
   return window['go']['ui']['App']['ReanalyzeTrack'](arg1);
 }
@@ -156,6 +176,10 @@ export function ReplanDay(arg1) {
 
 export function ReportAsRun(arg1, arg2) {
   return window['go']['ui']['App']['ReportAsRun'](arg1, arg2);
+}
+
+export function ReportMusic(arg1, arg2) {
+  return window['go']['ui']['App']['ReportMusic'](arg1, arg2);
 }
 
 export function ReportSpots(arg1, arg2, arg3) {

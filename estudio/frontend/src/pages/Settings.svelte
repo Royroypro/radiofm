@@ -81,6 +81,14 @@
     }
   }
 
+  function addRecording() {
+    if (!s) return
+    s.logger.recordings = [...(s.logger.recordings ?? []), { name: '', start: '06:00', minutes: 120, days: 62 } as any]
+  }
+  function removeRecording(i: number) {
+    if (s) s.logger.recordings = s.logger.recordings.filter((_: any, k: number) => k !== i)
+  }
+
   async function applyAudio() {
     await save()
     const st = await RestartAudio()
@@ -253,6 +261,54 @@
         <label class="field">Silencio antes de emergencia (s, 0 = no)<input type="number" min="0" bind:value={s.safety.silence_seconds} /></label>
         <label class="check"><input type="checkbox" bind:checked={s.safety.start_playing} /> Empezar a sonar al abrir</label>
         <label class="check"><input type="checkbox" bind:checked={s.safety.auto_start} /> Arrancar con Windows</label>
+      </div>
+    </section>
+
+    <section class="panel grid2">
+      <div>
+        <h2>Grabador de la emisión</h2>
+        <label class="check"><input type="checkbox" bind:checked={s.logger.enabled} /> Grabar todo lo que sale al aire (archivo por hora)</label>
+        <label class="field">Carpeta (vacío = carpeta de datos\grabaciones)<input bind:value={s.logger.dir} /></label>
+        <div class="grid3">
+          <label class="field" title="Al pasarse se borra lo más viejo">Máx. MB (0 = sin límite)<input type="number" min="0" step="256" bind:value={s.logger.max_mb} /></label>
+          <label class="field" title="El reglamento pide al menos 30 días">Máx. días (0 = sin límite)<input type="number" min="0" bind:value={s.logger.max_days} /></label>
+          <label class="field">Calidad (kbps, mono)<input type="number" min="32" max="192" step="16" bind:value={s.logger.kbps} /></label>
+        </div>
+        <h3 style="margin:8px 0 4px">Grabaciones programadas</h3>
+        <p class="muted small" style="margin:0 0 4px">Al terminar la franja se recorta de la grabación y se guarda en «programas».</p>
+        {#each s.logger.recordings ?? [] as r, i}
+          <div class="row" style="gap:4px;margin-bottom:4px">
+            <input style="flex:1" placeholder="Nombre del programa" bind:value={r.name} />
+            <input type="time" bind:value={r.start} />
+            <input type="number" min="1" max="720" style="width:70px" bind:value={r.minutes} title="Minutos" />
+            <select bind:value={r.days} title="Días">
+              <option value={0}>Todos</option><option value={62}>Lun–Vie</option><option value={65}>Sáb y Dom</option>
+              {#each ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] as d, k}<option value={1 << k}>Solo {d}</option>{/each}
+            </select>
+            <button class="small danger" onclick={() => removeRecording(i)}>✕</button>
+          </div>
+        {/each}
+        <button class="small ghost" onclick={addRecording}>+ Grabación programada</button>
+      </div>
+      <div>
+        <h2>RDS (pantalla del radio)</h2>
+        <label class="check"><input type="checkbox" bind:checked={s.rds.enabled} /> Enviar nombre y canción al codificador RDS</label>
+        <div class="grid3">
+          <label class="field">Conexión<select bind:value={s.rds.transport}><option value="tcp">TCP</option><option value="udp">UDP</option><option value="serial">Puerto serie</option></select></label>
+          <label class="field">{s.rds.transport === 'serial' ? 'Puerto (COM3)' : 'IP:puerto'}<input bind:value={s.rds.address} placeholder={s.rds.transport === 'serial' ? 'COM3' : '192.168.1.50:7000'} /></label>
+          {#if s.rds.transport === 'serial'}<label class="field">Baudios<input type="number" bind:value={s.rds.baud} /></label>{/if}
+        </div>
+        <div class="grid3">
+          <label class="field" title="8 caracteres">Nombre (PS)<input maxlength="8" bind:value={s.rds.ps} /></label>
+          <label class="field" title="{'{artist}'}, {'{title}'}, {'{station}'}">Texto<input bind:value={s.rds.rt_format} /></label>
+          <label class="field">Mín. segundos entre envíos<input type="number" min="0" bind:value={s.rds.min_seconds} /></label>
+        </div>
+        <div class="grid2">
+          <label class="field" title="{'{ps}'} = nombre; \r\n = fin de línea">Comando PS<input bind:value={s.rds.ps_template} /></label>
+          <label class="field" title="{'{text}'} = texto; \r\n = fin de línea">Comando RadioText<input bind:value={s.rds.rt_template} /></label>
+        </div>
+        <label class="check"><input type="checkbox" bind:checked={s.rds.skip_spots} /> En cuñas, jingles y locuciones mostrar el nombre de la radio</label>
+        <p class="muted small">Cada codificador usa su sintaxis: revise el manual del equipo y ajuste los comandos (por defecto «PS=…» y «RT=…»). Sin tildes: se quitan solas.</p>
       </div>
     </section>
 

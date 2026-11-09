@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -31,8 +32,10 @@ import (
 	"radioclub25/estudio/internal/platform/tools"
 	"radioclub25/estudio/internal/platform/weather"
 	"radioclub25/estudio/internal/platform/winsys"
+	"radioclub25/estudio/internal/service/airlog"
 	"radioclub25/estudio/internal/service/library"
 	"radioclub25/estudio/internal/service/onair"
+	"radioclub25/estudio/internal/service/rds"
 	"radioclub25/estudio/internal/service/reports"
 	"radioclub25/estudio/internal/service/rotation"
 	"radioclub25/estudio/internal/service/scheduler"
@@ -62,6 +65,8 @@ type App struct {
 	Engine    *audio.Engine
 	OnAir     *onair.Service
 	Voice     *voicetrack.Service // voice tracking (grabar intervenciones entre canciones)
+	AirLog    *airlog.Service     // grabador legal de la emisión
+	RDS       *rds.Service        // nombre de la radio y lo que suena al codificador RDS
 	Streaming *streaming.Service
 	Sync      *syncsvc.Service
 
@@ -126,7 +131,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		sc := a.Settings().Schedule
 		return spots.Limits{MaxSpots: sc.BreakMaxSpots, MaxLength: time.Duration(sc.BreakMaxSeconds) * time.Second}
 	})
-	a.Reports = reports.New(sqlite.NewPlayRepo(a.DB), sqlite.NewSpotRepo(a.DB), loc)
+	a.Reports = reports.New(sqlite.NewPlayRepo(a.DB), sqlite.NewSpotRepo(a.DB), loc).WithTracks(sqlite.NewTrackRepo(a.DB))
 	a.Weather = weather.New()
 	a.Secrets = secrets.NewStore(dataDir)
 
@@ -140,6 +145,21 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	a.Engine = audio.NewEngine(ecfg)
 	a.Streaming = streaming.New(a.Tools, a.Engine, a.Settings,
 		func() (string, error) { return a.Secrets.Get(secrets.IcecastPassword) }, log)
+	a.AirLog = airlog.New(a.Engine, a.Tools.Command, func() airlog.Settings {
+		l := a.Settings().Logger
+		dir := l.Dir
+		if dir == "" {
+			dir = filepath.Join(dataDir, "grabaciones")
+		}
+		return airlog.Settings{Enabled: l.Enabled && a.FFmpeg == nil, Dir: dir, MaxMB: l.MaxMB, MaxDays: l.MaxDays, Kbps: l.Kbps}
+	}, log)
+	a.RDS = rds.New(func() rds.Settings {
+		s := a.Settings()
+		r := s.RDS
+		return rds.Settings{Enabled: r.Enabled, Transport: r.Transport, Address: r.Address, Baud: r.Baud, PS: r.PS,
+			PSTemplate: r.PSTemplate, RTTemplate: r.RTTemplate, RTFormat: r.RTFormat, SkipSpots: r.SkipSpots,
+			MinSeconds: r.MinSeconds, Station: s.Station.Name}
+	}, log)
 	a.Voice = voicetrack.New(a.Engine, a.Library, a.Scheduler, filepath.Join(dataDir, "voicetracks"),
 		func() bool { a.audioMu.Lock(); defer a.audioMu.Unlock(); return a.mic != nil })
 	a.OnAir = onair.New(onair.Deps{
@@ -155,6 +175,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 			if seg.Path != "" {
 				a.Streaming.UpdateSong(seg.Display(), seg.Music)
 				a.Sync.NowPlaying(seg.Artist, seg.Title, string(seg.Kind))
+				a.RDS.Update(rds.Now{Artist: seg.Artist, Title: seg.Title, Music: seg.Music})
 			}
 		},
 		OnPlayEnded: func(p domain.Play, seg onair.Segment) {
@@ -256,6 +277,20 @@ func (a *App) Start(ctx context.Context) {
 	a.Streaming.Restart(ctx)
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.Sync.Run(ctx) }()
+	a.wg.Add(2)
+	go func() { defer a.wg.Done(); a.AirLog.Run(ctx) }()
+	a.wg.Add(1)
+	go func() { defer a.wg.Done(); a.RDS.Run(ctx) }()
+	go func() {
+		defer a.wg.Done()
+		a.AirLog.RunScheduled(ctx, func() []airlog.Recording {
+			var out []airlog.Recording
+			for _, r := range a.Settings().Logger.Recordings {
+				out = append(out, airlog.Recording{Name: r.Name, Days: r.Days, Start: r.Start, Minutes: r.Minutes})
+			}
+			return out
+		})
+	}()
 	// si falta ffmpeg, descargarlo del servidor en segundo plano
 	if a.FFmpeg != nil {
 		go func() {
@@ -392,7 +427,7 @@ func (a *App) applyServerConfig(c apiclient.Config) {
 	if c.Icecast.Host != "" {
 		s.Icecast.Host, s.Icecast.Port, s.Icecast.Mount = c.Icecast.Host, c.Icecast.Port, c.Icecast.Mount
 	}
-	if s != before {
+	if !reflect.DeepEqual(s, before) {
 		if err := a.SaveSettings(s); err != nil {
 			a.Log.Error("guardar configuración del panel", "err", err)
 		}

@@ -109,8 +109,11 @@ func (a *App) ReportSpots(from, to, advertiser string) ([]reports.ProofRow, erro
 func (a *App) ExportReport(kind, from, to, advertiser string) (string, error) {
 	ctx := context.Background()
 	name := "emisiones_" + from + "_" + to + ".csv"
-	if kind == "spots" {
+	switch kind {
+	case "spots":
 		name = "comprobante_" + from + "_" + to + ".csv"
+	case "music":
+		name = "informe_musical_" + from + "_" + to + ".csv"
 	}
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Guardar CSV", DefaultFilename: name,
 		Filters: []runtime.FileFilter{{DisplayName: "CSV", Pattern: "*.csv"}}})
@@ -122,6 +125,13 @@ func (a *App) ExportReport(kind, from, to, advertiser string) (string, error) {
 		return "", err
 	}
 	defer f.Close()
+	if kind == "music" {
+		rows, err := a.core.Reports.Music(ctx, from, to)
+		if err != nil {
+			return "", err
+		}
+		return path, a.core.Reports.WriteMusicCSV(f, rows, from, to)
+	}
 	if kind == "spots" {
 		rows, err := a.core.Reports.SpotProof(ctx, from, to, advertiser)
 		if err != nil {
@@ -149,4 +159,13 @@ func (a *App) CheckLocutions() []string {
 func (a *App) CurrentTemperature() (float64, error) {
 	st := a.core.Settings().Station
 	return a.core.Weather.Current(context.Background(), st.Latitude, st.Longitude)
+}
+
+// ReportMusic devuelve el informe musical (por canción) entre dos fechas.
+func (a *App) ReportMusic(from, to string) ([]reports.MusicRow, error) {
+	rows, err := a.core.Reports.Music(context.Background(), from, to)
+	if rows == nil {
+		rows = []reports.MusicRow{}
+	}
+	return rows, err
 }

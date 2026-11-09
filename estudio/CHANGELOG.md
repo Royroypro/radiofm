@@ -2,6 +2,18 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.4.0 — operación y cumplimiento
+
+- **Grabador de la emisión**: graba lo que sale al aire en MP3 por hora; borra lo más viejo según el
+  límite de tamaño (1 GB por defecto) y de días. Reportes → Grabación de la emisión: escuchar y exportar
+  tramos. **Grabaciones programadas** de programas (recortes automáticos al terminar la franja).
+- **Enlace a cadena**: nuevo tipo de slot en los relojes para hacer sonar un stream externo N minutos;
+  si se cae, la playlist sigue.
+- **RDS**: nombre de la radio y lo que suena al codificador del transmisor por TCP, UDP o puerto serie,
+  con comandos configurables.
+- **Informe musical (APDAYC)** por canción con compositor, en Reportes y en CSV.
+- Ver [docs/operacion.md](docs/operacion.md).
+
 ## 1.3.0 — programación musical y voice tracking
 
 - **Atributos por canción**: BPM (estimado solo al analizar), energía 1–5 (estimada; corregible), voz,

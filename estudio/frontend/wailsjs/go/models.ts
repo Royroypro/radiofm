@@ -1,3 +1,88 @@
+export namespace airlog {
+	
+	export class File {
+	    name: string;
+	    // Go type: time
+	    start: any;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new File(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.start = this.convertValues(source["start"], null);
+	        this.size = source["size"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Status {
+	    enabled: boolean;
+	    recording: boolean;
+	    // Go type: time
+	    since: any;
+	    error: string;
+	    dir: string;
+	    used_mb: number;
+	    max_mb: number;
+	    max_days: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.recording = source["recording"];
+	        this.since = this.convertValues(source["since"], null);
+	        this.error = source["error"];
+	        this.dir = source["dir"];
+	        this.used_mb = source["used_mb"];
+	        this.max_mb = source["max_mb"];
+	        this.max_days = source["max_days"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace app {
 	
 	export class AudioState {
@@ -246,6 +331,94 @@ export namespace config {
 	        this.time_off = source["time_off"];
 	    }
 	}
+	export class ScheduledRecording {
+	    name: string;
+	    days: number;
+	    start: string;
+	    minutes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScheduledRecording(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.days = source["days"];
+	        this.start = source["start"];
+	        this.minutes = source["minutes"];
+	    }
+	}
+	export class LoggerSettings {
+	    enabled: boolean;
+	    dir: string;
+	    max_mb: number;
+	    max_days: number;
+	    kbps: number;
+	    recordings: ScheduledRecording[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LoggerSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.dir = source["dir"];
+	        this.max_mb = source["max_mb"];
+	        this.max_days = source["max_days"];
+	        this.kbps = source["kbps"];
+	        this.recordings = this.convertValues(source["recordings"], ScheduledRecording);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RDSSettings {
+	    enabled: boolean;
+	    transport: string;
+	    address: string;
+	    baud: number;
+	    ps: string;
+	    ps_template: string;
+	    rt_template: string;
+	    rt_format: string;
+	    skip_spots: boolean;
+	    min_seconds: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RDSSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.transport = source["transport"];
+	        this.address = source["address"];
+	        this.baud = source["baud"];
+	        this.ps = source["ps"];
+	        this.ps_template = source["ps_template"];
+	        this.rt_template = source["rt_template"];
+	        this.rt_format = source["rt_format"];
+	        this.skip_spots = source["skip_spots"];
+	        this.min_seconds = source["min_seconds"];
+	    }
+	}
 	export class RotationSettings {
 	    artist_separation_min: number;
 	    title_separation_hours: number;
@@ -304,6 +477,7 @@ export namespace config {
 	        this.break_max_seconds = source["break_max_seconds"];
 	    }
 	}
+	
 	export class ServerSettings {
 	    url: string;
 	
@@ -344,6 +518,8 @@ export namespace config {
 	    rotation: RotationSettings;
 	    locutions: LocutionSettings;
 	    safety: SafetySettings;
+	    logger: LoggerSettings;
+	    rds: RDSSettings;
 	    schedule: ScheduleSettings;
 	    ui: InterfaceSettings;
 	
@@ -360,6 +536,8 @@ export namespace config {
 	        this.rotation = this.convertValues(source["rotation"], RotationSettings);
 	        this.locutions = this.convertValues(source["locutions"], LocutionSettings);
 	        this.safety = this.convertValues(source["safety"], SafetySettings);
+	        this.logger = this.convertValues(source["logger"], LoggerSettings);
+	        this.rds = this.convertValues(source["rds"], RDSSettings);
 	        this.schedule = this.convertValues(source["schedule"], ScheduleSettings);
 	        this.ui = this.convertValues(source["ui"], InterfaceSettings);
 	    }
@@ -437,6 +615,8 @@ export namespace domain {
 	    minute: number;
 	    mode: string;
 	    seconds: number;
+	    url: string;
+	    title: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ClockSlot(source);
@@ -451,6 +631,8 @@ export namespace domain {
 	        this.minute = source["minute"];
 	        this.mode = source["mode"];
 	        this.seconds = source["seconds"];
+	        this.url = source["url"];
+	        this.title = source["title"];
 	    }
 	}
 	export class Clock {
@@ -542,6 +724,7 @@ export namespace domain {
 	    mode: string;
 	    seconds: number;
 	    note: string;
+	    url: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LogItem(source);
@@ -567,6 +750,7 @@ export namespace domain {
 	        this.mode = source["mode"];
 	        this.seconds = source["seconds"];
 	        this.note = source["note"];
+	        this.url = source["url"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -714,6 +898,7 @@ export namespace domain {
 	    artist: string;
 	    album: string;
 	    genre: string;
+	    composer: string;
 	    year: string;
 	    category_id: number;
 	    duration: number;
@@ -759,6 +944,7 @@ export namespace domain {
 	        this.artist = source["artist"];
 	        this.album = source["album"];
 	        this.genre = source["genre"];
+	        this.composer = source["composer"];
 	        this.year = source["year"];
 	        this.category_id = source["category_id"];
 	        this.duration = source["duration"];
@@ -1132,8 +1318,80 @@ export namespace onair {
 
 }
 
+export namespace rds {
+	
+	export class Status {
+	    enabled: boolean;
+	    connected: boolean;
+	    last_text: string;
+	    // Go type: time
+	    last_sent: any;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.connected = source["connected"];
+	        this.last_text = source["last_text"];
+	        this.last_sent = this.convertValues(source["last_sent"], null);
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace reports {
 	
+	export class MusicRow {
+	    track_id: number;
+	    artist: string;
+	    title: string;
+	    composer: string;
+	    album: string;
+	    year: string;
+	    plays: number;
+	    aired: number;
+	    length: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MusicRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.track_id = source["track_id"];
+	        this.artist = source["artist"];
+	        this.title = source["title"];
+	        this.composer = source["composer"];
+	        this.album = source["album"];
+	        this.year = source["year"];
+	        this.plays = source["plays"];
+	        this.aired = source["aired"];
+	        this.length = source["length"];
+	    }
+	}
 	export class ProofRow {
 	    // Go type: time
 	    at: any;

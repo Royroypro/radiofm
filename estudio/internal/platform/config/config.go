@@ -20,6 +20,8 @@ type Settings struct {
 	Rotation  RotationSettings  `json:"rotation"`
 	Locutions LocutionSettings  `json:"locutions"`
 	Safety    SafetySettings    `json:"safety"`
+	Logger    LoggerSettings    `json:"logger"`
+	RDS       RDSSettings       `json:"rds"`
 	Schedule  ScheduleSettings  `json:"schedule"`
 	UI        InterfaceSettings `json:"ui"`
 }
@@ -95,6 +97,38 @@ type LocutionSettings struct {
 	TimeOff      bool   `json:"time_off"`      // interruptor «Hora locutada» de Al aire apagado
 }
 
+// LoggerSettings: grabador legal de la emisión (service/airlog).
+type LoggerSettings struct {
+	Enabled    bool                 `json:"enabled"`
+	Dir        string               `json:"dir"`      // "" = <datos>/grabaciones
+	MaxMB      int                  `json:"max_mb"`   // tamaño máximo total (0 = sin límite)
+	MaxDays    int                  `json:"max_days"` // días máximos (0 = sin límite)
+	Kbps       int                  `json:"kbps"`     // MP3 mono
+	Recordings []ScheduledRecording `json:"recordings"`
+}
+
+// ScheduledRecording es una grabación programada (recorte de la emisión al terminar la franja).
+type ScheduledRecording struct {
+	Name    string `json:"name"`
+	Days    int    `json:"days"`  // bit 0 = domingo … bit 6 = sábado (0 = todos)
+	Start   string `json:"start"` // "HH:MM"
+	Minutes int    `json:"minutes"`
+}
+
+// RDSSettings: envío del nombre de la radio y lo que suena al codificador RDS del transmisor (service/rds).
+type RDSSettings struct {
+	Enabled    bool   `json:"enabled"`
+	Transport  string `json:"transport"`   // tcp | udp | serial
+	Address    string `json:"address"`     // host:puerto (tcp/udp) o COM3 (serial)
+	Baud       int    `json:"baud"`        // serie
+	PS         string `json:"ps"`          // nombre de la radio (8 caracteres)
+	PSTemplate string `json:"ps_template"` // comando para el PS; {ps}
+	RTTemplate string `json:"rt_template"` // comando para el RadioText; {text}
+	RTFormat   string `json:"rt_format"`   // texto: {artist}, {title}, {station}
+	SkipSpots  bool   `json:"skip_spots"`  // en cuñas/jingles muestra el nombre de la radio
+	MinSeconds int    `json:"min_seconds"` // mínimo entre envíos
+}
+
 // SafetySettings: seguridad operativa.
 type SafetySettings struct {
 	SilenceSeconds int  `json:"silence_seconds"` // 0 = desactivado
@@ -150,8 +184,11 @@ func Defaults() Settings {
 		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3, MaxEnergyJump: 2, MaxGenreRun: 3},
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},
 		Safety:    SafetySettings{SilenceSeconds: 15, StartPlaying: true},
-		Schedule:  ScheduleSettings{DaysAhead: 1, FillToleranceMs: 30000},
-		UI:        InterfaceSettings{Theme: "dark", CustomBase: "dark"},
+		Logger:    LoggerSettings{Enabled: true, MaxMB: 1024, MaxDays: 30, Kbps: 64},
+		RDS: RDSSettings{Transport: "tcp", Baud: 9600, PS: "CLUB 25", PSTemplate: "PS={ps}\r\n",
+			RTTemplate: "RT={text}\r\n", RTFormat: "{artist} - {title}", SkipSpots: true, MinSeconds: 5},
+		Schedule: ScheduleSettings{DaysAhead: 1, FillToleranceMs: 30000},
+		UI:       InterfaceSettings{Theme: "dark", CustomBase: "dark"},
 	}
 }
 
@@ -274,6 +311,10 @@ func (c Settings) Validate() error {
 		return errors.New("preset del procesador desconocido")
 	case c.Audio.ProcScope != "" && c.Audio.ProcScope != "both" && c.Audio.ProcScope != "stream":
 		return errors.New("el procesador se aplica a both o stream")
+	case c.Logger.MaxMB < 0 || c.Logger.MaxDays < 0 || c.Logger.Kbps < 0 || c.Logger.Kbps > 320:
+		return errors.New("límites del grabador inválidos")
+	case c.RDS.Transport != "" && c.RDS.Transport != "tcp" && c.RDS.Transport != "udp" && c.RDS.Transport != "serial":
+		return errors.New("el RDS se envía por tcp, udp o serial")
 	case c.Audio.BreakFadeMs < 0 || c.Audio.BreakFadeMs > 5000:
 		return errors.New("el fundido de tanda debe estar entre 0 y 5 s")
 	case c.UI.Theme != "" && c.UI.Theme != "dark" && c.UI.Theme != "light" && c.UI.Theme != "club25" && c.UI.Theme != "custom":

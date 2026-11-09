@@ -84,6 +84,7 @@ type Track struct {
 	Artist     string        `json:"artist"`
 	Album      string        `json:"album"`
 	Genre      string        `json:"genre"`
+	Composer   string        `json:"composer"` // compositor (etiqueta del archivo; informe APDAYC)
 	Year       string        `json:"year"`
 	CategoryID int64         `json:"category_id"`
 	Duration   time.Duration `json:"duration"`
@@ -255,6 +256,7 @@ const (
 	PlaySpot   PlayKind = "spot"
 	PlayVoice  PlayKind = "voice"
 	PlayCart   PlayKind = "cart"
+	PlayRelay  PlayKind = "relay" // enlace a cadena (stream externo)
 )
 
 // Play es una emisión registrada (as-run).

@@ -10,6 +10,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,9 +19,10 @@ import (
 
 // Service genera reportes.
 type Service struct {
-	plays domain.PlayRepository
-	spots domain.SpotRepository
-	loc   func() *time.Location
+	plays  domain.PlayRepository
+	spots  domain.SpotRepository
+	tracks domain.TrackRepository // opcional (WithTracks): datos de la canción en el informe musical
+	loc    func() *time.Location
 }
 
 // New crea el servicio.
@@ -111,7 +113,7 @@ func yesNo(b bool) string {
 }
 
 var kindLabel = map[domain.PlayKind]string{domain.PlayMusic: "Música", domain.PlayJingle: "Jingle", domain.PlaySpot: "Cuña",
-	domain.PlayVoice: "Locución", domain.PlayCart: "Botonera"}
+	domain.PlayVoice: "Locución", domain.PlayCart: "Botonera", domain.PlayRelay: "Enlace a cadena"}
 
 // WriteAsRunCSV escribe el as-run en CSV.
 func (s *Service) WriteAsRunCSV(w io.Writer, plays []domain.Play) error {
@@ -152,4 +154,87 @@ func (s *Service) Recent(ctx context.Context, limit int) ([]domain.Play, error) 
 		out = append(out, plays[i])
 	}
 	return out, nil
+}
+
+// ---------- Informe musical (derechos de autor: APDAYC) ----------
+
+// WithTracks conecta la biblioteca (compositor, álbum y año del informe musical).
+func (s *Service) WithTracks(tracks domain.TrackRepository) *Service {
+	s.tracks = tracks
+	return s
+}
+
+// MusicRow es una canción del informe musical: cuántas veces sonó y cuánto tiempo.
+type MusicRow struct {
+	TrackID  int64         `json:"track_id"`
+	Artist   string        `json:"artist"`
+	Title    string        `json:"title"`
+	Composer string        `json:"composer"`
+	Album    string        `json:"album"`
+	Year     string        `json:"year"`
+	Plays    int           `json:"plays"`
+	Aired    time.Duration `json:"aired"`  // tiempo total al aire
+	Length   time.Duration `json:"length"` // duración de la canción
+}
+
+// Music agrupa por canción la música emitida entre dos fechas (inclusive), de
+// más a menos emitida. Solo música (no jingles, cuñas ni locuciones).
+func (s *Service) Music(ctx context.Context, from, to string) ([]MusicRow, error) {
+	f, t, err := s.Range(from, to)
+	if err != nil {
+		return nil, err
+	}
+	plays, err := s.plays.Between(ctx, f, t)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[string]*MusicRow{}
+	var order []string
+	for _, p := range plays {
+		if p.Kind != domain.PlayMusic {
+			continue
+		}
+		key := fmt.Sprint(p.TrackID)
+		if p.TrackID == 0 {
+			key = strings.ToLower(p.Artist + "|" + p.Title)
+		}
+		r, ok := byKey[key]
+		if !ok {
+			r = &MusicRow{TrackID: p.TrackID, Artist: p.Artist, Title: p.Title}
+			if s.tracks != nil && p.TrackID > 0 {
+				if tr, err := s.tracks.Get(ctx, p.TrackID); err == nil {
+					r.Composer, r.Album, r.Year, r.Length = tr.Composer, tr.Album, tr.Year, tr.PlayLength()
+				}
+			}
+			byKey[key] = r
+			order = append(order, key)
+		}
+		r.Plays++
+		r.Aired += p.Duration
+	}
+	out := make([]MusicRow, 0, len(order))
+	for _, k := range order {
+		out = append(out, *byKey[k])
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Plays != out[j].Plays {
+			return out[i].Plays > out[j].Plays
+		}
+		return out[i].Artist+out[i].Title < out[j].Artist+out[j].Title
+	})
+	return out, nil
+}
+
+// WriteMusicCSV escribe el informe musical en CSV (para la sociedad de autores).
+func (s *Service) WriteMusicCSV(w io.Writer, rows []MusicRow, from, to string) error {
+	cw := newCSV(w)
+	_ = cw.Write([]string{"Periodo", from + " a " + to})
+	_ = cw.Write([]string{"Título", "Intérprete", "Compositor / autor", "Álbum", "Año", "Veces emitida",
+		"Duración (s)", "Tiempo total al aire (s)"})
+	for _, r := range rows {
+		_ = cw.Write([]string{r.Title, r.Artist, r.Composer, r.Album, r.Year, fmt.Sprint(r.Plays),
+			fmt.Sprintf("%.0f", r.Length.Seconds()), fmt.Sprintf("%.0f", r.Aired.Seconds())})
+	}
+	cw.Flush()
+	return cw.Error()
 }

@@ -22,6 +22,17 @@ func (a *App) PreviewHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		// /preview/airlog/{archivo}: una hora de la grabación de la emisión
+		if file, ok := strings.CutPrefix(r.URL.Path, "/preview/airlog/"); ok && a.core != nil {
+			p, err := a.core.AirLog.FilePath(file)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeFile(w, r, p)
+			return
+		}
 		// /preview/take/{archivo}: una toma de voice tracking (solo de su carpeta)
 		if file, ok := strings.CutPrefix(r.URL.Path, "/preview/take/"); ok && a.core != nil {
 			p, err := a.core.Voice.TakePath(file)

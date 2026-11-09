@@ -38,7 +38,8 @@
   }
 
   function addSlot(kind = 'category') {
-    edit.slots.push({ kind, category_id: cats.find((c) => c.kind === 'music')?.id ?? 0, track_id: 0, hard: false, minute: 0, mode: 'auto', seconds: 5 })
+    edit.slots.push({ kind, category_id: cats.find((c) => c.kind === 'music')?.id ?? 0, track_id: 0, hard: false, minute: 0, mode: 'auto',
+      seconds: kind === 'relay' ? 600 : 5, url: '', title: '' })
   }
 
   function move(i: number, d: number) {
@@ -116,6 +117,11 @@
                     <select bind:value={s.mode}>{#each Object.entries(modeLabel) as [v, l]}<option value={v}>{l}</option>{/each}</select>
                   {:else if s.kind === 'silence'}
                     <input type="number" min="1" max="600" style="width:80px" bind:value={s.seconds} /> s
+                  {:else if s.kind === 'relay'}
+                    <input placeholder="Nombre (ej.: Noticiero)" style="width:140px" bind:value={s.title} />
+                    <input placeholder="https://cadena.pe/stream" style="width:220px" bind:value={s.url} />
+                    <input type="number" min="10" max="14400" step="60" style="width:80px" bind:value={s.seconds}
+                      title="Duración en segundos (600 = 10 min)" /> s
                   {:else}
                     <span class="muted small">—</span>
                   {/if}

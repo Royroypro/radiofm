@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -93,7 +94,12 @@ func command(ctx context.Context, bin string, args ...string) *exec.Cmd {
 // de ffmpeg. Close mata el proceso si sigue vivo.
 func (t Tools) Decode(ctx context.Context, path string, start time.Duration) (io.ReadCloser, error) {
 	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
-	if start > 0 {
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		// stream en vivo (enlace a cadena): reconectar ante cortes breves y no colgarse
+		// si deja de mandar datos (10 s sin datos = falla y la playlist sigue)
+		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+			"-rw_timeout", "10000000")
+	} else if start > 0 {
 		args = append(args, "-ss", strconv.FormatFloat(start.Seconds(), 'f', 3, 64))
 	}
 	args = append(args, "-i", path, "-vn", "-f", "f32le", "-ac", "2", "-ar", "44100", "pipe:1")
@@ -198,4 +204,10 @@ func (t Tools) DecodeMono(ctx context.Context, path string, start, dur time.Dura
 		samples[i] = math.Float32frombits(binary.LittleEndian.Uint32(out[i*4:]))
 	}
 	return samples, nil
+}
+
+// Command crea un proceso de ffmpeg con los argumentos dados (sin ventana de
+// consola en Windows). Lo usan servicios que arman su propio comando (airlog).
+func (t Tools) Command(ctx context.Context, args ...string) *exec.Cmd {
+	return command(ctx, t.FFmpeg, args...)
 }

@@ -57,3 +57,43 @@ func TestReports(t *testing.T) {
 		t.Fatal("fecha inválida debe dar error")
 	}
 }
+
+func TestMusicReport(t *testing.T) {
+	ctx := context.Background()
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "e.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	plays, tracks := sqlite.NewPlayRepo(db), sqlite.NewTrackRepo(db)
+	tr := &domain.Track{Path: "motor.mp3", Artist: "Grupo 5", Title: "Motor y motivo", Composer: "Elmer Yaipén",
+		Album: "Éxitos", Year: "2010", Duration: 4 * time.Minute, Active: true}
+	if _, err := tracks.Upsert(ctx, tr); err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 11, 8, 10, 0, 0, 0, lima)
+	for i, p := range []domain.Play{
+		{TrackID: tr.ID, Kind: domain.PlayMusic, Artist: "Grupo 5", Title: "Motor y motivo", StartedAt: base, Duration: 3 * time.Minute, UUID: "m1"},
+		{TrackID: tr.ID, Kind: domain.PlayMusic, Artist: "Grupo 5", Title: "Motor y motivo", StartedAt: base.Add(5 * time.Hour), Duration: 2 * time.Minute, UUID: "m2"},
+		{Kind: domain.PlayMusic, Artist: "Agua Marina", Title: "Paloma ajena", StartedAt: base.Add(time.Hour), Duration: time.Minute, UUID: "m3"},
+		{Kind: domain.PlayJingle, Title: "ID", StartedAt: base.Add(time.Minute), UUID: "m4"},
+	} {
+		p := p
+		if err := plays.Add(ctx, &p); err != nil {
+			t.Fatal(i, err)
+		}
+	}
+	svc := reports.New(plays, sqlite.NewSpotRepo(db), func() *time.Location { return lima }).WithTracks(tracks)
+	rows, err := svc.Music(ctx, "2026-11-08", "2026-11-08")
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("informe = %+v, %v", rows, err)
+	}
+	if r := rows[0]; r.Title != "Motor y motivo" || r.Plays != 2 || r.Aired != 5*time.Minute || r.Composer != "Elmer Yaipén" || r.Year != "2010" {
+		t.Fatalf("fila = %+v", r)
+	}
+	var buf bytes.Buffer
+	_ = svc.WriteMusicCSV(&buf, rows, "2026-11-08", "2026-11-08")
+	if !strings.Contains(buf.String(), "Motor y motivo;Grupo 5;Elmer Yaipén;Éxitos;2010;2;240;300") {
+		t.Fatalf("CSV:\n%s", buf.String())
+	}
+}

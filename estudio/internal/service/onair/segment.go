@@ -18,6 +18,7 @@ import (
 //	temperatura        → TMPxx (se omite si no hay dato)
 //	silencio           → espera de N segundos sin audio
 //	cambio de modo     → ningún audio (se aplica el modo)
+//	enlace a cadena    → el stream externo (URL) durante N segundos
 type Segment struct {
 	ItemID   int64           `json:"item_id"` // elemento de la playlist (0 = emergencia)
 	Index    int             `json:"index"`   // posición dentro del elemento
@@ -159,6 +160,15 @@ func (x *expander) expand(ctx context.Context, it domain.LogItem) ([]Segment, []
 		}
 	case domain.SlotSilence:
 		segs = append(segs, Segment{Silence: time.Duration(it.Seconds) * time.Second, Title: "Silencio"})
+	case domain.SlotRelay:
+		// Enlace a cadena: el stream suena hasta Seconds. Si no responde o se corta
+		// antes, el segmento termina y la playlist sigue (fallback, idea de Liquidsoap).
+		if it.URL == "" || it.Seconds <= 0 {
+			warn = append(warn, "enlace a cadena sin URL o duración: se salta")
+			break
+		}
+		segs = append(segs, Segment{Kind: domain.PlayRelay, Path: it.URL, Title: it.Title,
+			Length: time.Duration(it.Seconds) * time.Second})
 	case domain.SlotMode:
 		segs = append(segs, Segment{Mode: it.Mode, Title: "Cambio de modo"})
 	}

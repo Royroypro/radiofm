@@ -8,6 +8,7 @@ export const slotLabel: Record<string, string> = {
   temp: 'Temperatura',
   mode: 'Cambio de modo',
   silence: 'Silencio',
+  relay: 'Enlace a cadena',
 }
 
 export const slotIcon: Record<string, string> = {
@@ -18,6 +19,7 @@ export const slotIcon: Record<string, string> = {
   temp: '🌡',
   mode: '⇄',
   silence: '…',
+  relay: '📡',
 }
 
 export const modeLabel: Record<string, string> = { auto: 'Automático', assisted: 'Asistido', live: 'En vivo' }

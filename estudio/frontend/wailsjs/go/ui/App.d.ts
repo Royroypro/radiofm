@@ -5,7 +5,9 @@ import {domain} from '../models';
 import {ui} from '../models';
 import {spots} from '../models';
 import {audio} from '../models';
+import {airlog} from '../models';
 import {http} from '../models';
+import {rds} from '../models';
 import {reports} from '../models';
 import {app} from '../models';
 import {config} from '../models';
@@ -61,6 +63,12 @@ export function InsertLogTrack(arg1:number,arg2:number):Promise<void>;
 
 export function LogDay(arg1:string):Promise<Array<domain.LogItem>>;
 
+export function LoggerExport(arg1:string,arg2:string):Promise<string>;
+
+export function LoggerFiles():Promise<Array<airlog.File>>;
+
+export function LoggerStatus():Promise<airlog.Status>;
+
 export function MoveLogItem(arg1:number,arg2:number):Promise<void>;
 
 export function OnAirMode(arg1:string):Promise<void>;
@@ -75,6 +83,8 @@ export function OnAirStop():Promise<void>;
 
 export function OnAirStopAfter():Promise<void>;
 
+export function OpenRecordings():Promise<void>;
+
 export function PickFile(arg1:string):Promise<string>;
 
 export function PickFolder(arg1:string):Promise<string>;
@@ -83,6 +93,8 @@ export function PreviewHandler():Promise<http.Handler>;
 
 export function PreviewTransition(arg1:number,arg2:number):Promise<ui.TransitionPreview>;
 
+export function RDSStatus():Promise<rds.Status>;
+
 export function ReanalyzeTrack(arg1:number):Promise<domain.Track>;
 
 export function RemoveLogItem(arg1:number):Promise<void>;
@@ -90,6 +102,8 @@ export function RemoveLogItem(arg1:number):Promise<void>;
 export function ReplanDay(arg1:string):Promise<ui.ReplanResult>;
 
 export function ReportAsRun(arg1:string,arg2:string):Promise<Array<domain.Play>>;
+
+export function ReportMusic(arg1:string,arg2:string):Promise<Array<reports.MusicRow>>;
 
 export function ReportSpots(arg1:string,arg2:string,arg3:string):Promise<Array<reports.ProofRow>>;
 

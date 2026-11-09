@@ -167,6 +167,12 @@ func (g *generator) item(h int, s domain.ClockSlot, at time.Time) (domain.LogIte
 		it.Title, it.Mode = "Cambio de modo: "+s.Mode, s.Mode
 	case domain.SlotSilence:
 		it.Title, it.Seconds, it.Length = "Silencio", s.Seconds, time.Duration(s.Seconds)*time.Second
+	case domain.SlotRelay:
+		it.Title = s.Title
+		if it.Title == "" {
+			it.Title = "Enlace a cadena"
+		}
+		it.URL, it.Seconds, it.Length = s.URL, s.Seconds, time.Duration(s.Seconds)*time.Second
 	default:
 		return it, false
 	}
