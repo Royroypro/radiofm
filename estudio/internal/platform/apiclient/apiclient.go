@@ -24,7 +24,7 @@ var (
 
 // Client habla con /api/studio/* del panel web. Contrato: docs/api.md → "API del estudio".
 type Client struct {
-	BaseURL string // https://radioclub25.sehuacho.com
+	BaseURL string // https://radioclub25peru.com
 	Token   string
 	HTTP    *http.Client
 	Version string // versión del programa (User-Agent)

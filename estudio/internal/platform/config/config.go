@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -58,7 +59,7 @@ type IcecastSettings struct {
 
 // ServerSettings: panel web.
 type ServerSettings struct {
-	URL string `json:"url"` // https://radioclub25.sehuacho.com
+	URL string `json:"url"` // https://radioclub25peru.com
 }
 
 // StationSettings: datos de la radio (se completan con /api/studio/config).
@@ -111,14 +112,27 @@ type InterfaceSettings struct {
 	CustomText    string `json:"custom_text"`
 }
 
+// Dominios del servidor.
+//   - ServerURL: la web y la API del estudio (radioclub25peru.com, detrás del VPS con
+//     HAProxy y nodos de reserva; ver scripts/ha/README.md en la raíz del repositorio).
+//   - IngestHost: el audio va directo al Nodo A (Icecast 8010), sin pasar por el VPS.
+//   - OldServerURL: el dominio anterior de la web; las instalaciones que lo tengan
+//     guardado pasan solas a ServerURL al abrir (los tokens siguen valiendo: es el
+//     mismo servidor).
+const (
+	ServerURL    = "https://radioclub25peru.com"
+	IngestHost   = "radioclub25.sehuacho.com"
+	OldServerURL = "https://radioclub25.sehuacho.com"
+)
+
 // Defaults devuelve la configuración inicial del plan.
 func Defaults() Settings {
 	return Settings{
 		Audio: AudioSettings{CrossfadeMs: 3000, DuckDepthDB: -12, DuckThresholdDB: -35, DuckAttackMs: 50,
 			DuckReleaseMs: 500, HardFadeMs: 2000},
-		Icecast: IcecastSettings{Host: "radioclub25.sehuacho.com", Port: 8010, Mount: "/radio", User: "source",
+		Icecast: IcecastSettings{Host: IngestHost, Port: 8010, Mount: "/radio", User: "source",
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
-		Server:    ServerSettings{URL: "https://radioclub25.sehuacho.com"},
+		Server:    ServerSettings{URL: ServerURL},
 		Station:   StationSettings{Name: "Radio Club 25", City: "Huacho", Timezone: "America/Lima", Latitude: -11.1067, Longitude: -77.6050},
 		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3},
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},
@@ -186,7 +200,17 @@ func (s *Store) Load() (Settings, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return Defaults(), fmt.Errorf("config: %s inválido: %w", s.path, err)
 	}
+	cfg.migrate()
 	return cfg, nil
+}
+
+// migrate actualiza valores de versiones anteriores.
+func (c *Settings) migrate() {
+	// 1.0.7: la web pasó a radioclub25peru.com (el dominio anterior sigue
+	// funcionando, pero el nuevo tiene nodos de reserva).
+	if strings.TrimRight(strings.TrimSpace(c.Server.URL), "/") == OldServerURL {
+		c.Server.URL = ServerURL
+	}
 }
 
 // Save guarda la configuración de forma atómica (archivo temporal + renombrar).

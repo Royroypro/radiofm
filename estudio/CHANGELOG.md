@@ -2,6 +2,13 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.0.7 — dominio radioclub25peru.com
+
+- La web y la API del estudio pasan a `https://radioclub25peru.com` (servidor con nodos de reserva).
+  Las instalaciones que tenían `https://radioclub25.sehuacho.com` se actualizan solas al abrir; el
+  token sigue valiendo. Si la URL se cambió a mano por otra, se respeta.
+- El audio sigue yendo directo a `radioclub25.sehuacho.com:8010` (Icecast del nodo principal).
+
 ## 1.0.6 — lo que no tiene audio ya no traba el aire
 
 - Interruptor **Hora: sí / no** en Al aire. Apagado, la hora locutada de la playlist se salta sin

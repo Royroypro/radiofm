@@ -3,11 +3,11 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25.sehuacho.com/uploads/estudio/app/1.0.6/club25-estudio-amd64-installer.exe`
+   `https://radioclub25peru.com/uploads/estudio/app/1.0.7/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
-   `club25-estudio.exe --setup`, que **descarga del servidor** `radioclub25.sehuacho.com` lo que falte
+   `club25-estudio.exe --setup`, que **descarga del servidor** `radioclub25peru.com` lo que falte
    (ffmpeg y ffprobe), verificando su huella SHA-256.
 3. Si no había internet, el programa lo vuelve a intentar al abrirse (Ajustes → Sistema →
    "Revisar y descargar herramientas del servidor").
@@ -19,7 +19,7 @@ Desinstalar no los borra.
 
 1. **Audio**: salida principal (la tarjeta que va a la consola/transmisor), micrófono si lo usa en la PC.
    "Guardar y aplicar audio".
-2. **Panel web**: URL `https://radioclub25.sehuacho.com` y el token de Admin → Estudio (PC) → Generar token.
+2. **Panel web**: URL `https://radioclub25peru.com` y el token de Admin → Estudio (PC) → Generar token.
    "Guardar y sincronizar": llegan las cuñas FM y la web empieza a mostrar lo que suena.
 3. **Emisión a la web (Icecast)**: marque "Emitir a Icecast", escriba la contraseña de fuente (Admin →
    Streams y emisión) y "Guardar y reiniciar emisión". Si el micrófono está en una consola, elija la

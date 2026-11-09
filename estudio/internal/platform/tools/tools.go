@@ -3,7 +3,7 @@
 //
 // El servidor publica un manifiesto en
 //
-//	https://radioclub25.sehuacho.com/uploads/estudio/manifest.json
+//	https://radioclub25peru.com/uploads/estudio/manifest.json
 //
 // con la versión del programa, el instalador y cada herramienta con la URL y el
 // SHA-256 de sus archivos. Lo descargado se verifica antes de usarse y se

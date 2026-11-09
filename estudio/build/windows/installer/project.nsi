@@ -5,7 +5,7 @@
 ;   2. Instala WebView2 si falta (motor de la ventana; lo baja de Microsoft).
 ;   3. Copia el programa a Archivos de programa y crea los accesos directos.
 ;   4. Ejecuta "club25-estudio.exe --setup": revisa la PC y descarga desde el
-;      servidor de la radio (radioclub25.sehuacho.com) lo que falte, como ffmpeg,
+;      servidor de la radio (radioclub25peru.com) lo que falte, como ffmpeg,
 ;      verificando el SHA-256 (ver internal/platform/tools). Si no hay internet,
 ;      el programa lo reintenta al abrirse.
 ;   5. Al desinstalar NO borra la carpeta de datos (%ProgramData%\Club25Estudio):

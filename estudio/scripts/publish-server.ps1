@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Sube por SSH/SCP a <proyecto en el servidor>/data/uploads/estudio/ (la app los sirve en
-  https://radioclub25.sehuacho.com/uploads/estudio/...):
+  https://radioclub25peru.com/uploads/estudio/... y también en radioclub25.sehuacho.com):
     tools/ffmpeg-<versión>/ffmpeg.exe, ffprobe.exe, LICENSE.txt   (de third_party/ffmpeg)
     app/<versión>/club25-estudio.exe                               (de build/bin)
     app/<versión>/club25-estudio-amd64-installer.exe               (si se compiló con task installer)
@@ -78,4 +78,4 @@ foreach ($f in $files) {
     if ($LASTEXITCODE -ne 0) { throw "scp falló: $($f.remote)" }
 }
 & $scp -q -o BatchMode=yes -P $Port $tmp "${target}:$remote/manifest.json"
-Write-Host "Publicado: https://radioclub25.sehuacho.com/uploads/estudio/manifest.json"
+Write-Host "Publicado: https://radioclub25peru.com/uploads/estudio/manifest.json"
