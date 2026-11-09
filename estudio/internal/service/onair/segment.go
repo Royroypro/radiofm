@@ -38,6 +38,9 @@ type Segment struct {
 	Mode     string          `json:"mode"`     // cambio de modo
 	Music    bool            `json:"music"`    // es una canción (se informa como "lo que suena")
 	Envelope string          `json:"envelope"` // forma de onda (domain.Track.Envelope)
+	Ending   domain.Ending   `json:"ending"`   // cómo termina (decide la transición)
+	FadeOut  time.Duration   `json:"fade_out"` // duración de su fundido final propio
+	Break    bool            `json:"break"`    // es parte de una tanda (cortina o cuña)
 	Duration time.Duration   `json:"duration"` // duración total del archivo (para ubicar cues en la forma de onda)
 }
 
@@ -80,7 +83,7 @@ func (x *expander) trackSegment(t domain.Track) Segment {
 	}
 	return Segment{Kind: kind, Path: t.Path, TrackID: t.ID, Artist: t.Artist, Title: t.Title, GainDB: t.GainDB,
 		CueIn: t.CueIn, Length: t.PlayLength(), Segue: t.Segue(x.crossfade), Intro: t.Intro,
-		Music: kind == domain.PlayMusic, Envelope: t.Envelope, Duration: t.Duration}
+		Music: kind == domain.PlayMusic, Envelope: t.Envelope, Duration: t.Duration, Ending: t.Ending, FadeOut: t.FadeOut}
 }
 
 // expand devuelve los segmentos de it. Puede devolver cero (p. ej. temperatura sin dato).
@@ -124,6 +127,9 @@ func (x *expander) expand(ctx context.Context, it domain.LogItem) ([]Segment, []
 		}
 		if cortina != nil {
 			segs = append(segs, *cortina)
+		}
+		for i := range segs {
+			segs[i].Break = true
 		}
 	case domain.SlotTime:
 		if !x.timeOn {

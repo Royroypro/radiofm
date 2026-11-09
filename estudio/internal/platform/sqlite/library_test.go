@@ -102,3 +102,32 @@ func TestTracksAndCategories(t *testing.T) {
 		t.Fatalf("historial = %+v", hist)
 	}
 }
+
+// Reanalizar no pisa las marcas que el operador ajustó a mano.
+func TestSetAnalysisKeepsManualMarks(t *testing.T) {
+	ctx := context.Background()
+	r := NewTrackRepo(testDB(t))
+	tr := &domain.Track{Path: "a.mp3", Title: "A", Duration: 3 * time.Minute, Active: true}
+	if _, err := r.Upsert(ctx, tr); err != nil {
+		t.Fatal(err)
+	}
+	auto := domain.Analysis{Loudness: -12, GainDB: -4, CueIn: time.Second, SegueAt: 170 * time.Second,
+		Ending: domain.EndingFade, FadeOut: 8 * time.Second, Envelope: "abc"}
+	if err := r.SetAnalysis(ctx, tr.ID, auto); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := r.Get(ctx, tr.ID)
+	if got.CueIn != time.Second || got.Ending != domain.EndingFade || got.FadeOut != 8*time.Second {
+		t.Fatalf("análisis automático = %+v", got)
+	}
+	got.CueIn, got.SegueAt, got.MarksManual = 2*time.Second, 160*time.Second, true
+	if err := r.Update(ctx, got); err != nil {
+		t.Fatal(err)
+	}
+	auto.GainDB, auto.Envelope = -3, "xyz"
+	_ = r.SetAnalysis(ctx, tr.ID, auto)
+	got, _ = r.Get(ctx, tr.ID)
+	if got.CueIn != 2*time.Second || got.SegueAt != 160*time.Second || got.GainDB != -3 || got.Envelope != "xyz" {
+		t.Fatalf("marcas manuales tras reanalizar = in %v segue %v gain %v env %q", got.CueIn, got.SegueAt, got.GainDB, got.Envelope)
+	}
+}

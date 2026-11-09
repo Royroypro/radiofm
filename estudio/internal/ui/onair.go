@@ -104,6 +104,18 @@ func (a *App) SyncNow() { a.core.Sync.SyncNow() }
 // SyncStatus devuelve el estado de la sincronización.
 func (a *App) SyncStatus() syncsvc.Status { return a.core.Sync.Status() }
 
+// SetProcessor cambia el procesador de audio (preset: natural, fm, voice, off;
+// scope: both o stream) y lo aplica al instante.
+func (a *App) SetProcessor(preset, scope string) error {
+	s := a.core.Settings()
+	s.Audio.ProcPreset, s.Audio.ProcScope = preset, scope
+	if err := a.core.SaveSettings(s); err != nil {
+		return err
+	}
+	a.core.ApplyProcessor()
+	return nil
+}
+
 // SetTimeAnnounce enciende o apaga la hora locutada (interruptor de Al aire).
 // Apagada, los elementos de hora locutada de la playlist se saltan.
 func (a *App) SetTimeAnnounce(on bool) error {

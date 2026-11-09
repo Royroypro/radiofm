@@ -29,6 +29,23 @@
 | `clock.go` | `RunClock` (sin tarjeta), `RenderOffline` (tests), `RenderOfflineWaiting` (render a archivo) |
 | `device.go` | `ListDevices`, `OpenOutput`, `OpenCapture` con malgo (solo con CGO) |
 
+## Procesador y transiciones (1.1)
+
+- **Procesador** (`audio/processor.go`), entre la suma y el limitador: AGC lento (iguala el nivel entre
+  canciones; se congela en silencios y fundidos según un detector rápido de 300 ms) → compresor de 3 bandas
+  (cruces Linkwitz-Riley de 4.º orden a 150 Hz y 4 kHz; la banda media es la resta, así que sin compresión la
+  salida es idéntica a la entrada) → limitador −1 dBTP. Presets `natural`, `fm`, `voice`, `off`
+  (`audio.PresetSettings`). Ámbito: FM y stream, o solo stream (copia procesada con su propio limitador, para
+  cuando el transmisor ya tiene procesador). Se cambia en caliente con `Engine.SetProcessor` (el procesador se
+  crea fuera del hilo de audio). Medidor «GR» en Al aire.
+- **Curva de fundido**: todos los fundidos son equal-power (`fadeShape`: seno de un cuarto de ciclo): a mitad
+  de un crossfade cada pista está a −3 dB y la potencia sumada es constante.
+- **Arranque con retardo**: `Engine.PlayAfter(slot, fadeIn, delay)`; la tanda entra cuando terminó de fundirse
+  la música, sin pisarse.
+- **Reglas de transición** (`service/onair/transition.go`, función pura `planTransition`): ver
+  [scheduling.md](scheduling.md) y la tabla del CHANGELOG 1.1.0. Solo se aplican en los puntos de mezcla
+  automáticos; «Siguiente» y los eventos duros usan su fundido de siempre.
+
 ## Slots
 
 - `DeckA` (0) y `DeckB` (1): música; reciben ducking.

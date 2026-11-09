@@ -134,6 +134,14 @@ export function PickFolder(arg1) {
   return window['go']['ui']['App']['PickFolder'](arg1);
 }
 
+export function PreviewHandler() {
+  return window['go']['ui']['App']['PreviewHandler']();
+}
+
+export function PreviewTransition(arg1, arg2) {
+  return window['go']['ui']['App']['PreviewTransition'](arg1, arg2);
+}
+
 export function ReanalyzeTrack(arg1) {
   return window['go']['ui']['App']['ReanalyzeTrack'](arg1);
 }
@@ -152,6 +160,10 @@ export function ReportAsRun(arg1, arg2) {
 
 export function ReportSpots(arg1, arg2, arg3) {
   return window['go']['ui']['App']['ReportSpots'](arg1, arg2, arg3);
+}
+
+export function ResetTrackMarks(arg1) {
+  return window['go']['ui']['App']['ResetTrackMarks'](arg1);
 }
 
 export function RestartAudio() {
@@ -200,6 +212,10 @@ export function SetIcecastPassword(arg1) {
 
 export function SetMic(arg1) {
   return window['go']['ui']['App']['SetMic'](arg1);
+}
+
+export function SetProcessor(arg1, arg2) {
+  return window['go']['ui']['App']['SetProcessor'](arg1, arg2);
 }
 
 export function SetServerConnection(arg1, arg2) {

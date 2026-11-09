@@ -66,7 +66,8 @@ type SpotSource interface {
 type Options struct {
 	Crossfade time.Duration
 	HardFade  time.Duration
-	Emergency int64 // categoría de emergencia (0 = ninguna)
+	BreakFade time.Duration // fundido de la música al entrar una tanda (0 = 1 s)
+	Emergency int64         // categoría de emergencia (0 = ninguna)
 	// TimeAnnounce: interruptor «Hora locutada» de Al aire. Apagado, los
 	// elementos de hora locutada se saltan sin sonar.
 	TimeAnnounce bool
@@ -116,6 +117,7 @@ type Service struct {
 	upAt        time.Time
 	itemID      int64 // elemento de la playlist en curso
 	itemSounded bool  // algo del elemento en curso llegó a sonar
+	autoSegue   bool  // el cambio en curso es un punto de mezcla automático
 	carts       *cartDeck
 
 	mu   sync.Mutex
@@ -274,7 +276,9 @@ func (s *Service) handleEvent(ctx context.Context, ev audio.Event) {
 	case audio.EventSegue:
 		if s.current != nil && ev.Slot == s.current.slot && uint64(s.current.playID) == ev.Tag &&
 			s.running && s.mode == domain.ModeAuto && !(s.stopAfter && len(s.queue) == 0) {
+			s.autoSegue = true // punto de mezcla automático: transición según el tipo (transition.go)
 			s.advance(ctx, true)
+			s.autoSegue = false
 		}
 	case audio.EventEnded:
 		s.finish(ctx, ev)
@@ -517,11 +521,22 @@ func (s *Service) startSegment(ctx context.Context, seg Segment, fade time.Durat
 		s.warn("cargar en el motor: " + err.Error())
 		return false
 	}
+	tr := Transition{OutFade: fade}
+	if s.autoSegue && s.current != nil {
+		o := s.d.Options()
+		bf := o.BreakFade
+		if bf <= 0 {
+			bf = time.Second
+		}
+		tr = planTransition(&s.current.seg, seg, TransitionRules{Crossfade: o.Crossfade, BreakFade: bf})
+	}
 	if s.current != nil {
 		s.fading = append(s.fading, s.current)
-		_ = s.d.Engine.Fade(s.current.slot, 0, max(fade, 50*time.Millisecond), true)
+		if tr.OutFade >= 0 {
+			_ = s.d.Engine.Fade(s.current.slot, 0, max(tr.OutFade, 50*time.Millisecond), true)
+		} // si no, se deja terminar solo (final seco, cola de jingle)
 	}
-	_ = s.d.Engine.Play(slot, 0)
+	_ = s.d.Engine.PlayAfter(slot, tr.InFade, tr.Delay)
 	s.current = a
 	if seg.ItemID == s.itemID {
 		s.itemSounded = true

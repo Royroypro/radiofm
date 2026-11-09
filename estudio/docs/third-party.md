@@ -27,6 +27,10 @@ el archivo Go. Antes de portar, comprobar la cabecera de licencia del archivo co
 |---|---|---|
 | miniaudio (ejemplos `simple_duplex`, `ma_pcm_rb`) | MIT-0 | diseño de ring buffers y dúplex para `audio/ringbuf` y `audio/drift` |
 | FFmpeg `libavfilter/af_alimiter.c` | LGPL-2.1+ | referencia para el limitador del bus |
+| FFmpeg `af_acompressor.c`, `af_mcompand.c`; [LSP plugins](https://lsp-plug.in) | LGPL | referencia de algoritmos para el procesador (AGC, compresor por bandas, cruces Linkwitz-Riley); reescrito en `audio/processor.go` |
+| "Audio EQ Cookbook" (R. Bristow-Johnson) | dominio público de facto | fórmulas de los filtros Butterworth de 2.º orden |
+| [OpenBroadcaster](https://openbroadcaster.com) | AGPL-3.0 | solo ideas: campañas publicitarias con vigencia (fase B) |
+| [Rotter](https://github.com/nick-prater/rotter) / Chronicle | GPL | solo ideas: grabador de emisión por horas con retención (fase D) |
 | [Mixxx](https://mixxx.org) | GPL-2.0-or-later | curvas de crossfade, *talkover ducking*, AutoDJ, intro/outro, forma de onda por picos |
 | [Liquidsoap](https://www.liquidsoap.info) | GPL-2.0-or-later | diseño de `smart_crossfade`, fallback por silencio, normalización |
 | [Rivendell](https://github.com/ElvishArtisan/rivendell) | GPL-2.0 (verificar archivo por archivo) | modelo de datos de radio (carts, relojes, parrilla, log, transiciones) — solo ideas salvo archivos "or later" |
@@ -38,4 +42,4 @@ el archivo Go. Antes de portar, comprobar la cabecera de licencia del archivo co
 
 | Archivo Go | Origen (proyecto, commit, archivo) | Licencia | Qué se tomó |
 |---|---|---|---|
-| — | — | — | (aún nada) |
+| `internal/service/library/analysis.go` (`Derive`, `EndingOf`) | [autocue](https://github.com/Moonbase59/autocue) de Moonbase59 (Python) | MIT | idea y umbrales: silencio relativo a la sonoridad de la pista (−42 LU), punto de entrada de la siguiente buscado hacia atrás desde el final (−8 LU), duración del fundido; reescrito en Go sobre la serie `ebur128` que ya medíamos |

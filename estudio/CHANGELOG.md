@@ -2,6 +2,33 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.1.0 — sonido y transiciones profesionales
+
+- **Análisis de finales** (idea de autocue, MIT): cada pista sabe si termina con **fundido** o **seco** y
+  cuánto dura su fundido; el umbral de silencio es relativo a la sonoridad de la pista. Toda la biblioteca
+  se vuelve a analizar en segundo plano al actualizar.
+- **Transiciones según el contenido** (solo en los puntos de mezcla automáticos):
+
+  | De → a | Qué pasa |
+  |---|---|
+  | canción con fundido → canción | se cruza a lo largo de su propio fundido |
+  | canción con final seco → canción | no se corta el golpe final |
+  | canción → jingle | el jingle entra sobre el final |
+  | jingle → canción | la cola del jingle termina sola |
+  | canción → tanda | la música se funde (1 s, ajustable) y la tanda entra al terminar, sin pisarse |
+
+- **Fundidos equal-power** en todo el motor (sin bache de volumen a mitad del crossfade).
+- **Editor de marcas** en la Biblioteca: forma de onda con cue-in, intro, mezcla y cue-out arrastrables; zoom
+  al inicio o al final; escuchar desde cualquier punto por los audífonos de la PC (no sale al aire); botones
+  «… aquí» para marcar mientras se escucha; **probar transición** con otra pista usando las reglas del aire.
+  Las marcas ajustadas a mano quedan «a mano» y el análisis no las pisa («Marcas automáticas» las descarta).
+- **Procesador de audio**: AGC + compresor de 3 bandas antes del limitador. Presets Natural (por defecto),
+  FM comercial, Hablado o sin procesar; se aplica a FM y stream o solo al stream. Medidor «GR» en Al aire.
+- La compilación ya no se cuelga si Club25 Estudio está abierto en la misma PC.
+
+> Nota: las marcas que se hubieran ajustado a mano **antes** de esta versión se recalculan una vez con el
+> nuevo análisis (no había forma de distinguirlas). Desde la 1.1.0 los ajustes manuales se conservan.
+
 ## 1.0.7 — dominio radioclub25peru.com
 
 - La web y la API del estudio pasan a `https://radioclub25peru.com` (servidor con nodos de reserva).

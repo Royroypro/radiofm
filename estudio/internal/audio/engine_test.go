@@ -254,3 +254,35 @@ type nopCloser struct{ *chunkReader }
 func (nopCloser) Close() error { return nil }
 
 var errEOF = io.EOF
+
+// PlayAfter espera antes de sonar (la tanda entra cuando terminó de fundirse la música).
+func TestPlayAfterDelay(t *testing.T) {
+	e := NewEngine(Config{LimiterCeilingDB: 0})
+	_ = e.Load(DeckA, NewMemorySource(Sine(440, 0.5, 2)), LoadOptions{Tag: 1})
+	applyPending(e)
+	waitReady(t, e, DeckA)
+	_ = e.PlayAfter(DeckA, 0, 300*time.Millisecond)
+	RenderOffline(e, 250*time.Millisecond, nil)
+	if pos := e.Slot(DeckA).Position; pos != 0 {
+		t.Fatalf("antes del retardo no debe avanzar: posición %v", pos)
+	}
+	RenderOffline(e, 300*time.Millisecond, nil)
+	if pos := e.Slot(DeckA).Position; pos < 200*time.Millisecond || pos > 300*time.Millisecond {
+		t.Fatalf("tras el retardo debe sonar: posición %v", pos)
+	}
+}
+
+// Curva equal-power: a mitad de un fundido la ganancia es sin(π/4) ≈ 0,707
+// (−3 dB), no 0,5 (−6 dB): dos pistas cruzándose suman la misma potencia.
+func TestFadeShapeEqualPower(t *testing.T) {
+	if g := fadeShape(0.5); math.Abs(float64(g)-math.Sqrt2/2) > 1e-4 {
+		t.Fatalf("mitad del fundido = %v", g)
+	}
+	a, b := fadeShape(0.3), fadeShape(0.7)
+	if p := a*a + b*b; math.Abs(float64(p)-1) > 1e-4 {
+		t.Fatalf("potencia sumada = %v, quería 1", p)
+	}
+	if fadeShape(0) != 0 || fadeShape(1) != 1 {
+		t.Fatal("los extremos no cambian")
+	}
+}

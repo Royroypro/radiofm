@@ -3,7 +3,7 @@
 ## Instalar
 
 1. Descargue el instalador:
-   `https://radioclub25peru.com/uploads/estudio/app/1.0.7/club25-estudio-amd64-installer.exe`
+   `https://radioclub25peru.com/uploads/estudio/app/1.1.0/club25-estudio-amd64-installer.exe`
    (la lista de versiones y huellas está en `.../uploads/estudio/manifest.json`). El instalador no está
    firmado: Windows SmartScreen puede pedir "Más información → Ejecutar de todas formas".
 2. El instalador revisa la PC (Windows de 64 bits), instala WebView2 si falta y, al terminar, ejecuta
@@ -40,6 +40,15 @@ Desinstalar no los borra.
   - **F1–F12** disparan la botonera; **Ctrl+M** abre/cierra el micrófono.
   - La barra de abajo muestra la tarjeta, Icecast y la sincronización con el panel.
 - **Reportes**: lo emitido y el comprobante de cuñas en CSV.
+
+## Sonido (1.1)
+
+- **Ajustes → Audio → Procesador de audio**: «Natural» (por defecto) iguala el volumen entre canciones sin
+  que se note; «FM comercial» suena más denso; «Hablado» para programas de conversación. Si el transmisor
+  ya tiene su procesador (Optimod u otro), elija **Aplicar a: Solo stream**. Pulse «Guardar y aplicar audio».
+- **Biblioteca → una pista**: en la forma de onda arrastre las marcas (cue-in verde, intro amarilla, mezcla
+  naranja, cue-out roja). Clic en la onda para escuchar desde ahí por los audífonos de la PC. Para probar
+  cómo pasa a otra canción, elíjala en «Probar transición con…».
 
 ## Si algo falla
 

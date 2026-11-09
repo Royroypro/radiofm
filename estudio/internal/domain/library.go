@@ -101,6 +101,11 @@ type Track struct {
 	Intro      time.Duration `json:"intro"`    // duración de la intro (para hablar encima)
 	AnalyzeErr string        `json:"analyze_err"`
 	Envelope   string        `json:"envelope"` // forma de onda: 200 puntos en base 36 ("0" silencio … "z" máximo)
+	Ending     Ending        `json:"ending"`   // cómo termina: fundido o seco (decide la transición)
+	FadeOut    time.Duration `json:"fade_out"` // duración del fundido final propio (0 = final seco)
+	// MarksManual: el operador ajustó cue-in, intro, mezcla o cue-out a mano;
+	// volver a analizar no los pisa (solo actualiza sonoridad y forma de onda).
+	MarksManual bool `json:"marks_manual"`
 
 	Missing      bool       `json:"missing"` // el archivo ya no está
 	LastPlayedAt *time.Time `json:"last_played_at"`
@@ -181,8 +186,18 @@ type Analysis struct {
 	CueOut   time.Duration
 	SegueAt  time.Duration
 	Envelope string
+	Ending   Ending
+	FadeOut  time.Duration
 	Err      string
 }
+
+// Ending es cómo termina una pista.
+type Ending string
+
+const (
+	EndingFade Ending = "fade" // fundido: la siguiente entra encima del fundido
+	EndingCold Ending = "cold" // seco (golpe final): la siguiente entra casi al final, sin pisarlo
+)
 
 // TrackRepository persiste las pistas.
 type TrackRepository interface {

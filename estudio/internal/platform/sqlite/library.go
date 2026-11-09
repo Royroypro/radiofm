@@ -95,19 +95,21 @@ func NewTrackRepo(db *sql.DB) *TrackRepo { return &TrackRepo{db: db} }
 
 const trackCols = `id, path, title, artist, album, genre, year, category_id, duration_ms, active, valid_from, valid_to,
 	analyzed, loudness, gain_db, cue_in_ms, cue_out_ms, segue_ms, intro_ms, analyze_err, missing, last_played_at,
-	play_count, created_at, envelope`
+	play_count, created_at, envelope, ending, fade_out_ms, marks_manual`
 
 func scanTrack(r rowScanner) (*domain.Track, error) {
 	var t domain.Track
-	var durMs, cueIn, cueOut, segue, intro int64
-	var active, analyzed, missing int
+	var durMs, cueIn, cueOut, segue, intro, fadeOut int64
+	var active, analyzed, missing, manual int
+	var ending string
 	var from, to, last sql.NullString
 	var created string
 	if err := r.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.Genre, &t.Year, &t.CategoryID, &durMs, &active,
 		&from, &to, &analyzed, &t.Loudness, &t.GainDB, &cueIn, &cueOut, &segue, &intro, &t.AnalyzeErr, &missing, &last,
-		&t.PlayCount, &created, &t.Envelope); err != nil {
+		&t.PlayCount, &created, &t.Envelope, &ending, &fadeOut, &manual); err != nil {
 		return nil, err
 	}
+	t.Ending, t.FadeOut, t.MarksManual = domain.Ending(ending), dur(fadeOut), manual == 1
 	t.Duration, t.CueIn, t.CueOut, t.SegueAt, t.Intro = dur(durMs), dur(cueIn), dur(cueOut), dur(segue), dur(intro)
 	t.Active, t.Analyzed, t.Missing = active == 1, analyzed == 1, missing == 1
 	t.ValidFrom, t.ValidTo, t.LastPlayedAt = parseTimePtr(from), parseTimePtr(to), parseTimePtr(last)
@@ -204,10 +206,10 @@ func (r *TrackRepo) List(ctx context.Context, f domain.TrackFilter) ([]domain.Tr
 // Update guarda los campos editables de una pista.
 func (r *TrackRepo) Update(ctx context.Context, t *domain.Track) error {
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET title=?, artist=?, album=?, genre=?, year=?,
-		category_id=?, active=?, valid_from=?, valid_to=?, gain_db=?, cue_in_ms=?, cue_out_ms=?, segue_ms=?, intro_ms=?
-		WHERE id=?`,
+		category_id=?, active=?, valid_from=?, valid_to=?, gain_db=?, cue_in_ms=?, cue_out_ms=?, segue_ms=?, intro_ms=?,
+		marks_manual=? WHERE id=?`,
 		t.Title, t.Artist, t.Album, t.Genre, t.Year, t.CategoryID, b2i(t.Active), fmtTimePtr(t.ValidFrom),
-		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), t.ID))
+		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), b2i(t.MarksManual), t.ID))
 }
 
 // Delete borra una pista de la biblioteca (no el archivo).
@@ -224,11 +226,17 @@ func (r *TrackRepo) PendingAnalysis(ctx context.Context, limit int) ([]domain.Tr
 	return scanTracks(rows)
 }
 
-// SetAnalysis guarda el resultado del análisis.
+// SetAnalysis guarda el resultado del análisis. Si el operador ajustó las
+// marcas a mano (marks_manual), se conservan: solo cambian sonoridad, ganancia,
+// forma de onda y tipo de final.
 func (r *TrackRepo) SetAnalysis(ctx context.Context, id int64, a domain.Analysis) error {
-	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET analyzed=1, loudness=?, gain_db=?, cue_in_ms=?,
-		cue_out_ms=?, segue_ms=?, analyze_err=?, envelope=? WHERE id=?`,
-		a.Loudness, a.GainDB, ms(a.CueIn), ms(a.CueOut), ms(a.SegueAt), a.Err, a.Envelope, id))
+	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET analyzed=1, loudness=?, gain_db=?,
+		cue_in_ms=CASE WHEN marks_manual=1 THEN cue_in_ms ELSE ? END,
+		cue_out_ms=CASE WHEN marks_manual=1 THEN cue_out_ms ELSE ? END,
+		segue_ms=CASE WHEN marks_manual=1 THEN segue_ms ELSE ? END,
+		analyze_err=?, envelope=?, ending=?, fade_out_ms=? WHERE id=?`,
+		a.Loudness, a.GainDB, ms(a.CueIn), ms(a.CueOut), ms(a.SegueAt), a.Err, a.Envelope, string(a.Ending),
+		ms(a.FadeOut), id))
 }
 
 // SetMissing marca si el archivo falta.

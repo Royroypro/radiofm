@@ -32,6 +32,13 @@ import (
 var assets embed.FS
 
 func main() {
+	if generatingBindings { // solo se reflejan los métodos de ui.App
+		front := ui.NewApp(nil)
+		// OnStartup/OnShutdown se pasan para que Wails no los publique como bindings.
+		_ = wails.Run(&options.App{Title: "Club25 Estudio", Bind: []any{front},
+			OnStartup: front.Startup, OnShutdown: front.Shutdown})
+		return
+	}
 	if hasArg("--setup") {
 		os.Exit(setup())
 	}
@@ -65,7 +72,8 @@ func main() {
 		// siempre queda visible aunque la pantalla sea pequeña.
 		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets:  assets,
+			Handler: front.PreviewHandler(), // /preview/track/{id}: pre-escucha en la biblioteca
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 22, A: 1}, // fondo del tema oscuro
 		OnStartup:        front.Startup,

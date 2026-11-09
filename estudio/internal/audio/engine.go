@@ -65,6 +65,15 @@ const (
 	cmdStop
 	cmdMasterGain
 	cmdMicGain
+	cmdProcessor
+)
+
+// ProcScope es a qué salida se aplica el procesador.
+type ProcScope int
+
+const (
+	ProcBoth   ProcScope = iota // FM (tarjeta) y stream
+	ProcStream                  // solo el stream (el transmisor FM ya tiene su procesador)
 )
 
 type command struct {
@@ -73,7 +82,10 @@ type command struct {
 	item   *playItem
 	value  float32
 	frames int64
+	delay  int64 // cmdPlay: frames de espera antes de empezar
 	stop   bool
+	proc   *Processor
+	scope  ProcScope
 }
 
 // slotStatus se publica con atómicos para leerlo desde otras goroutines.
@@ -100,6 +112,10 @@ type Engine struct {
 	carts, mic []float32
 	ducker     *Ducker
 	limiter    *Limiter
+	proc       *Processor // nil = sin procesar
+	procScope  ProcScope
+	procBuf    []float32 // copia procesada para el stream (ProcStream)
+	streamLim  *Limiter  // limitador propio de esa copia
 	master     float32
 	micGain    float32
 	silent     int64 // frames seguidos en silencio
@@ -117,6 +133,8 @@ type Engine struct {
 	levels      [4]atomic.Uint32 // PeakL, PeakR, RMSL, RMSR (bits float32)
 	duckGain    atomic.Uint32
 	limitGain   atomic.Uint32
+	procGain    atomic.Uint32 // reducción de los compresores (1 = nada)
+	agcGain     atomic.Uint32
 	dropouts    atomic.Int64 // frames de silencio por decodificador lento
 	encDropped  atomic.Int64 // muestras descartadas hacia el codificador
 	renderedFrm atomic.Int64
@@ -128,23 +146,27 @@ func NewEngine(cfg Config) *Engine {
 		cfg.EncoderBuffer = 2 * time.Second
 	}
 	e := &Engine{
-		cfg:     cfg,
-		cmds:    make(chan command, 256),
-		events:  make(chan Event, 256),
-		trash:   make(chan *playItem, numSlots*4),
-		music:   make([]float32, maxBlockFrames*Channels),
-		tmp:     make([]float32, maxBlockFrames*Channels),
-		carts:   make([]float32, maxBlockFrames*Channels),
-		mic:     make([]float32, maxBlockFrames*Channels),
-		ducker:  NewDucker(cfg.DuckDepthDB, cfg.DuckThresholdDB, cfg.DuckAttack, cfg.DuckRelease),
-		limiter: NewLimiter(cfg.LimiterCeilingDB, 1500*time.Microsecond, 80*time.Millisecond),
-		master:  1,
-		micGain: 1,
-		micRing: NewRingBuffer(int(DurationToFrames(time.Second)) * Channels),
-		encRing: NewRingBuffer(int(DurationToFrames(cfg.EncoderBuffer)) * Channels),
+		cfg:       cfg,
+		cmds:      make(chan command, 256),
+		events:    make(chan Event, 256),
+		trash:     make(chan *playItem, numSlots*4),
+		music:     make([]float32, maxBlockFrames*Channels),
+		tmp:       make([]float32, maxBlockFrames*Channels),
+		carts:     make([]float32, maxBlockFrames*Channels),
+		mic:       make([]float32, maxBlockFrames*Channels),
+		ducker:    NewDucker(cfg.DuckDepthDB, cfg.DuckThresholdDB, cfg.DuckAttack, cfg.DuckRelease),
+		limiter:   NewLimiter(cfg.LimiterCeilingDB, 1500*time.Microsecond, 80*time.Millisecond),
+		procBuf:   make([]float32, maxBlockFrames*Channels),
+		streamLim: NewLimiter(cfg.LimiterCeilingDB, 1500*time.Microsecond, 80*time.Millisecond),
+		master:    1,
+		micGain:   1,
+		micRing:   NewRingBuffer(int(DurationToFrames(time.Second)) * Channels),
+		encRing:   NewRingBuffer(int(DurationToFrames(cfg.EncoderBuffer)) * Channels),
 	}
 	e.duckGain.Store(math.Float32bits(1))
 	e.limitGain.Store(math.Float32bits(1))
+	e.procGain.Store(math.Float32bits(1))
+	e.agcGain.Store(math.Float32bits(1))
 	e.encTapOn.Store(true)
 	go e.collectTrash()
 	return e
@@ -186,8 +208,13 @@ func (e *Engine) Load(slot int, src Source, o LoadOptions) error {
 }
 
 // Play empieza a sonar el slot, con fundido de entrada opcional.
-func (e *Engine) Play(slot int, fadeIn time.Duration) error {
-	return e.send(command{kind: cmdPlay, slot: slot, frames: DurationToFrames(fadeIn)})
+func (e *Engine) Play(slot int, fadeIn time.Duration) error { return e.PlayAfter(slot, fadeIn, 0) }
+
+// PlayAfter empieza a sonar el slot tras esperar delay (con precisión de un
+// bloque, 10 ms). Se usa para que una tanda entre justo cuando terminó de
+// fundirse la música, sin pisarla.
+func (e *Engine) PlayAfter(slot int, fadeIn, delay time.Duration) error {
+	return e.send(command{kind: cmdPlay, slot: slot, frames: DurationToFrames(fadeIn), delay: DurationToFrames(delay)})
 }
 
 // Fade lleva el volumen del slot a gain (0–1) en d; si stop, al terminar se detiene.
@@ -201,6 +228,12 @@ func (e *Engine) Stop(slot int) error { return e.send(command{kind: cmdStop, slo
 // SetMasterGain fija la ganancia general (lineal).
 func (e *Engine) SetMasterGain(g float32) error {
 	return e.send(command{kind: cmdMasterGain, value: g})
+}
+
+// SetProcessor cambia el procesador del bus (nil = sin procesar) y a qué salida
+// se aplica. El procesador se crea fuera del hilo de audio (NewProcessor reserva memoria).
+func (e *Engine) SetProcessor(p *Processor, scope ProcScope) error {
+	return e.send(command{kind: cmdProcessor, proc: p, scope: scope})
 }
 
 // SetMicGain fija la ganancia del micrófono (lineal).
@@ -242,12 +275,19 @@ func (e *Engine) apply(c command) {
 			return
 		}
 		it.playing = true
+		it.wait = c.delay
 		if c.frames > 0 {
 			it.vol = 0
 			it.setFade(1, c.frames, false)
 		}
 		st.playing.Store(true)
 		e.emit(Event{Type: EventStarted, Slot: c.slot, Tag: it.tag})
+	case cmdProcessor:
+		e.proc, e.procScope = c.proc, c.scope
+		if c.proc == nil {
+			e.procGain.Store(math.Float32bits(1))
+			e.agcGain.Store(math.Float32bits(1))
+		}
 	case cmdFade:
 		if it := e.slots[c.slot]; it != nil && it.playing {
 			it.setFade(c.value, c.frames, c.stop)
@@ -368,7 +408,20 @@ func (e *Engine) renderBlock(out []float32) {
 		out[i] = v * e.master
 	}
 
-	// 5. limitador, medidores, silencio
+	// 5. procesador (AGC + 3 bandas), limitador, medidores, silencio
+	stream := out // lo que va al codificador
+	if p := e.proc; p != nil {
+		if e.procScope == ProcStream {
+			stream = e.procBuf[:n]
+			copy(stream, out)
+			p.Process(stream)
+			e.streamLim.Process(stream)
+		} else {
+			p.Process(out)
+		}
+		e.procGain.Store(math.Float32bits(p.Reduction))
+		e.agcGain.Store(math.Float32bits(p.AGC))
+	}
 	e.limiter.Process(out)
 	lv := measure(out)
 	e.levels[0].Store(math.Float32bits(lv.PeakL))
@@ -391,7 +444,7 @@ func (e *Engine) renderBlock(out []float32) {
 
 	// 6. copia hacia el codificador (si se atasca, se descarta: nunca frena la salida)
 	if e.encTapOn.Load() {
-		if w := e.encRing.Write(out); w < n {
+		if w := e.encRing.Write(stream); w < n {
 			e.encDropped.Add(int64(n - w))
 		}
 	}
@@ -414,6 +467,8 @@ type Status struct {
 	Levels      Levels              `json:"levels"`
 	DuckGain    float32             `json:"duck_gain"`
 	LimiterGain float32             `json:"limiter_gain"`
+	ProcGain    float32             `json:"proc_gain"` // reducción de los compresores del procesador (1 = nada)
+	AGCGain     float32             `json:"agc_gain"`  // corrección del AGC (lineal)
 	MicOn       bool                `json:"mic_on"`
 	Dropouts    int64               `json:"dropouts"`
 	EncDropped  int64               `json:"enc_dropped"`
@@ -441,6 +496,7 @@ func (e *Engine) Status() Status {
 	f := func(a *atomic.Uint32) float32 { return math.Float32frombits(a.Load()) }
 	s.Levels = Levels{PeakL: f(&e.levels[0]), PeakR: f(&e.levels[1]), RMSL: f(&e.levels[2]), RMSR: f(&e.levels[3])}
 	s.DuckGain, s.LimiterGain = f(&e.duckGain), f(&e.limitGain)
+	s.ProcGain, s.AGCGain = f(&e.procGain), f(&e.agcGain)
 	s.MicOn = e.micOn.Load()
 	s.Dropouts, s.EncDropped = e.dropouts.Load(), e.encDropped.Load()
 	s.Rendered = FramesToDuration(e.renderedFrm.Load())

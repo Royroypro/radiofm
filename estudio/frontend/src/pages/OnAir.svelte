@@ -28,6 +28,9 @@
 
   const v = $derived(onair.view)
   const air = $derived(v?.air)
+  const toDb = (g: number | undefined) => (g && g > 0 ? 20 * Math.log10(g) : 0)
+  const grDb = $derived(toDb(air?.engine.proc_gain))
+  const agcDb = $derived(toDb(air?.engine.agc_gain))
   let now = $state(new Date())
 
   // ---- AHORA / SIGUE ----
@@ -175,6 +178,10 @@
     <div class="vu">
       <Meter label="L" peak={air?.engine.levels.PeakL ?? 0} rms={air?.engine.levels.RMSL ?? 0} />
       <Meter label="R" peak={air?.engine.levels.PeakR ?? 0} rms={air?.engine.levels.RMSR ?? 0} />
+      <div class="gr" title="Procesador: reducción de los compresores {grDb.toFixed(1)} dB · AGC {agcDb >= 0 ? '+' : ''}{agcDb.toFixed(1)} dB">
+        <div class="grbar"><div class="grfill" style="height:{Math.min(100, (-grDb / 12) * 100)}%"></div></div>
+        <span>GR</span>
+      </div>
     </div>
 
     <div class="clockbox"><RoundClock {now} /></div>
@@ -341,6 +348,9 @@
   .tbtn.mic { background: var(--red); animation: blink 1s infinite; }
   header > * { min-height: 0; overflow: hidden; }
   .vu { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .gr { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 14px; font-size: 8px; color: var(--muted); }
+  .grbar { flex: 1; width: 6px; background: var(--panel-2); border-radius: 3px; position: relative; overflow: hidden; }
+  .grfill { position: absolute; top: 0; left: 0; right: 0; background: var(--orange); transition: height .15s linear; }
   .clockbox { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 4px; }
   .brandbox { display: flex; flex-direction: column; gap: 4px; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; }
   .brandbox img { height: clamp(24px, 4vh, 44px); align-self: center; }

@@ -12,27 +12,34 @@ type AnalysisRules struct {
 	TargetLUFS   float64       // −16: sonoridad objetivo de toda la biblioteca
 	MaxBoostDB   float64       // +6: nunca subir más que esto (evita levantar ruido)
 	SilenceLUFS  float64       // −50: por debajo es silencio (cue-in / cue-out)
-	SegueDropLU  float64       // 10: el punto de mezcla es donde el final cae esto por debajo del integrado
+	SilenceRelLU float64       // 42: también es silencio lo que está esto por debajo del integrado (pistas muy fuertes)
+	SegueDropLU  float64       // 8: el punto de mezcla es donde el final cae esto por debajo del integrado
 	SegueWindow  time.Duration // 15 s: buscar el punto de mezcla solo en los últimos segundos
 	MinSegueTail time.Duration // 1 s: el punto de mezcla queda al menos esto antes del cue-out
 }
 
 // DefaultAnalysisRules son los valores del plan.
 func DefaultAnalysisRules() AnalysisRules {
-	return AnalysisRules{TargetLUFS: -16, MaxBoostDB: 6, SilenceLUFS: -50, SegueDropLU: 10,
+	return AnalysisRules{TargetLUFS: -16, MaxBoostDB: 6, SilenceLUFS: -50, SilenceRelLU: 42, SegueDropLU: 8,
 		SegueWindow: 15 * time.Second, MinSegueTail: time.Second}
 }
 
 // frameStep es el paso de la serie momentánea de ebur128.
 const frameStep = 100 * time.Millisecond
 
-// Derive calcula ganancia, cue-in, cue-out y punto de mezcla a partir de la medición.
+// Derive calcula ganancia, cue-in, cue-out, punto de mezcla y tipo de final a
+// partir de la medición. Basado en autocue de Moonbase59 (MIT,
+// https://github.com/Moonbase59/autocue): umbrales relativos a la sonoridad de
+// la pista y punto de entrada de la siguiente buscado hacia atrás desde el final.
 //
 //   - momentary[i] es la sonoridad (ventana de 400 ms) que termina en (i+1)·100 ms.
+//   - umbral de silencio: el mayor entre SilenceLUFS e integrado − SilenceRelLU.
 //   - cue-in: inicio de la primera ventana por encima del umbral de silencio.
 //   - cue-out: fin de la última ventana por encima del umbral.
 //   - segue: en los últimos SegueWindow, el último instante en que la sonoridad
 //     estaba a menos de SegueDropLU del integrado (empieza la caída/fundido final).
+//   - final: «fundido» si entre el segue y el cue-out hay al menos 2 s de caída;
+//     si no, «seco» (la siguiente entra a 1 s del final sin pisar el golpe).
 //
 // Función pura: se prueba sin ffmpeg.
 func Derive(integrated float64, momentary []float64, duration time.Duration, r AnalysisRules) domain.Analysis {
@@ -45,9 +52,10 @@ func Derive(integrated float64, momentary []float64, duration time.Duration, r A
 	a.GainDB = math.Min(r.TargetLUFS-integrated, r.MaxBoostDB)
 	a.GainDB = math.Round(a.GainDB*10) / 10
 
+	silence := math.Max(r.SilenceLUFS, integrated-r.SilenceRelLU)
 	first, last := -1, -1
 	for i, m := range momentary {
-		if m > r.SilenceLUFS {
+		if m > silence {
 			if first < 0 {
 				first = i
 			}
@@ -87,6 +95,7 @@ func Derive(integrated float64, momentary []float64, duration time.Duration, r A
 			break
 		}
 	}
+	a.Ending = EndingOf(segue, end, r)
 	if segue == 0 || segue > end-r.MinSegueTail {
 		segue = end - r.MinSegueTail // final seco: mezclar casi al final
 	}
@@ -94,8 +103,23 @@ func Derive(integrated float64, momentary []float64, duration time.Duration, r A
 		segue = 0
 	}
 	a.SegueAt = segue
+	if a.Ending == domain.EndingFade {
+		a.FadeOut = end - segue
+	}
 	a.Envelope = Envelope(momentary, 200)
 	return a
+}
+
+// minFadeTail es lo mínimo que debe durar la caída final para considerarla fundido.
+const minFadeTail = 2 * time.Second
+
+// EndingOf decide si la pista termina en fundido o seco según dónde empieza la
+// caída final (segue, 0 = no se encontró) y dónde termina el audio.
+func EndingOf(segue, end time.Duration, r AnalysisRules) domain.Ending {
+	if segue > 0 && end-segue >= minFadeTail && segue <= end-r.MinSegueTail {
+		return domain.EndingFade
+	}
+	return domain.EndingCold
 }
 
 // cleanLoudness cambia los valores que no son números (ffmpeg escribe "nan" en

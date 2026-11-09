@@ -83,6 +83,8 @@ export namespace audio {
 	    levels: Levels;
 	    duck_gain: number;
 	    limiter_gain: number;
+	    proc_gain: number;
+	    agc_gain: number;
 	    mic_on: boolean;
 	    dropouts: number;
 	    enc_dropped: number;
@@ -99,6 +101,8 @@ export namespace audio {
 	        this.levels = this.convertValues(source["levels"], Levels);
 	        this.duck_gain = source["duck_gain"];
 	        this.limiter_gain = source["limiter_gain"];
+	        this.proc_gain = source["proc_gain"];
+	        this.agc_gain = source["agc_gain"];
 	        this.mic_on = source["mic_on"];
 	        this.dropouts = source["dropouts"];
 	        this.enc_dropped = source["enc_dropped"];
@@ -139,6 +143,9 @@ export namespace config {
 	    duck_attack_ms: number;
 	    duck_release_ms: number;
 	    hard_fade_ms: number;
+	    break_fade_ms: number;
+	    proc_preset: string;
+	    proc_scope: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AudioSettings(source);
@@ -156,6 +163,9 @@ export namespace config {
 	        this.duck_attack_ms = source["duck_attack_ms"];
 	        this.duck_release_ms = source["duck_release_ms"];
 	        this.hard_fade_ms = source["hard_fade_ms"];
+	        this.break_fade_ms = source["break_fade_ms"];
+	        this.proc_preset = source["proc_preset"];
+	        this.proc_scope = source["proc_scope"];
 	    }
 	}
 	export class IcecastSettings {
@@ -693,6 +703,9 @@ export namespace domain {
 	    intro: number;
 	    analyze_err: string;
 	    envelope: string;
+	    ending: string;
+	    fade_out: number;
+	    marks_manual: boolean;
 	    missing: boolean;
 	    // Go type: time
 	    last_played_at?: any;
@@ -727,6 +740,9 @@ export namespace domain {
 	        this.intro = source["intro"];
 	        this.analyze_err = source["analyze_err"];
 	        this.envelope = source["envelope"];
+	        this.ending = source["ending"];
+	        this.fade_out = source["fade_out"];
+	        this.marks_manual = source["marks_manual"];
 	        this.missing = source["missing"];
 	        this.last_played_at = this.convertValues(source["last_played_at"], null);
 	        this.play_count = source["play_count"];
@@ -881,6 +897,9 @@ export namespace onair {
 	    mode: string;
 	    music: boolean;
 	    envelope: string;
+	    ending: string;
+	    fade_out: number;
+	    break: boolean;
 	    duration: number;
 	
 	    static createFrom(source: any = {}) {
@@ -908,6 +927,9 @@ export namespace onair {
 	        this.mode = source["mode"];
 	        this.music = source["music"];
 	        this.envelope = source["envelope"];
+	        this.ending = source["ending"];
+	        this.fade_out = source["fade_out"];
+	        this.break = source["break"];
 	        this.duration = source["duration"];
 	    }
 	}
@@ -1447,6 +1469,28 @@ export namespace ui {
 		    }
 		    return a;
 		}
+	}
+	export class TransitionPreview {
+	    start_at: number;
+	    out_fade: number;
+	    in_fade: number;
+	    delay: number;
+	    b_from: number;
+	    a_end: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TransitionPreview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.start_at = source["start_at"];
+	        this.out_fade = source["out_fade"];
+	        this.in_fade = source["in_fade"];
+	        this.delay = source["delay"];
+	        this.b_from = source["b_from"];
+	        this.a_end = source["a_end"];
+	    }
 	}
 
 }

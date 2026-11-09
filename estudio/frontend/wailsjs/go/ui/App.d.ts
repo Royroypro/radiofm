@@ -5,6 +5,7 @@ import {domain} from '../models';
 import {ui} from '../models';
 import {spots} from '../models';
 import {audio} from '../models';
+import {http} from '../models';
 import {reports} from '../models';
 import {app} from '../models';
 import {config} from '../models';
@@ -77,6 +78,10 @@ export function PickFile(arg1:string):Promise<string>;
 
 export function PickFolder(arg1:string):Promise<string>;
 
+export function PreviewHandler():Promise<http.Handler>;
+
+export function PreviewTransition(arg1:number,arg2:number):Promise<ui.TransitionPreview>;
+
 export function ReanalyzeTrack(arg1:number):Promise<domain.Track>;
 
 export function RemoveLogItem(arg1:number):Promise<void>;
@@ -86,6 +91,8 @@ export function ReplanDay(arg1:string):Promise<ui.ReplanResult>;
 export function ReportAsRun(arg1:string,arg2:string):Promise<Array<domain.Play>>;
 
 export function ReportSpots(arg1:string,arg2:string,arg3:string):Promise<Array<reports.ProofRow>>;
+
+export function ResetTrackMarks(arg1:number):Promise<domain.Track>;
 
 export function RestartAudio():Promise<app.AudioState>;
 
@@ -110,6 +117,8 @@ export function SetGrid(arg1:Array<domain.GridCell>):Promise<void>;
 export function SetIcecastPassword(arg1:string):Promise<void>;
 
 export function SetMic(arg1:boolean):Promise<void>;
+
+export function SetProcessor(arg1:string,arg2:string):Promise<void>;
 
 export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
 

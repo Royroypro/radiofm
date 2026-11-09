@@ -142,6 +142,15 @@
             {#each inputs as d (d.id)}<option value={d.name}>{d.name}</option>{/each}</select></label>
         <label class="field">Crossfade (ms)<input type="number" min="0" max="15000" step="100" bind:value={s.audio.crossfade_ms} /></label>
         <label class="field">Fundido de evento duro (ms)<input type="number" min="0" max="10000" step="100" bind:value={s.audio.hard_fade_ms} /></label>
+        <label class="field" title="Iguala el nivel entre canciones (AGC) y comprime en 3 bandas antes del limitador">Procesador de audio
+          <select bind:value={s.audio.proc_preset}>
+            <option value="natural">Natural (suave)</option><option value="fm">FM comercial</option>
+            <option value="voice">Hablado</option><option value="off">Sin procesar</option></select></label>
+        <label class="field" title="Si el transmisor FM ya tiene su propio procesador, elija «solo stream»">Aplicar a
+          <select bind:value={s.audio.proc_scope}>
+            <option value="both">FM y stream</option><option value="stream">Solo stream (el transmisor procesa la FM)</option></select></label>
+        <label class="field" title="La música se funde en este tiempo y la tanda entra al terminar, sin pisarse">Fundido al entrar una tanda (ms)<input type="number" min="0" max="5000" step="100" bind:value={s.audio.break_fade_ms} /></label>
+        <p class="muted small" style="grid-column: 1 / -1; margin: 0">Transiciones automáticas: entre canciones se respeta cómo termina cada una (con fundido se cruza sobre el fundido; con final seco no se corta el golpe). Los jingles entran sobre el final de la canción y la música entra bajo la cola del jingle.</p>
         <div class="row" style="grid-column: 1 / -1"><span class="grow muted small">El ducking se aplica al reiniciar el programa; dispositivos y ganancia, con el botón.</span>
           <button onclick={applyAudio}>Guardar y aplicar audio</button></div>
         <label class="field">Ganancia del mic (dB)<input type="number" min="-20" max="30" step="0.5" bind:value={s.audio.mic_gain_db} /></label>

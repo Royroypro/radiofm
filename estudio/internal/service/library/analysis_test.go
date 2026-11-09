@@ -98,3 +98,31 @@ func TestDeriveWithNaN(t *testing.T) {
 		t.Fatal("sonoridad integrada NaN debe marcarse con error")
 	}
 }
+
+// Tipo de final: con fundido la siguiente entra sobre la caída; seco, casi al final.
+func TestDeriveEnding(t *testing.T) {
+	m, d := series(time.Second, 2*time.Minute, 8*time.Second, time.Second, -12)
+	a := Derive(-12, m, d, DefaultAnalysisRules())
+	if a.Ending != "fade" || a.FadeOut < 4*time.Second || a.FadeOut > 7*time.Second {
+		t.Fatalf("final con fundido = %q, fade %v", a.Ending, a.FadeOut)
+	}
+	m, d = series(time.Second, 2*time.Minute, 0, 2*time.Second, -12)
+	a = Derive(-12, m, d, DefaultAnalysisRules())
+	if a.Ending != "cold" || a.FadeOut != 0 || a.SegueAt != a.CueOut-time.Second {
+		t.Fatalf("final seco = %q, fade %v, segue %v, cue-out %v", a.Ending, a.FadeOut, a.SegueAt, a.CueOut)
+	}
+}
+
+// En una pista muy fuerte el umbral de silencio sube (relativo a su sonoridad):
+// el ruido de fondo de −49 LUFS al final ya cuenta como silencio.
+func TestDeriveRelativeSilence(t *testing.T) {
+	m, d := series(0, time.Minute, 0, 0, -6)
+	for i := 0; i < 30; i++ { // 3 s de ruido de fondo a −49 LUFS (sobre el umbral absoluto de −50)
+		m = append(m, -49)
+	}
+	d += 3 * time.Second
+	a := Derive(-6, m, d, DefaultAnalysisRules())
+	if a.CueOut == 0 || a.CueOut > time.Minute+100*time.Millisecond {
+		t.Fatalf("cue-out = %v: el ruido a −49 debe quedar fuera en una pista de −6 LUFS", a.CueOut)
+	}
+}

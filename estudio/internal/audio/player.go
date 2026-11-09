@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"sync/atomic"
 	"time"
 )
@@ -30,6 +31,7 @@ type playItem struct {
 
 	// estado del hilo de audio
 	pos                int64
+	wait               int64 // frames que faltan para empezar (PlayAfter)
 	vol, target, step  float32
 	stopAtTarget       bool
 	playing            bool
@@ -114,6 +116,10 @@ func (it *playItem) render(dst, tmp []float32) (segue, ended bool, dropped int) 
 	if !it.playing {
 		return
 	}
+	if it.wait > 0 { // todavía esperando para empezar
+		it.wait -= int64(len(dst) / Channels)
+		return
+	}
 	frames := len(dst) / Channels
 	if it.length > 0 && it.pos+int64(frames) > it.length {
 		frames = int(max(it.length-it.pos, 0))
@@ -121,7 +127,7 @@ func (it *playItem) render(dst, tmp []float32) (segue, ended bool, dropped int) 
 	want := frames * Channels
 	got := it.ring.Read(tmp[:want])
 	for i := 0; i < got; i += 2 {
-		v := it.vol * it.gain
+		v := fadeShape(it.vol) * it.gain
 		dst[i] += tmp[i] * v
 		dst[i+1] += tmp[i+1] * v
 		if it.step != 0 {
@@ -149,4 +155,16 @@ func (it *playItem) render(dst, tmp []float32) (segue, ended bool, dropped int) 
 		}
 	}
 	return
+}
+
+// fadeShape convierte la posición lineal del fundido (0…1) en ganancia con curva
+// de potencia constante (equal-power, como el crossfader de Mixxx): seno de un
+// cuarto de ciclo. Al cruzar dos pistas, una sube con sin(x·π/2) y la otra baja con
+// cos = sin((1−x)·π/2): la suma de potencias es constante y no hay "bache" de
+// volumen en medio del crossfade. Fuera de un fundido (0 o 1) no cambia nada.
+func fadeShape(x float32) float32 {
+	if x <= 0 || x >= 1 {
+		return x
+	}
+	return float32(math.Sin(float64(x) * math.Pi / 2))
 }

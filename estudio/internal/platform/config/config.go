@@ -35,7 +35,10 @@ type AudioSettings struct {
 	DuckThresholdDB float64 `json:"duck_threshold_db"`
 	DuckAttackMs    int     `json:"duck_attack_ms"`
 	DuckReleaseMs   int     `json:"duck_release_ms"`
-	HardFadeMs      int     `json:"hard_fade_ms"` // fundido al entrar un evento duro
+	HardFadeMs      int     `json:"hard_fade_ms"`  // fundido al entrar un evento duro
+	BreakFadeMs     int     `json:"break_fade_ms"` // fundido de la música al entrar una tanda
+	ProcPreset      string  `json:"proc_preset"`   // procesador: natural | fm | voice | off
+	ProcScope       string  `json:"proc_scope"`    // a qué se aplica: both (FM y stream) | stream
 }
 
 // Crossfade devuelve la duración del crossfade.
@@ -129,7 +132,7 @@ const (
 func Defaults() Settings {
 	return Settings{
 		Audio: AudioSettings{CrossfadeMs: 3000, DuckDepthDB: -12, DuckThresholdDB: -35, DuckAttackMs: 50,
-			DuckReleaseMs: 500, HardFadeMs: 2000},
+			DuckReleaseMs: 500, HardFadeMs: 2000, BreakFadeMs: 1000, ProcPreset: "natural", ProcScope: "both"},
 		Icecast: IcecastSettings{Host: IngestHost, Port: 8010, Mount: "/radio", User: "source",
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
 		Server:    ServerSettings{URL: ServerURL},
@@ -249,6 +252,13 @@ func (c Settings) Validate() error {
 		return errors.New("las separaciones no pueden ser negativas")
 	case c.Safety.SilenceSeconds < 0:
 		return errors.New("el tiempo de silencio no puede ser negativo")
+	case c.Audio.ProcPreset != "" && c.Audio.ProcPreset != "natural" && c.Audio.ProcPreset != "fm" &&
+		c.Audio.ProcPreset != "voice" && c.Audio.ProcPreset != "off":
+		return errors.New("preset del procesador desconocido")
+	case c.Audio.ProcScope != "" && c.Audio.ProcScope != "both" && c.Audio.ProcScope != "stream":
+		return errors.New("el procesador se aplica a both o stream")
+	case c.Audio.BreakFadeMs < 0 || c.Audio.BreakFadeMs > 5000:
+		return errors.New("el fundido de tanda debe estar entre 0 y 5 s")
 	case c.UI.Theme != "" && c.UI.Theme != "dark" && c.UI.Theme != "light" && c.UI.Theme != "club25" && c.UI.Theme != "custom":
 		return errors.New("tema desconocido")
 	}

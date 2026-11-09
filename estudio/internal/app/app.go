@@ -420,6 +420,7 @@ func (a *App) decode(ctx context.Context, path string, start time.Duration) (aud
 func (a *App) onairOptions() onair.Options {
 	s := a.Settings()
 	o := onair.Options{Crossfade: s.Audio.Crossfade(), HardFade: time.Duration(s.Audio.HardFadeMs) * time.Millisecond,
+		BreakFade:    time.Duration(s.Audio.BreakFadeMs) * time.Millisecond,
 		TimeAnnounce: !s.Locutions.TimeOff}
 	if cats, err := a.Library.Categories(context.Background()); err == nil {
 		for _, c := range cats {
@@ -469,6 +470,7 @@ func (a *App) RestartAudio() {
 		a.Log.Info("salida de audio", "dispositivo", out.Device.Name)
 	}
 	_ = a.Engine.SetMicGain(audio.DBToGain(s.Audio.MicGainDB))
+	a.ApplyProcessor()
 	if s.Audio.MicDevice != "" {
 		mic, err := audio.OpenCapture(s.Audio.MicDevice, a.Engine.MicInput())
 		if err != nil {
@@ -540,4 +542,19 @@ func (a *App) Close() {
 func fileExists(path string) bool {
 	st, err := os.Stat(path)
 	return err == nil && !st.IsDir()
+}
+
+// ApplyProcessor aplica al motor el procesador de audio de los ajustes (preset y
+// salida). Se puede llamar en cualquier momento: el cambio entra en el próximo bloque.
+func (a *App) ApplyProcessor() {
+	s := a.Settings().Audio
+	scope := audio.ProcBoth
+	if s.ProcScope == "stream" {
+		scope = audio.ProcStream
+	}
+	var p *audio.Processor
+	if ps, ok := audio.PresetSettings(audio.ProcPreset(s.ProcPreset)); ok {
+		p = audio.NewProcessor(ps)
+	}
+	_ = a.Engine.SetProcessor(p, scope)
 }

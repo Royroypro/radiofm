@@ -6,12 +6,13 @@
   import { onMount } from 'svelte'
   import {
     Categories, CategoryKinds, SaveCategory, DeleteCategory, Tracks, UpdateTrack, DeleteTrack,
-    ReanalyzeTrack, ImportFolder, PickFolder, AnalyzerStatus, CheckMissing,
+    ReanalyzeTrack, ResetTrackMarks, ImportFolder, PickFolder, AnalyzerStatus, CheckMissing,
   } from '../../wailsjs/go/ui/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { domain, type ui, type library } from '../../wailsjs/go/models'
   import { dur, secs, fromSecs, dateInput, fromDateInput, db } from '../lib/format'
   import { toast } from '../lib/toast.svelte'
+  import CueEditor from '../lib/CueEditor.svelte'
 
   const PAGE = 200
   const kindLabel: Record<string, string> = {
@@ -95,6 +96,19 @@
       toast.error(e)
     }
   }
+
+  async function resetMarks() {
+    if (!sel || !confirm('¿Descartar las marcas puestas a mano y volver a las automáticas?')) return
+    try {
+      select(await ResetTrackMarks(sel.id))
+      await search(false)
+      toast.show('Marcas automáticas restablecidas')
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+
+  const others = $derived(tracks.filter((t) => t.id !== sel?.id).map((t) => ({ id: t.id, label: t.artist ? `${t.artist} - ${t.title}` : t.title || t.path })))
 
   async function removeTrack() {
     if (!sel || !confirm(`¿Quitar «${sel.title || sel.path}» de la biblioteca? (el archivo no se borra)`)) return
@@ -252,7 +266,14 @@
         <label class="field">Vigente desde<input type="date" bind:value={edit.from} /></label>
         <label class="field">Hasta<input type="date" bind:value={edit.to} /></label>
       </div>
-      <h2 style="margin-top:12px">Puntos (segundos)</h2>
+      <h2 style="margin-top:12px">Puntos (segundos)
+        {#if edit.marks_manual}<span class="badge" title="El análisis no los cambia">a mano</span>{/if}
+        {#if edit.ending}<span class="badge" title="Decide cómo entra la siguiente">{edit.ending === 'fade' ? `final con fundido (${secs(edit.fade_out)} s)` : 'final seco'}</span>{/if}
+      </h2>
+      {#key edit.id}
+        <CueEditor trackId={edit.id} envelope={edit.envelope} duration={secs(edit.duration)} {others}
+          bind:cueIn={edit.cue_in_s} bind:intro={edit.intro_s} bind:segue={edit.segue_s} bind:cueOut={edit.cue_out_s} />
+      {/key}
       <div class="grid2">
         <label class="field">Cue-in<input type="number" step="0.1" min="0" bind:value={edit.cue_in_s} /></label>
         <label class="field">Cue-out (0 = final)<input type="number" step="0.1" min="0" bind:value={edit.cue_out_s} /></label>
@@ -265,6 +286,7 @@
       <div class="row" style="margin-top:12px">
         <button class="ok" onclick={saveTrack}>Guardar</button>
         <button class="ghost" onclick={reanalyze}>Reanalizar</button>
+        {#if edit.marks_manual}<button class="ghost" onclick={resetMarks} title="Descarta las marcas puestas a mano">Marcas automáticas</button>{/if}
         <button class="danger" onclick={removeTrack}>Quitar</button>
       </div>
     {:else}
@@ -328,5 +350,6 @@
   .cat.active { background: var(--accent); color: var(--accent-text); }
   .catrow { display: flex; gap: 2px; align-items: center; }
   .editor { display: flex; flex-direction: column; gap: 8px; }
+  .badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); margin-left: 6px; vertical-align: middle; }
   .path { word-break: break-all; margin: 0; }
 </style>

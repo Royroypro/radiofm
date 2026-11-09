@@ -134,7 +134,28 @@ func (s *Service) UpdateTrack(ctx context.Context, t *domain.Track) error {
 	case t.GainDB < -30 || t.GainDB > 12:
 		return domain.Invalid("gain_db", "La ganancia debe estar entre −30 y +12 dB")
 	}
+	// Si cambió alguna marca, queda como ajuste manual (el análisis ya no la pisa).
+	if t.CueIn != old.CueIn || t.CueOut != old.CueOut || t.SegueAt != old.SegueAt || t.Intro != old.Intro {
+		t.MarksManual = true
+	}
 	return s.tracks.Update(ctx, t)
+}
+
+// ResetMarks descarta las marcas manuales y vuelve a analizar la pista.
+func (s *Service) ResetMarks(ctx context.Context, id int64) error {
+	t, err := s.tracks.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	t.MarksManual = false
+	if err := s.tracks.Update(ctx, t); err != nil {
+		return err
+	}
+	a := s.AnalyzeTrack(ctx, *t)
+	if a.Err != "" {
+		return fmt.Errorf("análisis: %s", a.Err)
+	}
+	return nil
 }
 
 // DeleteTrack quita una pista de la biblioteca (el archivo no se borra).
