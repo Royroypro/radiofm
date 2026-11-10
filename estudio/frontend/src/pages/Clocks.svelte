@@ -118,14 +118,18 @@
                   {:else if s.kind === 'silence'}
                     <input type="number" min="1" max="600" style="width:80px" bind:value={s.seconds} /> s
                   {:else if s.kind === 'satellite'}
-                    <input placeholder="Nombre (ej.: Red Nacional)" style="width:140px" bind:value={s.title} />
-                    <input placeholder="https://satelite.pe/stream" style="width:220px" bind:value={s.url} />
-                    <span class="muted small" title="La señal suena toda la hora; las tandas, la hora y los IDs marcados como duros la cortan a su minuto y al terminar vuelve la señal en vivo.">cubre la hora · tandas como «duro» ⓘ</span>
+                    <div class="stream">
+                      <input placeholder="Nombre (ej.: Red Nacional)" bind:value={s.title} />
+                      <input class="url" placeholder="URL del stream: https://…/stream" bind:value={s.url} />
+                      <span class="muted small">Suena toda la hora. Las tandas marcadas como «Duro» la cortan a su minuto y luego vuelve la señal.</span>
+                    </div>
                   {:else if s.kind === 'relay'}
-                    <input placeholder="Nombre (ej.: Noticiero)" style="width:140px" bind:value={s.title} />
-                    <input placeholder="https://cadena.pe/stream" style="width:220px" bind:value={s.url} />
-                    <input type="number" min="10" max="14400" step="60" style="width:80px" bind:value={s.seconds}
-                      title="Duración en segundos (600 = 10 min)" /> s
+                    <div class="stream">
+                      <input placeholder="Nombre (ej.: Noticiero)" bind:value={s.title} />
+                      <input class="url" placeholder="URL del stream: https://…/stream" bind:value={s.url} />
+                      <label class="small">Duración <input type="number" min="10" max="14400" step="60" style="width:90px" bind:value={s.seconds}
+                        title="Duración en segundos (600 = 10 min)" /> s</label>
+                    </div>
                   {:else}
                     <span class="muted small">—</span>
                   {/if}
@@ -147,6 +151,7 @@
         <button class="ghost" onclick={() => addSlot('category')}>+ Categoría</button>
         <button class="ghost" onclick={() => addSlot('spots')}>+ Tanda</button>
         <button class="ghost" onclick={() => addSlot('time')}>+ Hora</button>
+        <button class="ghost" onclick={() => addSlot('satellite')}>+ Satélite</button>
         <button class="ghost" onclick={() => addSlot('temp')}>+ Temperatura</button>
         <span class="grow"></span>
         {#if edit.id}<button class="danger" onclick={remove}>Borrar</button>{/if}
@@ -172,4 +177,6 @@
   .item.active { background: var(--accent); color: var(--accent-text); }
   .editor { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
   td.acts { text-align: right; width: 130px; }
+  .stream { display: flex; flex-direction: column; gap: 4px; min-width: 260px; }
+  .stream input { width: 100%; }
 </style>

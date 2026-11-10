@@ -2,6 +2,11 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.5.1 — relojes
+
+- En Relojes, el slot Satélite y el Enlace a cadena muestran el nombre y la URL uno debajo del otro
+  (antes la URL quedaba escondida). Botón «+ Satélite».
+
 ## 1.5.0 — satélite
 
 - **Satélite**: nuevo tipo de slot en los relojes. Se pone la URL de una señal (red nacional, otra
