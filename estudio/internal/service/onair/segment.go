@@ -19,6 +19,7 @@ import (
 //	silencio           → espera de N segundos sin audio
 //	cambio de modo     → ningún audio (se aplica el modo)
 //	enlace a cadena    → el stream externo (URL) durante N segundos
+//	satélite           → el stream externo hasta el evento siguiente (con respaldo si se cae)
 type Segment struct {
 	ItemID   int64           `json:"item_id"` // elemento de la playlist (0 = emergencia)
 	Index    int             `json:"index"`   // posición dentro del elemento
@@ -43,6 +44,10 @@ type Segment struct {
 	FadeOut  time.Duration   `json:"fade_out"` // duración de su fundido final propio
 	Break    bool            `json:"break"`    // es parte de una tanda (cortina o cuña)
 	Duration time.Duration   `json:"duration"` // duración total del archivo (para ubicar cues en la forma de onda)
+	// SatEnd: satélite. El stream suena hasta esta hora (la del evento siguiente);
+	// la duración se calcula al arrancar. Si la señal se cae antes, suena música de
+	// respaldo y se vuelve a intentar.
+	SatEnd time.Time `json:"sat_end"`
 }
 
 // Key identifica el segmento (para saber si lo precargado sigue siendo lo siguiente).
@@ -169,6 +174,13 @@ func (x *expander) expand(ctx context.Context, it domain.LogItem) ([]Segment, []
 		}
 		segs = append(segs, Segment{Kind: domain.PlayRelay, Path: it.URL, Title: it.Title,
 			Length: time.Duration(it.Seconds) * time.Second})
+	case domain.SlotSatellite:
+		if it.URL == "" || it.Length <= 0 {
+			warn = append(warn, "satélite sin URL: se salta")
+			break
+		}
+		segs = append(segs, Segment{Kind: domain.PlayRelay, Path: it.URL, Title: it.Title,
+			Length: it.Length, SatEnd: it.At.Add(it.Length)})
 	case domain.SlotMode:
 		segs = append(segs, Segment{Mode: it.Mode, Title: "Cambio de modo"})
 	}

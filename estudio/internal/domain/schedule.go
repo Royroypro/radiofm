@@ -17,10 +17,14 @@ const (
 	SlotMode     SlotKind = "mode"     // cambio de modo (auto/asistido/en vivo)
 	SlotSilence  SlotKind = "silence"  // silencio de N segundos
 	SlotRelay    SlotKind = "relay"    // enlace a cadena: un stream externo (URL) durante N segundos
+	// SlotSatellite: la hora va «en satélite». El stream (URL) cubre todos los huecos
+	// de la hora; los eventos duros (tandas, hora, IDs) cortan el stream a su minuto
+	// y al terminar se vuelve a la señal en vivo.
+	SlotSatellite SlotKind = "satellite"
 )
 
 // SlotKinds en el orden de la interfaz.
-var SlotKinds = []SlotKind{SlotCategory, SlotTrack, SlotSpots, SlotTime, SlotTemp, SlotMode, SlotSilence, SlotRelay}
+var SlotKinds = []SlotKind{SlotCategory, SlotTrack, SlotSpots, SlotTime, SlotTemp, SlotMode, SlotSilence, SlotRelay, SlotSatellite}
 
 // Valid indica si el tipo es conocido.
 func (k SlotKind) Valid() bool {
@@ -43,8 +47,8 @@ type ClockSlot struct {
 	Minute     int      `json:"minute"`  // 0–59, solo si Hard
 	Mode       string   `json:"mode"`    // SlotMode: auto | assisted | live
 	Seconds    int      `json:"seconds"` // SlotSilence y SlotRelay
-	URL        string   `json:"url"`     // SlotRelay: stream de la cadena (http/https)
-	Title      string   `json:"title"`   // SlotRelay: nombre ("Noticiero RPP")
+	URL        string   `json:"url"`     // SlotRelay y SlotSatellite: stream (http/https)
+	Title      string   `json:"title"`   // SlotRelay y SlotSatellite: nombre ("Noticiero RPP")
 }
 
 // Clock es una plantilla de una hora: lista ordenada de slots.
@@ -102,7 +106,7 @@ type LogItem struct {
 	Mode       string        `json:"mode"`
 	Seconds    int           `json:"seconds"`
 	Note       string        `json:"note"` // p. ej. reglas de rotación relajadas
-	URL        string        `json:"url"`  // SlotRelay
+	URL        string        `json:"url"`  // SlotRelay y SlotSatellite
 }
 
 // Display devuelve el texto del elemento para la interfaz.

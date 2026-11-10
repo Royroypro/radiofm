@@ -117,6 +117,10 @@
                     <select bind:value={s.mode}>{#each Object.entries(modeLabel) as [v, l]}<option value={v}>{l}</option>{/each}</select>
                   {:else if s.kind === 'silence'}
                     <input type="number" min="1" max="600" style="width:80px" bind:value={s.seconds} /> s
+                  {:else if s.kind === 'satellite'}
+                    <input placeholder="Nombre (ej.: Red Nacional)" style="width:140px" bind:value={s.title} />
+                    <input placeholder="https://satelite.pe/stream" style="width:220px" bind:value={s.url} />
+                    <span class="muted small" title="La señal suena toda la hora; las tandas, la hora y los IDs marcados como duros la cortan a su minuto y al terminar vuelve la señal en vivo.">cubre la hora · tandas como «duro» ⓘ</span>
                   {:else if s.kind === 'relay'}
                     <input placeholder="Nombre (ej.: Noticiero)" style="width:140px" bind:value={s.title} />
                     <input placeholder="https://cadena.pe/stream" style="width:220px" bind:value={s.url} />

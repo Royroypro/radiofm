@@ -177,3 +177,32 @@ func TestRetime(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateSatellite(t *testing.T) {
+	clock := domain.Clock{ID: 1, Name: "Satélite", Slots: []domain.ClockSlot{
+		{Kind: domain.SlotSatellite, URL: "https://red.pe/stream", Title: "Red Nacional"},
+		{Kind: domain.SlotSpots, Hard: true, Minute: 20},
+		{Kind: domain.SlotSpots, Hard: true, Minute: 50},
+	}}
+	items := hourItems(Generate(basePlan(clock), DefaultConfig()), 3)
+	type want struct {
+		kind  domain.SlotKind
+		at    int // minuto
+		lenMn int
+	}
+	exp := []want{{domain.SlotSatellite, 0, 20}, {domain.SlotSpots, 20, 2}, {domain.SlotSatellite, 22, 28},
+		{domain.SlotSpots, 50, 2}, {domain.SlotSatellite, 52, 8}}
+	if len(items) != len(exp) {
+		t.Fatalf("elementos = %d, quería %d: %+v", len(items), len(exp), items)
+	}
+	h := day.Add(3 * time.Hour)
+	for i, w := range exp {
+		it := items[i]
+		if it.Kind != w.kind || it.At.Sub(h) != time.Duration(w.at)*time.Minute || it.Length != time.Duration(w.lenMn)*time.Minute {
+			t.Fatalf("elemento %d = %s %v +%v, quería %s min %d +%d min", i, it.Kind, it.At.Sub(h), it.Length, w.kind, w.at, w.lenMn)
+		}
+		if it.Kind == domain.SlotSatellite && (it.URL == "" || it.Title != "Red Nacional") {
+			t.Fatalf("satélite sin URL o nombre: %+v", it)
+		}
+	}
+}

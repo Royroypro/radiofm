@@ -475,3 +475,48 @@ func TestRelay(t *testing.T) {
 		e.cancel()
 	}
 }
+
+// Satélite: la señal suena hasta la tanda dura, la tanda entra a su minuto y al
+// terminar vuelve la señal. Si la señal se cae antes de tiempo, suena música de
+// respaldo y se reintenta; si no abre, igual.
+func TestSatellite(t *testing.T) {
+	old := satMinRest
+	satMinRest = 500 * time.Millisecond
+	t.Cleanup(func() { satMinRest = old })
+	for _, broken := range []bool{false, true} {
+		now := time.Now()
+		tracks := map[int64]domain.Track{
+			1: withPath(track(1, "respaldo", 1200*time.Millisecond, 900*time.Millisecond), "r.mp3"),
+			9: {ID: 9, Title: "cortina", CategoryID: 5, Active: true, Duration: 300 * time.Millisecond},
+		}
+		spots := map[int64][]domain.Spot{11: {{ID: 1, Advertiser: "Ferretería", Name: "cuña", Path: "c.mp3", Duration: 400 * time.Millisecond}}}
+		url := "https://red.pe/stream"
+		if broken {
+			url = "falta://red"
+		}
+		// el «stream» de prueba dura 3 s: se cae antes de los 6 s previstos
+		items := []domain.LogItem{
+			{ID: 10, Kind: domain.SlotSatellite, URL: url, Title: "Red", At: now, Length: 6 * time.Second, Status: domain.LogPending},
+			{ID: 11, Kind: domain.SlotSpots, Hard: true, At: now.Add(6 * time.Second), Length: time.Second, Status: domain.LogPending},
+			{ID: 12, Kind: domain.SlotSatellite, URL: "https://red.pe/stream", Title: "Red", At: now.Add(7 * time.Second), Length: 1500 * time.Millisecond, Status: domain.LogPending},
+		}
+		e := newEnv(t, items, tracks, spots)
+		e.svc.d.Decode = decodeMissing
+		_ = e.svc.Start()
+		if !waitFor(t, 15*time.Second, func() bool { return e.log.status(12) == domain.LogPlayed }) {
+			t.Fatalf("caída=%v: se trabó (emisiones %v)", broken, e.plays.titles())
+		}
+		got := strings.Join(e.plays.titles(), ",")
+		want := "Red,respaldo,Red,cortina,cuña,cortina,Red"
+		if broken {
+			want = "respaldo,"
+		}
+		if !strings.HasPrefix(got, want) || !strings.Contains(got, "cortina,cuña,cortina,Red") {
+			t.Fatalf("caída=%v: emisiones = %s, quería %s… y la tanda seguida de la señal", broken, got, want)
+		}
+		if e.log.status(10) != domain.LogPlayed && e.log.status(10) != domain.LogSkipped {
+			t.Fatalf("el satélite cortado por la tanda debe cerrarse: %s", e.log.status(10))
+		}
+		e.cancel()
+	}
+}

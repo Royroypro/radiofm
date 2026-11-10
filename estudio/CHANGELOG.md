@@ -2,6 +2,16 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.5.0 — satélite
+
+- **Satélite**: nuevo tipo de slot en los relojes. Se pone la URL de una señal (red nacional, otra
+  emisora) y esa señal cubre la hora entera. Las tandas, la hora locutada y los IDs marcados como
+  **duros** la cortan a su minuto; al terminar la tanda **vuelve la señal en vivo** (entra con un
+  fundido de 1 s).
+- Si la señal se cae o no responde, suena música de respaldo (categoría de emergencia o cualquier
+  música) y luego se reintenta, hasta la próxima tanda.
+- Un elemento cortado por un evento duro queda cerrado en la playlist (antes podía quedar «sonando»).
+
 ## 1.4.1 — biblioteca de Al aire
 
 - La biblioteca de Al aire muestra primero el **título** (ordenada por título) y luego el artista.

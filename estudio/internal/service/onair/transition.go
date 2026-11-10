@@ -41,6 +41,9 @@ func planTransition(prev *Segment, next Segment, r TransitionRules) Transition {
 			d = max(rest, 0) // si a la música le queda menos, la tanda entra cuando termina (sin hueco)
 		}
 		return Transition{OutFade: d, Delay: d}
+	case next.Kind == domain.PlayRelay:
+		// vuelta a la señal (satélite o cadena): entra suave sobre el final de lo anterior
+		return Transition{OutFade: r.Crossfade, InFade: time.Second}
 	case prev.Break:
 		return Transition{OutFade: r.Crossfade}
 	}

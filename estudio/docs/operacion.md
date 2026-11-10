@@ -31,6 +31,23 @@ segundos (p. ej. un noticiero de una cadena nacional). Con «Duro» entra al min
 - Si el stream no responde o se corta, el elemento termina y **la playlist sigue** (idea de `fallback`
   de Liquidsoap). Queda en el historial como «Enlace a cadena».
 
+## Satélite (slot «satellite»)
+
+Para horas que se retransmiten de otra señal (una red, una emisora matriz) **sin perder la publicidad
+local**. En el reloj se pone un slot **Satélite** con la URL y, como **duros**, las tandas (y la hora
+locutada o IDs) en sus minutos. Ejemplo: Satélite + Tanda duro :20 + Tanda duro :50.
+
+- Al generar la playlist, cada hueco de la hora se cubre con un elemento de satélite que dura
+  **hasta el minuto exacto** del evento siguiente (sin tolerancia): 0–20, 22–50, 52–60.
+- La tanda corta la señal a su minuto (fundido duro). Al terminar, entra el siguiente elemento de
+  satélite: ffmpeg se vuelve a conectar y la señal **entra en vivo** (lo que se emitió durante la tanda
+  se pierde, como en una afiliada de red), con fundido de entrada de 1 s.
+- La duración de cada tramo se calcula al arrancar (hasta su hora prevista), así que si una tanda dura
+  más o menos de lo estimado, la señal igual termina cuando entra el evento siguiente.
+- **Si la señal se cae** (o no abre) con más de 20 s por delante: una pista de respaldo (categoría de
+  emergencia o cualquier música) y luego reintento. Sin pistas: 5 s de espera y reintento.
+- Un slot Satélite no puede ser duro: cubre la hora entera.
+
 ## RDS (`service/rds`)
 
 Envía al codificador RDS del transmisor el **nombre de la radio** (PS, 8 caracteres) al conectar y el

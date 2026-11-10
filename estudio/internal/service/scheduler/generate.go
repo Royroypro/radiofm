@@ -75,6 +75,21 @@ func (g *generator) hour(h int) {
 	first := len(g.items)
 	clock, ok := g.p.Clocks[g.p.ClockFor(h)]
 	lastCat := g.p.Filler
+	var sat *domain.ClockSlot // hora en satélite: el stream rellena los huecos
+	if ok {
+		for i := range clock.Slots {
+			if clock.Slots[i].Kind == domain.SlotSatellite && clock.Slots[i].URL != "" {
+				sat = &clock.Slots[i]
+				break
+			}
+		}
+	}
+	fill := func(cursor, until time.Time, cat int64) time.Time {
+		if sat != nil {
+			return g.satFill(h, cursor, until.Add(g.cfg.Tolerance), *sat)
+		}
+		return g.fill(h, cursor, until, cat)
+	}
 	if ok {
 		for _, s := range clock.Slots {
 			if s.Kind == domain.SlotCategory && s.CategoryID > 0 && isMusic(g.p.ByCategory[s.CategoryID]) {
@@ -84,7 +99,7 @@ func (g *generator) hour(h int) {
 		for _, s := range clock.Slots {
 			if s.Hard {
 				at := start.Add(time.Duration(min(max(s.Minute, 0), 59)) * time.Minute)
-				cursor = g.fill(h, cursor, at.Add(-g.cfg.Tolerance), g.fillCat(lastCat))
+				cursor = fill(cursor, at.Add(-g.cfg.Tolerance), g.fillCat(lastCat))
 				it, ok := g.item(h, s, at)
 				if ok {
 					it.Hard, it.At = true, at
@@ -99,7 +114,7 @@ func (g *generator) hour(h int) {
 			}
 		}
 	}
-	cursor = g.fill(h, cursor, end.Add(-g.cfg.Tolerance), g.fillCat(lastCat))
+	cursor = fill(cursor, end.Add(-g.cfg.Tolerance), g.fillCat(lastCat))
 	// hora larga: marcar como opcionales las últimas pistas musicales que se pasan
 	over := cursor.Sub(end)
 	for i := len(g.items) - 1; i >= first && over > g.cfg.Tolerance; i-- {
@@ -117,6 +132,23 @@ func (g *generator) fillCat(lastMusic int64) int64 {
 		return g.p.Filler
 	}
 	return lastMusic
+}
+
+// satFill cubre el hueco [cursor, until) con un elemento de satélite (el stream
+// hasta la hora exacta del evento siguiente o el fin de la hora). Sin tolerancia:
+// la señal suena hasta que el evento duro la corta. Huecos de menos de 10 s no se cubren.
+func (g *generator) satFill(h int, cursor, until time.Time, sat domain.ClockSlot) time.Time {
+	gap := until.Sub(cursor)
+	if gap < 10*time.Second {
+		return cursor
+	}
+	title := sat.Title
+	if title == "" {
+		title = "Satélite"
+	}
+	g.items = append(g.items, domain.LogItem{Hour: h, Kind: domain.SlotSatellite, At: cursor, Length: gap,
+		Seconds: int(gap / time.Second), URL: sat.URL, Title: title, Status: domain.LogPending})
+	return until
 }
 
 // fill agrega pistas de cat desde cursor hasta llegar a until. Devuelve el nuevo cursor.

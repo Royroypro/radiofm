@@ -319,6 +319,15 @@ func (s *Service) tick(ctx context.Context) {
 	d := events.Next(now, false, s.pending(), events.DefaultRules())
 	if d.Action == events.HardCut {
 		s.markSkipped(ctx, d.Skip)
+		// el elemento cortado (p. ej. el satélite o su música de respaldo) queda cerrado
+		if s.itemID != 0 && s.itemID != d.Item.ID {
+			if s.itemSounded {
+				s.itemDone(ctx, s.itemID)
+			} else {
+				_ = s.d.Log.SetStatus(ctx, s.itemID, domain.LogSkipped)
+				s.markLocal(s.itemID, domain.LogSkipped)
+			}
+		}
 		s.queue = nil
 		s.waiting = false
 		s.startItem(ctx, d.Item, s.d.Options().HardFade)
@@ -472,6 +481,9 @@ func (s *Service) segmentFailed(ctx context.Context, seg Segment) {
 	if seg.Mode != "" || !seg.Last || seg.ItemID == 0 {
 		return // el cambio de modo ya cerró su elemento
 	}
+	if !seg.SatEnd.IsZero() && len(s.queue) > 0 && s.queue[0].ItemID == seg.ItemID {
+		return // satélite sin señal: sigue con el respaldo y el reintento
+	}
 	if s.itemSounded {
 		s.itemDone(ctx, seg.ItemID)
 	} else {
@@ -497,7 +509,18 @@ func (s *Service) startSegment(ctx context.Context, seg Segment, fade time.Durat
 		s.silenceAt, s.silenceSeg = s.d.Now().Add(seg.Silence), seg
 		return true
 	}
+	if !seg.SatEnd.IsZero() {
+		// satélite: suena hasta la hora del evento siguiente (el que lo corta)
+		rest := seg.SatEnd.Sub(s.d.Now())
+		if rest < satMinRest/4 { // 5 s
+			return false
+		}
+		seg.Length = rest
+	}
 	src, err := s.d.Decode(ctx, seg.Path, seg.CueIn)
+	if err != nil && s.satRetry(ctx, seg) {
+		return false // satélite que no abre: respaldo y reintento (segmentFailed no lo cierra)
+	}
 	if err != nil {
 		s.warn(fmt.Sprintf("no se pudo abrir %s: %v", seg.Path, err))
 		return false
@@ -573,6 +596,9 @@ func (s *Service) finish(ctx context.Context, ev audio.Event) {
 		complete = true // fundida en su punto de mezcla: sonó lo previsto
 	}
 	_ = s.d.Plays.Finish(ctx, a.playID, played, complete)
+	if a == s.current && s.satRetry(ctx, a.seg) {
+		return // señal caída: respaldo y reintento (el elemento sigue sonando)
+	}
 	if a.seg.Last {
 		s.itemDone(ctx, a.seg.ItemID)
 	}
@@ -580,6 +606,32 @@ func (s *Service) finish(ctx context.Context, ev audio.Event) {
 		s.hooks.OnPlayEnded(domain.Play{ID: a.playID, TrackID: a.seg.TrackID, SpotID: a.seg.SpotID, Kind: a.seg.Kind,
 			Artist: a.seg.Artist, Title: a.seg.Title, StartedAt: a.started, Duration: played, Complete: complete, UUID: a.uuid}, a.seg)
 	}
+}
+
+// satMinRest: si al satélite le falta menos que esto para su hora, una caída no
+// se cubre (lo siguiente ya está por entrar).
+var satMinRest = 20 * time.Second
+
+// satRetry: si el satélite terminó solo antes de su hora (la señal se cayó o no
+// respondió), pone una pista de respaldo (emergencia o música) y después vuelve a
+// intentar la señal. Si no hay pistas, espera 5 s en silencio y reintenta.
+func (s *Service) satRetry(ctx context.Context, seg Segment) bool {
+	if seg.SatEnd.IsZero() || !s.running || s.mode == domain.ModeLive ||
+		!s.d.Now().Before(seg.SatEnd.Add(-satMinRest)) {
+		return false
+	}
+	retry := seg
+	retry.Last = true
+	if t, ok := s.emergencyTrack(ctx); ok {
+		fb := s.expander(ctx).trackSegment(t)
+		fb.ItemID, fb.Index, fb.Last = seg.ItemID, seg.Index, false
+		s.queue = append([]Segment{fb, retry}, s.queue...)
+		s.warn("satélite sin señal: suena música de respaldo y luego se reintenta")
+	} else {
+		s.queue = append([]Segment{{ItemID: seg.ItemID, Index: seg.Index, Silence: 5 * time.Second, Title: "Esperando señal"}, retry}, s.queue...)
+		s.warn("satélite sin señal y sin pistas de respaldo: se reintenta en 5 s")
+	}
+	return true
 }
 
 func (s *Service) fadeOutCurrent(d time.Duration) {
@@ -595,6 +647,19 @@ func (s *Service) fadeOutCurrent(d time.Duration) {
 // relleno). Si esa categoría no tiene pistas, una de cualquier categoría de
 // música: el aire nunca debe quedar en silencio. Devuelve si sonó algo.
 func (s *Service) playEmergency(ctx context.Context) bool {
+	t, found := s.emergencyTrack(ctx)
+	if !found {
+		return false
+	}
+	seg := s.expander(ctx).trackSegment(t)
+	seg.Last = true
+	s.queue = nil
+	return s.startSegment(ctx, seg, s.d.Options().Crossfade)
+}
+
+// emergencyTrack elige una pista de la categoría de emergencia o, si no hay, de
+// cualquier categoría musical.
+func (s *Service) emergencyTrack(ctx context.Context) (domain.Track, bool) {
 	now := s.d.Now()
 	pick := func(cat int64) (domain.Track, bool) {
 		list, err := s.d.Tracks.ByCategory(ctx, cat)
@@ -627,13 +692,7 @@ func (s *Service) playEmergency(ctx context.Context) bool {
 			}
 		}
 	}
-	if !found {
-		return false
-	}
-	seg := s.expander(ctx).trackSegment(t)
-	seg.Last = true
-	s.queue = nil
-	return s.startSegment(ctx, seg, s.d.Options().Crossfade)
+	return t, found
 }
 
 func (s *Service) expander(ctx context.Context) *expander {

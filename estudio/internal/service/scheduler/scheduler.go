@@ -94,6 +94,10 @@ func (s *Service) SaveClock(ctx context.Context, c *domain.Clock) error {
 			return domain.Invalid("slots", fmt.Sprintf("Slot %d: el enlace debe durar entre 10 s y 4 h", n))
 		case sl.Kind == domain.SlotRelay && !strings.HasPrefix(sl.URL, "http://") && !strings.HasPrefix(sl.URL, "https://"):
 			return domain.Invalid("slots", fmt.Sprintf("Slot %d: escriba la URL del stream de la cadena (http:// o https://)", n))
+		case sl.Kind == domain.SlotSatellite && !strings.HasPrefix(sl.URL, "http://") && !strings.HasPrefix(sl.URL, "https://"):
+			return domain.Invalid("slots", fmt.Sprintf("Slot %d: escriba la URL del satélite (http:// o https://)", n))
+		case sl.Kind == domain.SlotSatellite && sl.Hard:
+			return domain.Invalid("slots", fmt.Sprintf("Slot %d: el satélite cubre toda la hora; no lo marque como duro (marque como duras las tandas)", n))
 		}
 	}
 	// los eventos duros deben estar en orden de minuto

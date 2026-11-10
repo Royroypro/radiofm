@@ -9,6 +9,7 @@ export const slotLabel: Record<string, string> = {
   mode: 'Cambio de modo',
   silence: 'Silencio',
   relay: 'Enlace a cadena',
+  satellite: 'Satélite',
 }
 
 export const slotIcon: Record<string, string> = {
@@ -20,6 +21,7 @@ export const slotIcon: Record<string, string> = {
   mode: '⇄',
   silence: '…',
   relay: '📡',
+  satellite: '🛰',
 }
 
 export const modeLabel: Record<string, string> = { auto: 'Automático', assisted: 'Asistido', live: 'En vivo' }
