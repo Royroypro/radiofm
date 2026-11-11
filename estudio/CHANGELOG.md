@@ -2,6 +2,11 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.5.2 — zona horaria
+
+- Corrige «zona horaria inválida: unknown time zone America/Lima» al cambiar ajustes (p. ej. apagar la
+  hora locutada) en PCs con Windows: la base de zonas horarias va ahora dentro del programa.
+
 ## 1.5.1 — relojes
 
 - En Relojes, el slot Satélite y el Enlace a cadena muestran el nombre y la URL uno debajo del otro

@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	// base de zonas horarias dentro del ejecutable: Windows no la trae y sin ella
+	// LoadLocation("America/Lima") falla en las PCs sin Go instalado
+	_ "time/tzdata"
 )
 
 // Settings es la configuración local de Club25 Estudio (settings.json en la carpeta de datos).
