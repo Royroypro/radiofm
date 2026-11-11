@@ -81,6 +81,11 @@ func (a *App) MoveLogItem(id int64, delta int) error {
 	return a.core.Scheduler.Move(context.Background(), id, delta)
 }
 
+// MoveLogItemTo lleva un elemento antes (o después, si after) de otro (arrastrar y soltar).
+func (a *App) MoveLogItemTo(id, target int64, after bool) error {
+	return a.core.Scheduler.MoveTo(context.Background(), id, target, after)
+}
+
 // RemoveLogItem quita un elemento pendiente.
 func (a *App) RemoveLogItem(id int64) error { return a.core.Scheduler.Remove(context.Background(), id) }
 

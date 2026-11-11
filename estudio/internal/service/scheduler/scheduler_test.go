@@ -104,6 +104,30 @@ func TestDefaultsAndGenerateDay(t *testing.T) {
 	if err := svc.Move(ctx, items[0].ID, 1); err == nil {
 		t.Fatal("no se debe mover un elemento que ya sonó")
 	}
+	// arrastrar y soltar: el 8.º elemento pasa a estar antes del 3.º, y luego después del 10.º
+	items, _ = svc.Day(ctx, today)
+	moved, before := items[7].ID, items[2].ID
+	if err := svc.MoveTo(ctx, moved, before, false); err != nil {
+		t.Fatal(err)
+	}
+	items, _ = svc.Day(ctx, today)
+	if items[2].ID != moved || items[3].ID != before {
+		t.Fatalf("debe quedar antes del elegido: %d %d", items[2].ID, items[3].ID)
+	}
+	if !items[3].At.Equal(items[2].At.Add(items[2].Length)) {
+		t.Fatal("las horas deben recalcularse tras mover")
+	}
+	after := items[9].ID
+	if err := svc.MoveTo(ctx, moved, after, true); err != nil {
+		t.Fatal(err)
+	}
+	items, _ = svc.Day(ctx, today)
+	if items[8].ID != after || items[9].ID != moved { // al sacarlo de arriba, los de en medio suben uno
+		t.Fatalf("debe quedar después del elegido: %d %d", items[8].ID, items[9].ID)
+	}
+	if err := svc.MoveTo(ctx, moved, items[0].ID, false); err == nil {
+		t.Fatal("no se puede poner antes de lo que ya sonó")
+	}
 	up, _ := svc.Upcoming(ctx, time.Now(), 5)
 	if len(up) != 5 || up[0].ID == items[0].ID {
 		t.Fatalf("Upcoming = %+v", up)

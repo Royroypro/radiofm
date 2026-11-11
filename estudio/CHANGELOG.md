@@ -2,6 +2,14 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.9.1 — ordenar la playlist en Al aire y silenciar videos
+
+- **Al aire → Playlist**: cambiar el orden de lo que va a sonar **arrastrando** un elemento (una línea naranja
+  marca dónde queda) o con los botones **↑ ↓** del elemento elegido. Lo que suena y lo que ya sonó no se mueven.
+- **TV → Fuentes**: botón **🔇 Video silenciado / 🔊 Audio del video** en cada fuente (silenciado = se ve el
+  video y se oye la radio, sin mezclarse). Cambia al instante si la fuente está al aire.
+- La vista previa de video de la Biblioteca empieza **sin sonido**, para no mezclarse con lo que está al aire.
+
 ## 1.9.0 — fuentes de video (como OBS)
 
 - Pantalla TV → **Fuentes**: **video local** (con bucle opcional) o **URL en línea** (http/https, HLS `.m3u8`,

@@ -74,6 +74,8 @@ export function LoggerStatus():Promise<airlog.Status>;
 
 export function MoveLogItem(arg1:number,arg2:number):Promise<void>;
 
+export function MoveLogItemTo(arg1:number,arg2:number,arg3:boolean):Promise<void>;
+
 export function OnAirMode(arg1:string):Promise<void>;
 
 export function OnAirNext():Promise<void>;

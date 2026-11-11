@@ -454,6 +454,45 @@ func (s *Service) Move(ctx context.Context, id int64, delta int) error {
 	})
 }
 
+// MoveTo lleva el elemento id a la posición de target (arrastrar y soltar):
+// queda justo antes de target, o después si after. Los dos deben estar
+// pendientes y en el mismo día; el elemento toma la hora (del reloj) de su nuevo lugar.
+func (s *Service) MoveTo(ctx context.Context, id, target int64, after bool) error {
+	if id == target {
+		return nil
+	}
+	return s.edit(ctx, id, func(items []domain.LogItem, i int) ([]domain.LogItem, error) {
+		if err := editable(items[i]); err != nil {
+			return nil, err
+		}
+		t := -1
+		for k := range items {
+			if items[k].ID == target {
+				t = k
+			}
+		}
+		if t < 0 {
+			return nil, domain.Invalid("target", "Solo se puede mover dentro del mismo día")
+		}
+		if err := editable(items[t]); err != nil && !after {
+			return nil, err // no se puede poner antes de lo que ya sonó o está sonando
+		}
+		it := items[i]
+		it.Hour = items[t].Hour
+		rest := append(items[:i:i], items[i+1:]...)
+		if t > i {
+			t-- // ya se quitó el elemento de antes
+		}
+		if after {
+			t++
+		}
+		out := make([]domain.LogItem, 0, len(items))
+		out = append(out, rest[:t]...)
+		out = append(out, it)
+		return append(out, rest[t:]...), nil
+	})
+}
+
 // Remove quita un elemento pendiente.
 func (s *Service) Remove(ctx context.Context, id int64) error {
 	return s.edit(ctx, id, func(items []domain.LogItem, i int) ([]domain.LogItem, error) {

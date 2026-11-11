@@ -12,7 +12,7 @@
   import { onMount } from 'svelte'
   import {
     OnAirStart, OnAirStop, OnAirMode, OnAirStopAfter, SetTimeAnnounce, StopCarts, Carts, History, Categories, Tracks,
-    InsertLogTrack, RemoveLogItem,
+    InsertLogTrack, RemoveLogItem, MoveLogItem, MoveLogItemTo,
   } from '../../wailsjs/go/ui/App'
   import { domain, type ui } from '../../wailsjs/go/models'
   import { onair, win, toggleFullscreen } from '../lib/onair.svelte'
@@ -87,6 +87,31 @@
       await InsertLogTrack(after, trackID)
       toast.show('Insertada en la playlist')
     })
+  }
+  // mover: arrastrar y soltar, o los botones ↑ ↓ con el elemento elegido
+  let dragId: number | null = $state(null)
+  let dropAt: { id: number; after: boolean } | null = $state(null)
+  const isCurrent = (id: number) => air?.current?.id === id
+  function onDragOver(e: DragEvent, id: number) {
+    if (dragId === null || isCurrent(id)) return
+    e.preventDefault()
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    dropAt = { id, after: e.clientY > r.top + r.height / 2 }
+  }
+  async function onDrop(e: DragEvent, id: number) {
+    e.preventDefault()
+    const from = dragId, at = dropAt
+    dragId = null
+    dropAt = null
+    if (from === null || !at || from === id) return
+    await run(() => MoveLogItemTo(from, at.id, at.after))
+    selItem = from
+  }
+  async function moveSelected(delta: number) {
+    if (!selItem || isCurrent(selItem)) return
+    const i = playlist.findIndex((it) => it.id === selItem)
+    if (delta < 0 && i > 0 && isCurrent(playlist[i - 1].id)) return // no por encima de lo que suena
+    await run(() => MoveLogItem(selItem!, delta))
   }
   async function removeSelected() {
     if (!selItem || selItem === air?.current?.id) return
@@ -210,6 +235,12 @@
       <div class="scroll items">
         {#each playlist as it, i (it.id)}
           <button class="pitem" class:current={i === 0 && air?.current?.id === it.id} class:sel={selItem === it.id} class:hard={it.hard}
+            class:drag={dragId === it.id} class:dropb={dropAt?.id === it.id && !dropAt.after} class:dropa={dropAt?.id === it.id && dropAt.after}
+            draggable={!isCurrent(it.id)} title={isCurrent(it.id) ? '' : 'Arrastre para cambiar el orden'}
+            ondragstart={(e) => { dragId = it.id; e.dataTransfer?.setData('text/plain', String(it.id)) }}
+            ondragend={() => { dragId = null; dropAt = null }}
+            ondragover={(e) => onDragOver(e, it.id)} ondragleave={() => { if (dropAt?.id === it.id) dropAt = null }}
+            ondrop={(e) => onDrop(e, it.id)}
             onclick={() => (selItem = selItem === it.id ? null : it.id)}>
             <div class="pl1"><span class="at">{clock(it.at)}</span> <span class="du">Dur: {dur(it.length)}</span>
               {#if it.locked}<span class="lk" title="Insertada a mano: se conserva al regenerar la playlist">🔒</span>{/if}{#if it.optional}<span class="op">opc.</span>{/if}</div>
@@ -222,6 +253,8 @@
       </div>
       <div class="pane-f">
         <div><div class="small muted">Duración restante hoy</div><div class="rem">{dur(air?.remaining_today ?? 0)}</div></div>
+        <button class="small ghost" disabled={!selItem || selItem === air?.current?.id} onclick={() => moveSelected(-1)} title="Subir el elemento elegido">↑</button>
+        <button class="small ghost" disabled={!selItem || selItem === air?.current?.id} onclick={() => moveSelected(1)} title="Bajar el elemento elegido">↓</button>
         <button class="small ghost" disabled={!selItem || selItem === air?.current?.id} onclick={removeSelected} title="Quitar el elemento elegido">🗑</button>
         <button class="small ghost" onclick={() => nav.go('log')} title="Abrir la playlist completa">☰</button>
       </div>
@@ -382,6 +415,9 @@
   .pitem { display: block; width: 100%; text-align: left; background: transparent; color: var(--text); border-radius: 0; border-bottom: 1px solid var(--line-soft); padding: 5px 8px; }
   .pitem.current { background: var(--current); border-left: 4px solid var(--red); }
   .pitem.sel { background: var(--sel); }
+  .pitem.drag { opacity: .45; }
+  .pitem.dropb { box-shadow: inset 0 3px 0 var(--orange); }
+  .pitem.dropa { box-shadow: inset 0 -3px 0 var(--orange); }
   .pitem.hard .at { color: var(--orange); }
   .pl1 { font-size: 10px; color: var(--muted); display: flex; gap: 6px; }
   .pl1 .at { color: var(--countdown-dim); font-variant-numeric: tabular-nums; }

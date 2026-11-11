@@ -118,6 +118,10 @@ export function MoveLogItem(arg1, arg2) {
   return window['go']['ui']['App']['MoveLogItem'](arg1, arg2);
 }
 
+export function MoveLogItemTo(arg1, arg2, arg3) {
+  return window['go']['ui']['App']['MoveLogItemTo'](arg1, arg2, arg3);
+}
+
 export function OnAirMode(arg1) {
   return window['go']['ui']['App']['OnAirMode'](arg1);
 }

@@ -167,8 +167,10 @@
                 placeholder="Archivo local o https://…/stream.m3u8 · rtsp://… · srt://…" />
               {#if !isNet(src.path)}<button class="small ghost" onclick={() => pickSourceFile(i)} title="Elegir archivo">📁</button>{/if}
               {#if !isNet(src.path)}<label class="check small" title="Repetir al terminar"><input type="checkbox" bind:checked={src.loop} onchange={() => (srcDirty = true)} /> Bucle</label>{/if}
-              <select class="small" bind:value={src.audio} onchange={() => (srcDirty = true)} title="Qué audio lleva la TV mientras se ve esta fuente">
-                <option value="radio">Audio: radio</option><option value="source">Audio: de la fuente</option></select>
+              <button class="small mute" class:muted-on={src.audio !== 'source'}
+                title={src.audio === 'source' ? 'Se oye el audio del video. Clic para silenciarlo (se oye la radio)' : 'Video silenciado: se oye la radio. Clic para oír el audio del video'}
+                onclick={() => { src.audio = src.audio === 'source' ? 'radio' : 'source'; srcDirty = true; if (st?.source === src.id) goSource(src.id) }}>
+                {src.audio === 'source' ? '🔊 Audio del video' : '🔇 Video silenciado'}</button>
               {#if st?.source === src.id}
                 <button class="small danger" onclick={() => goSource('')}>■ Quitar</button>
               {:else}
@@ -186,8 +188,8 @@
           {#if st?.source && !st.src_live}<p class="small muted">Conectando a la fuente…{#if st.src_err} {st.src_err}{/if}</p>
           {:else if st?.src_err}<p class="small warn">{st.src_err}</p>{/if}
           <p class="muted small">Como el «Origen multimedia» de OBS: un video del disco o una señal en línea. «Al aire» la pone en la TV
-            (con fundido) por encima de los videoclips; «Automático» vuelve a seguir a la radio. Con «Audio: de la fuente» la TV lleva el
-            sonido de la fuente (la radio no cambia); con «Audio: radio» se ve la fuente y se oye la radio.</p>
+            (con fundido) por encima de los videoclips; «Automático» vuelve a seguir a la radio. 🔇 Video silenciado: se ve la fuente y
+            se oye la radio (no se mezclan); 🔊 Audio del video: la TV lleva el sonido del video en lugar de la radio (la radio al aire no cambia).</p>
         </div>
         {#if st?.running}
           <p class="small muted">
@@ -277,6 +279,8 @@
   .src { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px; border-radius: 6px; border: 1px solid transparent; }
   .src.onair { border-color: #d62828; background: rgba(214, 40, 40, .08); }
   .src .name { width: 140px; }
+  .mute { min-width: 150px; }
+  .mute.muted-on { opacity: .85; }
   .src .path { flex: 1; min-width: 200px; }
   .wrap { flex-wrap: wrap; gap: 8px; align-items: center; }
   .cfg { display: flex; flex-direction: column; gap: 10px; }

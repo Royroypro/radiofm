@@ -302,7 +302,8 @@
       </div>
       {#if edit.video_path && sel?.video_path === edit.video_path}
         <!-- svelte-ignore a11y_media_has_caption -->
-        <video class="vprev" src={`/preview/video/${edit.id}`} controls preload="metadata"></video>
+        <video class="vprev" src={`/preview/video/${edit.id}`} controls muted preload="metadata"
+          title="Vista previa sin sonido (para no mezclarse con lo que está al aire)"></video>
       {/if}
       <p class="muted small">Al importar, un video con el mismo nombre que el audio (en la misma carpeta) se asigna solo. Un video
         importado sin audio gemelo es una pista propia: su audio suena en la radio y su imagen en la TV. Guarde para aplicar.</p>
