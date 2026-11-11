@@ -168,6 +168,9 @@
     var cards = $$('.radio-card[data-station]');
     var dock = $('.dock[data-radio-root]');
     var current = cards[0] || null; // frecuencia elegida
+    // Radio visual de la tarjeta de TV (§6): su botón toca la frecuencia principal.
+    var tvRadio = $('[data-tv-radio]');
+    var mainCard = (tvRadio && $('.radio-card[data-station="' + tvRadio.getAttribute('data-station') + '"]')) || cards[0] || null;
     var audio = local;              // elemento que suena ahora
     var state = 'idle';             // idle | ad | playing
     var retries = 0;
@@ -219,6 +222,15 @@
       if (dock) {
         dock.classList.toggle('is-playing', on);
         $$('[data-radio-toggle]', dock).forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      }
+      if (tvRadio) {
+        tvRadio.classList.toggle('is-playing', on);
+        $$('[data-tv-radio-toggle]', tvRadio).forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+        // Muestra lo que suena: la frecuencia elegida si hay radio, si no la principal.
+        var shown = on ? current : mainCard;
+        setText('[data-tv-radio-station]', nameOf(shown));
+        var t = shown && shown.querySelector('[data-now-title]');
+        if (t) setText('[data-tv-radio-title]', t.textContent);
       }
     }
     function msg(t) { var el = inCard('[data-radio-msg]'); if (el) el.textContent = t || ''; }
@@ -302,10 +314,22 @@
         b.addEventListener('click', function () { if (state === 'idle') play(current); else stop(); });
       });
     }
+    // Si ya suena una frecuencia, el botón de la radio visual la detiene (no abre otro audio).
+    if (tvRadio) {
+      $$('[data-tv-radio-toggle]', tvRadio).forEach(function (b) {
+        b.addEventListener('click', function () { if (state === 'idle') play(mainCard); else stop(); });
+      });
+    }
     showStation();
 
     return {
       pause: function () { if (state !== 'idle') stop(); },
+      isPlaying: function () { return state !== 'idle'; },
+      // Id de la frecuencia que muestra la radio visual: la que suena o la principal.
+      shownId: function () {
+        var c = state !== 'idle' ? current : mainCard;
+        return c ? c.getAttribute('data-station') : null;
+      },
       currentId: function () { return current ? current.getAttribute('data-station') : null; }
     };
   })();
@@ -317,6 +341,10 @@
     if (!video || !RC.tvEnabled) return null;
     var overlay = $('[data-tv-overlay]');
     var playBtn = $('[data-tv-play]');
+    // Radio visual (si la radio está activa): reemplaza al aviso cuando la TV está fuera del aire.
+    var radioPanel = radio ? $('[data-tv-radio]') : null;
+    var badgeEl = $('[data-tv-badge]');
+    var online = !!(badgeEl && badgeEl.classList.contains('on'));
     var pre = { box: $('[data-preroll]'), link: $('[data-preroll-link]'), skip: $('[data-preroll-skip]') };
     var hls = null;
     var state = 'idle'; // idle | ad | live
@@ -380,22 +408,32 @@
       video.removeAttribute('src');
       video.load();
       video.controls = true;
-      overlay.hidden = false;
+      showIdle();
+    }
+
+    // Marco en reposo: con señal, el aviso «Toca para ver»; sin señal, la radio visual
+    // (o el aviso de fuera del aire si la radio está desactivada).
+    function showIdle() {
+      if (radioPanel) radioPanel.hidden = online;
+      if (overlay) overlay.hidden = !online && !!radioPanel;
     }
 
     video.addEventListener('playing', function () { if (state === 'live') msg(''); });
     // Si el usuario sube el volumen del video, que se calle la radio.
     video.addEventListener('volumechange', function () { if (state === 'live' && !video.muted && radio) radio.pause(); });
     if (playBtn) playBtn.addEventListener('click', play);
+    showIdle();
 
     return {
       pause: function () { if (state !== 'idle') pause(); },
       isIdle: function () { return state === 'idle'; },
-      setOnline: function (online) {
+      setOnline: function (on) {
+        online = !!on;
         if (!overlay || !playBtn) return;
         playBtn.hidden = !online;
         setText('[data-tv-overlay-title]', online ? 'Toca para ver la señal en vivo' : 'La TV está fuera del aire');
         setText('[data-tv-overlay-sub]', online ? '' : 'Vuelve pronto o escucha la radio mientras tanto.');
+        showIdle();
       }
     };
   })();
@@ -431,9 +469,11 @@
         // Cada tarjeta de radio con el estado de su frecuencia.
         var dockTitle = s.radio.title || RC.slogan || '';
         var cur = radio && radio.currentId();
+        var tvRadioId = radio && radio.shownId();
         stations.forEach(function (x, i) {
           var card = $('.radio-card[data-station="' + x.id + '"]');
           if ((cur && String(x.id) === cur) || (!cur && i === 0)) dockTitle = x.title || RC.slogan || '';
+          if (tvRadioId && String(x.id) === tvRadioId) setText('[data-tv-radio-title]', x.title || RC.slogan || '');
           if (!card) return;
           var b = card.querySelector('[data-radio-badge]');
           if (b && x.online !== null) setBadge(b, x.online);
@@ -452,35 +492,19 @@
   refreshStatus();
   setInterval(function () { if (!document.hidden) refreshStatus(); }, 15000);
 
-  /* ---------- 8. Espectro de audio del hero ----------
+  /* ---------- 8. Espectro de audio (hero y radio visual de la TV) ----------
      Barras simétricas desde el centro, en los colores de la marca.
      - En reposo: ritmo "de fiesta" simulado (128 BPM, bombo marcado).
      - Con la radio sonando: datos reales de un AnalyserNode (Web Audio).
        Solo con frecuencias de nuestro servidor (/radio… vía nginx); las de un
-       servidor externo suenan en otro <audio> sin analizador.
+       servidor externo suenan en otro <audio> sin analizador (se simula).
+     - Un solo analizador sobre #radio-audio, compartido por todos los lienzos:
+       createMediaElementSource solo puede llamarse una vez por <audio>.
      - Se pausa fuera de pantalla o con la pestaña oculta; con
        prefers-reduced-motion se dibuja un solo cuadro estático. */
-  (function spectrum() {
-    var canvas = $('[data-spectrum]');
-    if (!canvas || !canvas.getContext) return;
-    var ctx = canvas.getContext('2d');
+  var radioAnalyser = (function () {
     var audio = $('#radio-audio');
-    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var css = getComputedStyle(document.documentElement);
-    var colors = ['--red', '--orange', '--sky'].map(function (v) { return (css.getPropertyValue(v) || '').trim() || '#FF1E1E'; });
-
-    var W = 0, H = 0, dpr = 1, bars = 48, levels = [], peaks = [];
-    var analyser = null, freq = null, actx = null, visible = true, raf = 0;
-
-    function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = canvas.clientWidth; H = canvas.clientHeight;
-      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      bars = Math.max(16, Math.min(72, Math.round(W / 22)));
-      if (bars % 2) bars += 1;
-      levels = new Array(bars).fill(0); peaks = new Array(bars).fill(0);
-    }
+    var analyser = null, freq = null, actx = null, readAt = -1;
 
     // Conecta el analizador al <audio> de la radio la primera vez que suena.
     function attach() {
@@ -510,7 +534,45 @@
       });
     }
 
-    function playing() { return audio && !audio.paused && !audio.ended && audio.currentTime > 0; }
+    function localPlaying() { return audio && !audio.paused && !audio.ended && audio.currentTime > 0; }
+
+    return {
+      // Hay datos reales: suena el audio local con su analizador.
+      live: function () { return !!analyser && localPlaying(); },
+      // Suena alguna frecuencia (local o externa).
+      playing: function () { return localPlaying() || !!(radio && radio.isPlaying()); },
+      // Espectro del cuadro actual; se lee una sola vez por cuadro aunque haya varios lienzos.
+      read: function (now) {
+        if (now !== readAt) { analyser.getByteFrequencyData(freq); readAt = now; }
+        return freq;
+      }
+    };
+  })();
+
+  // Dibuja el espectro en un <canvas>. Opciones:
+  //   barWidth: ancho aproximado por barra (px); idle: amplitud simulada sin radio (0..1).
+  function spectrum(canvas, opts) {
+    if (!canvas || !canvas.getContext) return;
+    opts = opts || {};
+    var ctx = canvas.getContext('2d');
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var css = getComputedStyle(document.documentElement);
+    var colors = ['--red', '--orange', '--sky'].map(function (v) { return (css.getPropertyValue(v) || '').trim() || '#FF1E1E'; });
+    var barWidth = opts.barWidth || 22;
+    var idle = opts.idle === undefined ? 0.75 : opts.idle;
+
+    var W = 0, H = 0, dpr = 1, bars = 48, levels = [], peaks = [];
+    var visible = true, raf = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bars = Math.max(16, Math.min(72, Math.round(W / barWidth)));
+      if (bars % 2) bars += 1;
+      levels = new Array(bars).fill(0); peaks = new Array(bars).fill(0);
+    }
 
     // Valor 0..1 de la barra i (mitad izquierda; se refleja a la derecha).
     function simulated(i, half, t) {
@@ -525,8 +587,8 @@
     }
 
     function draw(now) {
-      var t = now / 1000, half = bars / 2, live = analyser && playing();
-      if (live) analyser.getByteFrequencyData(freq);
+      var t = now / 1000, half = bars / 2, live = radioAnalyser.live(), on = radioAnalyser.playing();
+      var freq = live ? radioAnalyser.read(now) : null;
       ctx.clearRect(0, 0, W, H);
       var gap = Math.max(2, W / bars * 0.28), bw = W / bars - gap;
       var grad = ctx.createLinearGradient(0, H, 0, 0);
@@ -538,10 +600,11 @@
           var bin = Math.floor(Math.pow(i / half, 1.6) * (freq.length * 0.75)); // escala aprox. logarítmica
           target = Math.pow(freq[bin] / 255, 1.3);
         } else {
-          target = simulated(i, half, t) * (playing() ? 1 : 0.75);
+          target = simulated(i, half, t) * (on ? 1 : idle);
         }
         var cur = levels[i];
-        cur += (target - cur) * (target > cur ? 0.55 : 0.12); // sube rápido, baja suave
+        if (reduced) cur = target;                             // sin animar: el valor tal cual
+        else cur += (target - cur) * (target > cur ? 0.55 : 0.12); // sube rápido, baja suave
         levels[i] = cur;
         peaks[i] = Math.max(peaks[i] - 0.008, cur);
 
@@ -554,19 +617,33 @@
           ctx.fillRect(x, H - ph - 6, bw, 3);          // tapa del pico
         });
       }
-      if (!reduced && visible && !document.hidden) raf = requestAnimationFrame(draw);
+      if (reduced) { raf = 0; return; }
+      if (visible && !document.hidden) raf = requestAnimationFrame(draw);
       else raf = 0;
     }
 
     function start() { if (!raf && !reduced) raf = requestAnimationFrame(draw); }
 
     resize();
-    if ('ResizeObserver' in window) new ResizeObserver(function () { resize(); if (reduced) draw(0); }).observe(canvas);
+    if ('ResizeObserver' in window) new ResizeObserver(function () { resize(); if (reduced) draw(4000); }).observe(canvas);
     else window.addEventListener('resize', resize);
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (e) { visible = e[0].isIntersecting; if (visible) start(); }).observe(canvas);
     }
     document.addEventListener('visibilitychange', function () { if (!document.hidden) start(); });
-    if (reduced) draw(4000); else start();
-  })();
+    if (reduced) {
+      // Movimiento reducido: un cuadro fijo en reposo; con la radio sonando, un cuadro
+      // nuevo cada segundo (sin animación continua).
+      draw(4000);
+      setInterval(function () {
+        if (visible && !document.hidden && radioAnalyser.playing()) draw(performance.now());
+      }, 1000);
+    } else {
+      start();
+    }
+  }
+
+  spectrum($('[data-spectrum="hero"]'));
+  // Radio visual de la TV: en reposo se mueve suave; al dar play, el espectro real.
+  spectrum($('[data-spectrum="tv"]'), { barWidth: 16, idle: 0.3 });
 })();
