@@ -2,6 +2,12 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.7.1 — credenciales de la TV desde el panel
+
+- El modo TV toma solo del panel web la dirección RTMP y el usuario y la clave de publicación
+  (Ajustes → Streams); si cambian allá, el Estudio los renueva y se reconecta. Ya no hay que copiar la
+  clave a mano (evita el error «Operation not permitted» por una clave distinta).
+
 ## 1.7.0 — modo TV (fase TV-A)
 
 - **Modo TV**: nueva pantalla **TV**. El Estudio arma el canal de TV de la web y lo emite por RTMP al

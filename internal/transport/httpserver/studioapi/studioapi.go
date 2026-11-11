@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -76,7 +77,15 @@ func (h *Handler) Config(w http.ResponseWriter, r *http.Request) {
 			"timezone": h.Cfg.Location.String(),
 			"latitude": h.Cfg.StationLat, "longitude": h.Cfg.StationLon,
 		},
-		"icecast":     ice,
+		"icecast": ice,
+		// Modo TV del Estudio: a dónde publicar y con qué usuario y clave (los de
+		// Ajustes → Streams). A diferencia de la clave de Icecast, esta sí se envía,
+		// para no copiarla a mano en cada PC: solo por HTTPS y con el token de estudio.
+		"tv": map[string]any{
+			"enabled": set.TVEnabled,
+			"url":     fmt.Sprintf("rtmp://%s:%d/%s", h.Cfg.IngestHost, h.Cfg.RTMPPublicPort, h.Cfg.MediaMTXPath),
+			"user":    set.TVPublishUser, "pass": set.TVPublishPass,
+		},
 		"server_time": time.Now().UTC().Format(time.RFC3339),
 	})
 }

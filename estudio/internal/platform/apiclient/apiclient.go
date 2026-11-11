@@ -114,6 +114,12 @@ type Config struct {
 		User         string `json:"user"`
 		RadioEnabled bool   `json:"radio_enabled"`
 	} `json:"icecast"`
+	TV struct { // modo TV: dónde publicar y con qué credenciales (panel → Ajustes → Streams)
+		Enabled bool   `json:"enabled"`
+		URL     string `json:"url"`
+		User    string `json:"user"`
+		Pass    string `json:"pass"`
+	} `json:"tv"`
 	ServerTime time.Time `json:"server_time"`
 }
 

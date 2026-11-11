@@ -131,7 +131,9 @@
             <span class="row"><input type="password" bind:value={pass} placeholder={hasPass ? '••••••' : ''} />
               <button class="small" disabled={!pass} onclick={savePass}>Guardar</button></span></label>
         </div>
-        <p class="muted small">Usuario y clave de publicación de la TV: panel web → Ajustes → Streams.</p>
+        <p class="muted small">El servidor, el usuario y la clave llegan solos del panel web (Ajustes → Streams) al
+          sincronizar; si los cambian allá, el Estudio los renueva y se reconecta. Escríbalos aquí solo si la PC no está
+          conectada al panel.</p>
         <div class="grid3">
           <label class="field">Resolución<select bind:value={s.tv.resolution}>
             <option value="480p">480p (PC modesta)</option><option value="720p">720p HD</option><option value="1080p">1080p Full HD</option></select></label>

@@ -440,10 +440,29 @@ func (a *App) applyServerConfig(c apiclient.Config) {
 	if c.Icecast.Host != "" {
 		s.Icecast.Host, s.Icecast.Port, s.Icecast.Mount = c.Icecast.Host, c.Icecast.Port, c.Icecast.Mount
 	}
+	// modo TV: usuario, clave y dirección de publicación vienen del panel
+	tvChanged := false
+	if c.TV.User != "" && c.TV.Pass != "" {
+		s.TV.User = c.TV.User
+		if c.TV.URL != "" {
+			s.TV.URL = c.TV.URL
+		}
+		if old, _ := a.Secrets.Get(secrets.TVPassword); old != c.TV.Pass {
+			if err := a.Secrets.Set(secrets.TVPassword, c.TV.Pass); err != nil {
+				a.Log.Error("guardar clave de la TV", "err", err)
+			} else {
+				tvChanged = true
+			}
+		}
+	}
+	tvChanged = tvChanged || s.TV.User != before.TV.User || s.TV.URL != before.TV.URL
 	if !reflect.DeepEqual(s, before) {
 		if err := a.SaveSettings(s); err != nil {
 			a.Log.Error("guardar configuración del panel", "err", err)
 		}
+	}
+	if tvChanged && s.TV.Enabled {
+		a.ApplyTV() // reconectar con las credenciales nuevas
 	}
 }
 

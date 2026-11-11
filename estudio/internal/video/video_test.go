@@ -198,7 +198,7 @@ func TestEncodeToFile(t *testing.T) {
 	st := s.Status()
 	snap := s.Snapshot()
 	s.Stop()
-	time.Sleep(1500 * time.Millisecond) // ffmpeg cierra el archivo
+	time.Sleep(1500 * time.Millisecond)     // ffmpeg cierra el archivo
 	if p := os.Getenv("TV_SNAP"); p != "" { // para mirar el resultado: TV_SNAP=archivo.jpg
 		_ = os.WriteFile(p, snap, 0o644)
 	}
@@ -217,11 +217,11 @@ func TestEncodeToFile(t *testing.T) {
 	}
 	var probe struct {
 		Streams []struct {
-			Type     string `json:"codec_type"`
-			W        int    `json:"width"`
-			H        int    `json:"height"`
-			Rate     string `json:"avg_frame_rate"`
-			Frames   string `json:"nb_read_frames"`
+			Type   string `json:"codec_type"`
+			W      int    `json:"width"`
+			H      int    `json:"height"`
+			Rate   string `json:"avg_frame_rate"`
+			Frames string `json:"nb_read_frames"`
 		} `json:"streams"`
 	}
 	if err := json.Unmarshal(b, &probe); err != nil {

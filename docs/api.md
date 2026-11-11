@@ -75,6 +75,7 @@ Handlers en `internal/transport/httpserver/studioapi`, lógica en `internal/serv
               "timezone": "America/Lima", "latitude": -11.1067, "longitude": -77.605},
   "icecast": {"host": "radioclub25peru.com", "port": 8010, "mount": "/radio-barranca",
               "user": "source", "radio_enabled": true, "source": "local"},
+  "tv": {"enabled": true, "url": "rtmp://radioclub25peru.com:1935/tv", "user": "emisora", "pass": "…"},
   "server_time": "2026-11-08T17:00:00Z"
 }
 ```
@@ -83,6 +84,9 @@ todas las activas en orden. Si el audio de esa frecuencia sale de un servidor ex
 (`icecast.source = "external"`), `host` y `mount` van vacíos y la PC conserva el servidor que tenga
 configurado.
 La contraseña de fuente **no** se envía: se escribe una vez en la PC (que la guarda cifrada).
+`tv` es para el modo TV del Estudio: la dirección RTMP de publicación y el usuario y la clave de
+Ajustes → Streams. Esta clave **sí** se envía (solo por HTTPS y con el token de estudio), para que no
+haya que copiarla en cada PC; la PC la guarda cifrada y la renueva si cambia en el panel.
 Coordenadas: variables `STATION_LAT` / `STATION_LON`.
 
 ### `GET /api/studio/spots`

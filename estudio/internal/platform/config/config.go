@@ -222,7 +222,7 @@ func Defaults() Settings {
 			StereoWidth: 100},
 		Icecast: IcecastSettings{Host: IngestHost, Port: 8010, Mount: "/radio", User: "source",
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
-		Server:    ServerSettings{URL: ServerURL},
+		Server: ServerSettings{URL: ServerURL},
 		TV: TVSettings{URL: "rtmp://" + IngestHost + ":1935/tv", Resolution: "720p", FPS: 30, BitrateKbps: 2500,
 			Codec: "x264", LogoPos: "tr", Accent: "#e5262a", Accent2: "#f7a21b", Panel: "#1b2a6e",
 			ShowLogo: true, ShowNow: true, ShowClock: true},
