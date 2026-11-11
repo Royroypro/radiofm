@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -363,5 +365,68 @@ func TestDecodeVideoReal(t *testing.T) {
 	}
 	if f.Y[0] > 20 { // la esquina es banda negra (pad)
 		t.Fatalf("la esquina debe ser negra (banda lateral): Y=%d", f.Y[0])
+	}
+}
+
+// Una fuente (archivo local con audio) al aire: se ve la fuente, la TV lleva su
+// audio y, al volver a automático, vuelve el visualizador.
+func TestSourceOnAir(t *testing.T) {
+	tools, err := ffmpeg.Locate()
+	if err != nil {
+		t.Skip("sin ffmpeg")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "fuente.mp4")
+	if out, err := exec.Command(tools.FFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25:duration=8",
+		"-f", "lavfi", "-i", "sine=frequency=1000:duration=8", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", src).CombinedOutput(); err != nil {
+		t.Fatalf("generar fuente: %v %s", err, out)
+	}
+	s := New(tools, &fakeAudio{start: time.Now()}, func(bool) {}, slog.Default())
+	s.Start(context.Background(), Config{
+		Output: ffmpeg.VideoConfig{URL: filepath.Join(dir, "tv.flv"), W: 320, H: 180, FPS: 30, BitrateKbps: 400},
+		Look:   Look{Station: "Club 25", Accent: color.NRGBA{230, 40, 40, 255}, Accent2: color.NRGBA{250, 150, 30, 255}},
+	})
+	defer s.Stop()
+	time.Sleep(500 * time.Millisecond)
+	s.SetSource(&SourceSpec{ID: "a", Name: "Prueba", Path: src, Audio: "source"})
+	var st Status
+	for i := 0; i < 60; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if st = s.Status(); st.Showing == SceneSource && st.SrcAud {
+			break
+		}
+	}
+	if st.Showing != SceneSource || !st.SrcLive || !st.SrcAud || st.Source != "a" {
+		t.Fatalf("la fuente debe estar al aire con su audio: %+v", st)
+	}
+	s.SetSource(nil)
+	time.Sleep(300 * time.Millisecond)
+	if st = s.Status(); st.Showing != SceneVisual || st.Source != "" {
+		t.Fatalf("en automático debe volver el visualizador: %+v", st)
+	}
+	// la misma fuente por http (como una señal en línea)
+	srv := httptest.NewServer(http.FileServer(http.Dir(dir)))
+	defer srv.Close()
+	s.SetSource(&SourceSpec{ID: "h", Name: "En línea", Path: srv.URL + "/fuente.mp4", Audio: "source"})
+	for i := 0; i < 80; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if st = s.Status(); st.Showing == SceneSource && st.SrcAud {
+			break
+		}
+	}
+	if st.Showing != SceneSource || !st.SrcAud {
+		t.Fatalf("la fuente http debe estar al aire con su audio: %+v", st)
+	}
+	s.SetSource(nil)
+	// archivo sin bucle que termina: vuelve solo el automático
+	s.SetSource(&SourceSpec{ID: "b", Name: "Corta", Path: src, Audio: "radio"})
+	for i := 0; i < 120; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if st = s.Status(); st.Source == "" && i > 20 {
+			break
+		}
+	}
+	if st.Source != "" || st.Showing != SceneVisual {
+		t.Fatalf("al terminar el archivo debe volver el automático: %+v", st)
 	}
 }

@@ -81,6 +81,17 @@ type TVSettings struct {
 	ClipOffsetMs int `json:"clip_offset_ms"`
 	// SpectrumOnVideo: espectro abajo sobre los videos: silent (solo mudos) | always | never.
 	SpectrumOnVideo string `json:"spectrum_on_video"`
+	// Sources: fuentes que el operador pone al aire (archivos locales o URL).
+	Sources []TVSource `json:"sources"`
+}
+
+// TVSource es una fuente de la TV, como el «Origen multimedia» de OBS.
+type TVSource struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`  // archivo local o URL (http, https, HLS, rtmp, rtsp, srt)
+	Loop  bool   `json:"loop"`  // archivos: repetir
+	Audio string `json:"audio"` // radio | source
 }
 
 // Size devuelve el ancho y alto de la resolución elegida.
@@ -380,6 +391,16 @@ func (c Settings) Validate() error {
 			return errors.New("TV: la tasa de video debe estar entre 300 y 12000 kbps")
 		case t.Resolution != "480p" && t.Resolution != "720p" && t.Resolution != "1080p":
 			return errors.New("TV: resolución desconocida")
+		}
+	}
+	for i, src := range c.TV.Sources {
+		switch {
+		case strings.TrimSpace(src.Name) == "":
+			return fmt.Errorf("TV: la fuente %d no tiene nombre", i+1)
+		case strings.TrimSpace(src.Path) == "":
+			return fmt.Errorf("TV: la fuente «%s» no tiene archivo ni dirección", src.Name)
+		case src.Audio != "" && src.Audio != "radio" && src.Audio != "source":
+			return fmt.Errorf("TV: audio desconocido en «%s»", src.Name)
 		}
 	}
 	if len(c.Audio.EQ) > 10 {

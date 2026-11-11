@@ -2,9 +2,11 @@ package ui
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"radioclub25/estudio/internal/platform/config"
 	"radioclub25/estudio/internal/platform/secrets"
 	"radioclub25/estudio/internal/video"
 )
@@ -65,4 +67,31 @@ func (a *App) PickVideo(title string) (string, error) {
 func (a *App) PickBackground(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
 		{DisplayName: "Imágenes y videos", Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.mp4;*.mkv;*.webm;*.mov;*.avi;*.m4v"}}})
+}
+
+// TVSetSource pone al aire la fuente id de Ajustes de TV ("" = volver a automático).
+func (a *App) TVSetSource(id string) error {
+	if id == "" {
+		a.core.TV.SetSource(nil)
+		return nil
+	}
+	for _, src := range a.core.Settings().TV.Sources {
+		if src.ID == id {
+			audio := src.Audio
+			if audio == "" {
+				audio = "radio"
+			}
+			a.core.TV.SetSource(&video.SourceSpec{ID: src.ID, Name: src.Name, Path: strings.TrimSpace(src.Path),
+				Loop: src.Loop, Audio: audio})
+			return nil
+		}
+	}
+	return errors.New("la fuente no existe (guarde los cambios primero)")
+}
+
+// SaveTVSources guarda la lista de fuentes sin reiniciar la TV.
+func (a *App) SaveTVSources(sources []config.TVSource) error {
+	s := a.core.Settings()
+	s.TV.Sources = sources
+	return a.core.SaveSettings(s)
 }

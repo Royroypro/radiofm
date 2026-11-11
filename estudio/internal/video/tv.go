@@ -25,6 +25,7 @@ const (
 	SceneVisual Scene = "visual" // fondo + espectro animado (por defecto)
 	SceneImage  Scene = "image"  // placa: imagen a pantalla completa
 	SceneClip   Scene = "clip"   // videoclip de lo que suena (lo elige el director, no el operador)
+	SceneSource Scene = "source" // fuente elegida por el operador (archivo local o URL, como en OBS)
 )
 
 // Config es todo lo que necesita el modo TV para arrancar.
@@ -57,6 +58,10 @@ type Status struct {
 	Scene   Scene              `json:"scene"`
 	Showing Scene              `json:"showing"` // lo que se ve ahora (el videoclip si hay)
 	Clip    string             `json:"clip"`    // archivo del videoclip que suena
+	Source  string             `json:"source"`  // ID de la fuente al aire ("" = automático)
+	SrcErr  string             `json:"src_err"` // error de la fuente (conectando, se cortó…)
+	SrcLive bool               `json:"src_live"`
+	SrcAud  bool               `json:"src_audio"` // la TV lleva el audio de la fuente
 	Encoder ffmpeg.VideoStatus `json:"encoder"`
 	FPS     float64            `json:"fps"`  // cuadros por segundo generados (medidos)
 	Late    int64              `json:"late"` // cuadros que se generaron tarde (PC lenta)
@@ -71,6 +76,7 @@ type Service struct {
 	log      *slog.Logger
 	decode   decodeFunc
 	hasAudio func(ctx context.Context, path string) bool
+	open     sourceOpener
 	audioOf  sync.Map // ruta → bool (si el video trae audio), para no consultar dos veces
 
 	mu      sync.Mutex
@@ -92,6 +98,13 @@ type Service struct {
 		at   time.Time
 	}
 	clipName string // video que suena (para la interfaz)
+	srcReq   struct {
+		set  bool
+		spec *SourceSpec // nil = volver a automático
+	}
+	srcID, srcErr string
+	srcLive       bool // la fuente ya muestra imagen
+	srcAud        bool
 
 	snapMu  sync.Mutex
 	snap    []byte // último JPEG del programa (monitor)
@@ -106,7 +119,7 @@ type Service struct {
 // New crea el servicio. tap enciende o apaga la copia del audio hacia la TV.
 func New(tools ffmpeg.Tools, audio AudioSource, tap func(bool), log *slog.Logger) *Service {
 	s := &Service{tools: tools, audio: audio, tap: tap, log: log, scene: SceneVisual, decode: tools.DecodeVideo,
-		hasAudio: tools.HasAudio}
+		hasAudio: tools.HasAudio, open: ffmpegOpener(tools)}
 	s.showing.Store(string(SceneVisual))
 	return s
 }
@@ -161,10 +174,27 @@ func (s *Service) SetNowPlaying(artist, title string, brk bool) {
 	s.mu.Unlock()
 }
 
-// SetScene cambia la escena (con fundido).
+// SetScene cambia la escena (con fundido). Elegir una escena quita la fuente al aire.
 func (s *Service) SetScene(sc Scene) {
 	s.mu.Lock()
 	s.scene = sc
+	if s.srcID != "" {
+		s.srcReq.set, s.srcReq.spec = true, nil
+	}
+	s.mu.Unlock()
+}
+
+// SetSource pone una fuente al aire (nil = volver a automático).
+func (s *Service) SetSource(spec *SourceSpec) {
+	s.mu.Lock()
+	s.srcReq.set, s.srcReq.spec = true, spec
+	s.scene = SceneVisual
+	if spec != nil {
+		s.srcID = spec.ID
+	} else {
+		s.srcID = ""
+	}
+	s.srcErr, s.srcLive, s.srcAud = "", false, false
 	s.mu.Unlock()
 }
 
@@ -180,7 +210,7 @@ func (s *Service) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := Status{Running: s.running.Load(), Scene: s.scene, FPS: math.Float64frombits(s.fps.Load()), Late: s.late.Load(),
-		Clip: s.clipName, Showing: Scene(s.showing.Load().(string))}
+		Clip: s.clipName, Showing: Scene(s.showing.Load().(string)), Source: s.srcID, SrcErr: s.srcErr, SrcLive: s.srcLive, SrcAud: s.srcAud}
 	if s.enc != nil {
 		st.Encoder = s.enc.Status()
 		st.Size = strconv.Itoa(s.cfg.Output.W) + "×" + strconv.Itoa(s.cfg.Output.H)
@@ -223,7 +253,14 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 	cur, prev := SceneVisual, SceneVisual
 	fadeLeft, fadeLen := 0, fps/2 // fundido de medio segundo
 	var cl, bgClip *clip
-	var clipFrame *Frame
+	var clipFrame, srcFrame *Frame
+	var run *sourceRun
+	npA, npT, npB, srcNP := "", "", false, false
+	defer func() {
+		if run != nil {
+			run.close()
+		}
+	}()
 	defer func() {
 		if cl != nil {
 			cl.close()
@@ -253,6 +290,13 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 	render := func(sc Scene, dst *Frame) {
 		if sc == SceneImage && plate != nil {
 			dst.CopyFrom(plate)
+			return
+		}
+		if sc == SceneSource && srcFrame != nil {
+			dst.CopyFrom(srcFrame)
+			if run != nil && (cfg.SpectrumOnVideo == "always" || cfg.SpectrumOnVideo != "never" && run.silent.Load()) {
+				band(dst)
+			}
 			return
 		}
 		if sc == SceneClip && clipFrame != nil {
@@ -299,9 +343,14 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 			// novedades de la interfaz
 			s.mu.Lock()
 			if s.pending.set {
-				gfx.SetNowPlaying(s.pending.artist, s.pending.title, s.pending.brk)
+				npA, npT, npB = s.pending.artist, s.pending.title, s.pending.brk
+				if !srcNP {
+					gfx.SetNowPlaying(npA, npT, npB)
+				}
 				s.pending.set = false
 			}
+			sreq := s.srcReq
+			s.srcReq.set = false
 			if s.layers.set {
 				gfx.look.ShowLogo, gfx.look.ShowNow, gfx.look.ShowClk, gfx.look.ShowTick =
 					s.layers.logo, s.layers.now, s.layers.clk, s.layers.tick
@@ -345,9 +394,51 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 					s.mu.Unlock()
 				}
 			}
-			// la escena del operador manda; si no, el videoclip; si no, el visualizador
+			// fuente del operador (archivo o URL): se abre en segundo plano
+			if sreq.set {
+				if run != nil {
+					run.close()
+					run = nil
+				}
+				if sreq.spec != nil {
+					run = newSourceRun(ctx, *sreq.spec, s.open, s.audioCached, w, h, fps)
+				}
+			}
+			srcFrame = nil
+			if run != nil {
+				f, ok := run.frame(time.Now())
+				if ok {
+					srcFrame = f
+				}
+				s.mu.Lock()
+				s.srcErr, s.srcLive, s.srcAud = run.errText(), ok, run.spec.Audio == "source" && run.audioOn.Load()
+				if run.ended.Load() { // archivo que terminó (o no abre): vuelve el automático
+					s.srcID = ""
+					if s.srcErr == "" {
+						s.srcErr = "«" + run.spec.Name + "» terminó"
+					}
+					run.close()
+					run = nil
+				}
+				s.mu.Unlock()
+			}
+			// el cintillo muestra la fuente mientras suena su audio
+			if fromSrc := run != nil && run.spec.Audio == "source" && run.audioOn.Load(); fromSrc != srcNP {
+				srcNP = fromSrc
+				if srcNP {
+					gfx.SetNowPlaying("En vivo", run.spec.Name, false)
+				} else {
+					gfx.SetNowPlaying(npA, npT, npB)
+				}
+			}
+
+			// la fuente del operador manda; después la escena elegida; después el
+			// videoclip; si no, el visualizador
 			if want == SceneVisual && clipFrame != nil {
 				want = SceneClip
+			}
+			if srcFrame != nil {
+				want = SceneSource
 			}
 			if want == SceneImage && plate == nil {
 				want = SceneVisual
@@ -361,8 +452,12 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 			if l := s.audio.Len(); l > spf*2*4 {
 				s.audio.Discard(l - spf*2*2)
 			}
-			n := s.audio.Read(samples)
-			clear(samples[n:])
+			if run != nil && run.readAudioInto(samples) {
+				s.audio.Discard(s.audio.Len()) // la radio no se usa: que no se acumule
+			} else {
+				n := s.audio.Read(samples)
+				clear(samples[n:])
+			}
 			vis.Push(samples)
 			vis.Update()
 
@@ -438,4 +533,16 @@ func (s *Service) markSilent(ctx context.Context, c *clip, path string) {
 	has := s.hasAudio(ctx, path)
 	s.audioOf.Store(path, has)
 	c.silent.Store(!has)
+}
+
+// audioCached es hasAudio con memoria por ruta (las URL no: pueden cambiar).
+func (s *Service) audioCached(ctx context.Context, path string) bool {
+	if v, ok := s.audioOf.Load(path); ok {
+		return v.(bool)
+	}
+	has := s.hasAudio(ctx, path)
+	if !ffmpeg.IsNetwork(path) {
+		s.audioOf.Store(path, has)
+	}
+	return has
 }

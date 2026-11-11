@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { Settings, SaveSettings, TVStatus, TVSetScene, TVSetLayers, TVOnAir, TVApply, SetTVPassword, HasTVPassword, PickImage, PickBackground } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, TVStatus, TVSetScene, TVSetLayers, TVOnAir, TVApply, SetTVPassword, HasTVPassword, PickImage, PickBackground, PickVideo, TVSetSource, SaveTVSources } from '../../wailsjs/go/ui/App'
   import { config, type video } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -79,6 +79,48 @@
     }
   }
 
+  // ---- fuentes (como el «Origen multimedia» de OBS) ----
+  let srcDirty = $state(false)
+  function addSource(kind: 'file' | 'url') {
+    if (!s) return
+    s.tv.sources = [...(s.tv.sources ?? []), config.TVSource.createFrom({
+      id: Math.random().toString(36).slice(2, 10), name: kind === 'file' ? 'Video local' : 'Señal en línea',
+      path: '', loop: kind === 'file', audio: kind === 'file' ? 'radio' : 'source' })]
+    srcDirty = true
+  }
+  async function pickSourceFile(i: number) {
+    const p = await PickVideo('Video de la fuente')
+    if (p && s) {
+      s.tv.sources[i].path = p
+      if (s.tv.sources[i].name === 'Video local') s.tv.sources[i].name = p.split(/[\/]/).pop()!.replace(/\.[^.]+$/, '')
+      srcDirty = true
+    }
+  }
+  function removeSource(i: number) {
+    if (!s) return
+    s.tv.sources = s.tv.sources.filter((_, j) => j !== i)
+    srcDirty = true
+  }
+  async function saveSources() {
+    if (!s) return
+    try {
+      await SaveTVSources(s.tv.sources ?? [])
+      srcDirty = false
+      toast.show('Fuentes guardadas')
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+  async function goSource(id: string) {
+    try {
+      if (srcDirty) await saveSources()
+      await TVSetSource(id)
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+  const isNet = (p: string) => /^(https?|rtmps?|rtsp|srt|udp):\/\//i.test(p.trim())
+
   const ago = (t: any) => (t ? new Date(t).toLocaleTimeString('es-PE', { hour12: false }) : '')
 </script>
 
@@ -112,6 +154,40 @@
           <label class="check"><input type="checkbox" bind:checked={s.tv.show_now} onchange={layers} /> Ahora suena</label>
           <label class="check"><input type="checkbox" bind:checked={s.tv.show_clock} onchange={layers} /> Reloj</label>
           <label class="check"><input type="checkbox" bind:checked={s.tv.show_ticker} onchange={layers} /> Ticker</label>
+        </div>
+        <div class="sources">
+          <div class="row">
+            <h2 class="grow">Fuentes</h2>
+            <button class="small" class:ghost={!!st?.source} onclick={() => goSource('')} title="La TV sigue a la radio: videoclips o visualizador">Automático</button>
+          </div>
+          {#each s.tv.sources ?? [] as src, i (src.id)}
+            <div class="src" class:onair={st?.source === src.id}>
+              <input class="name" bind:value={src.name} oninput={() => (srcDirty = true)} placeholder="Nombre" />
+              <input class="path" bind:value={src.path} oninput={() => (srcDirty = true)}
+                placeholder="Archivo local o https://…/stream.m3u8 · rtsp://… · srt://…" />
+              {#if !isNet(src.path)}<button class="small ghost" onclick={() => pickSourceFile(i)} title="Elegir archivo">📁</button>{/if}
+              {#if !isNet(src.path)}<label class="check small" title="Repetir al terminar"><input type="checkbox" bind:checked={src.loop} onchange={() => (srcDirty = true)} /> Bucle</label>{/if}
+              <select class="small" bind:value={src.audio} onchange={() => (srcDirty = true)} title="Qué audio lleva la TV mientras se ve esta fuente">
+                <option value="radio">Audio: radio</option><option value="source">Audio: de la fuente</option></select>
+              {#if st?.source === src.id}
+                <button class="small danger" onclick={() => goSource('')}>■ Quitar</button>
+              {:else}
+                <button class="small ok" disabled={!st?.running || !src.path.trim()} onclick={() => goSource(src.id)}>▶ Al aire</button>
+              {/if}
+              <button class="small ghost" onclick={() => removeSource(i)} title="Borrar">✕</button>
+            </div>
+          {/each}
+          <div class="row">
+            <button class="small ghost" onclick={() => addSource('file')}>+ Video local</button>
+            <button class="small ghost" onclick={() => addSource('url')}>+ URL (http/https, HLS, rtsp, srt)</button>
+            <span class="grow"></span>
+            {#if srcDirty}<button class="small ok" onclick={saveSources}>Guardar fuentes</button>{/if}
+          </div>
+          {#if st?.source && !st.src_live}<p class="small muted">Conectando a la fuente…{#if st.src_err} {st.src_err}{/if}</p>
+          {:else if st?.src_err}<p class="small warn">{st.src_err}</p>{/if}
+          <p class="muted small">Como el «Origen multimedia» de OBS: un video del disco o una señal en línea. «Al aire» la pone en la TV
+            (con fundido) por encima de los videoclips; «Automático» vuelve a seguir a la radio. Con «Audio: de la fuente» la TV lleva el
+            sonido de la fuente (la radio no cambia); con «Audio: radio» se ve la fuente y se oye la radio.</p>
         </div>
         {#if st?.running}
           <p class="small muted">
@@ -197,6 +273,11 @@
   .live.ok { background: #d62828; }
   .clipname { position: absolute; bottom: 8px; left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px;
     background: rgba(0, 0, 0, .6); color: #fff; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sources { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .src { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px; border-radius: 6px; border: 1px solid transparent; }
+  .src.onair { border-color: #d62828; background: rgba(214, 40, 40, .08); }
+  .src .name { width: 140px; }
+  .src .path { flex: 1; min-width: 200px; }
   .wrap { flex-wrap: wrap; gap: 8px; align-items: center; }
   .cfg { display: flex; flex-direction: column; gap: 10px; }
   .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }

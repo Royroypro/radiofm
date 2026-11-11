@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.9.0 — fuentes de video (como OBS)
+
+- Pantalla TV → **Fuentes**: **video local** (con bucle opcional) o **URL en línea** (http/https, HLS `.m3u8`,
+  rtmp, rtsp, srt), como el «Origen multimedia» de OBS.
+- **▶ Al aire** pone la fuente en la TV con fundido; **Automático** vuelve a seguir a la radio. Las URL que se
+  cortan se reconectan solas; un archivo sin bucle vuelve solo a automático al terminar.
+- Audio por fuente: el de la **radio** o el **de la fuente** (la TV lleva su sonido; la radio no cambia).
+  Sin audio en la fuente, el espectro de la radio va abajo.
+
 ## 1.8.1 — espectro sobre los videos
 
 - Los **videos sin audio** (por ejemplo un video de fondo puesto a una canción) muestran el **espectro del audio

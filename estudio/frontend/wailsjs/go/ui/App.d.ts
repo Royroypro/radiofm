@@ -132,6 +132,8 @@ export function SaveSettings(arg1:config.Settings):Promise<void>;
 
 export function SaveSpot(arg1:domain.Spot):Promise<domain.Spot>;
 
+export function SaveTVSources(arg1:Array<config.TVSource>):Promise<void>;
+
 export function SetDuck(arg1:boolean):Promise<void>;
 
 export function SetException(arg1:domain.GridException):Promise<void>;
@@ -175,6 +177,8 @@ export function TVOnAir(arg1:boolean):Promise<void>;
 export function TVSetLayers(arg1:boolean,arg2:boolean,arg3:boolean,arg4:boolean):Promise<void>;
 
 export function TVSetScene(arg1:string):Promise<void>;
+
+export function TVSetSource(arg1:string):Promise<void>;
 
 export function TVStatus():Promise<video.Status>;
 

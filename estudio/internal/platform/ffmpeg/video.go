@@ -341,3 +341,106 @@ func (t Tools) HasAudio(ctx context.Context, path string) bool {
 		"-of", "csv=p=0", path).Output()
 	return err == nil && len(strings.TrimSpace(string(out))) > 0
 }
+
+// SourceStream es una fuente de video abierta (archivo local o URL): el video
+// crudo y, si se pidió y la fuente lo trae, su audio (f32le estéreo 44,1 kHz).
+type SourceStream struct {
+	Video io.ReadCloser
+	audio chan net.Conn
+	ln    net.Listener
+}
+
+// Audio espera hasta wait a que ffmpeg entregue el audio; nil si la fuente no
+// trae audio (o no se pidió).
+func (s *SourceStream) Audio(wait time.Duration) net.Conn {
+	if s.audio == nil {
+		return nil
+	}
+	select {
+	case c := <-s.audio:
+		return c
+	case <-time.After(wait):
+		return nil
+	}
+}
+
+// Close termina ffmpeg y cierra todo.
+func (s *SourceStream) Close() error {
+	if s.ln != nil {
+		_ = s.ln.Close()
+	}
+	return s.Video.Close()
+}
+
+// IsNetwork dice si la fuente es una URL (http, https, rtmp, rtsp, srt, udp).
+func IsNetwork(src string) bool {
+	for _, p := range []string{"http://", "https://", "rtmp://", "rtmps://", "rtsp://", "srt://", "udp://"} {
+		if strings.HasPrefix(strings.ToLower(src), p) {
+			return true
+		}
+	}
+	return false
+}
+
+// OpenSource abre una fuente como en el «Origen multimedia» de OBS: un archivo
+// local (loop = repetir) o una URL en vivo (http/https, HLS, rtmp, rtsp, srt).
+// Un solo ffmpeg entrega el video por stdout y, con withAudio, el audio por TCP
+// local (los dos salen del mismo proceso: quedan sincronizados). Los archivos se
+// leen a ritmo real (-re) para que el audio llegue a tiempo.
+func (t Tools) OpenSource(ctx context.Context, src string, loop, withAudio bool, w, h, fps int) (*SourceStream, error) {
+	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
+	network := IsNetwork(src)
+	switch {
+	case strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://"):
+		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5", "-rw_timeout", "15000000")
+	case strings.HasPrefix(src, "rtsp://"):
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", "15000000")
+	case network:
+		args = append(args, "-rw_timeout", "15000000")
+	default:
+		args = append(args, "-re")
+		if loop {
+			args = append(args, "-stream_loop", "-1")
+		}
+	}
+	vf := fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease:flags=bicubic,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,fps=%d,format=yuv420p",
+		w, h, w, h, fps)
+	args = append(args, "-i", src, "-map", "0:v:0", "-sn", "-vf", vf, "-f", "rawvideo", "-pix_fmt", "yuv420p", "pipe:1")
+	s := &SourceStream{}
+	if withAudio {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, err
+		}
+		s.ln, s.audio = ln, make(chan net.Conn, 1)
+		args = append(args, "-map", "0:a:0?", "-vn", "-f", "f32le", "-ac", "2", "-ar", "44100",
+			fmt.Sprintf("tcp://127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port))
+		go func() {
+			c, err := ln.Accept()
+			if err == nil {
+				s.audio <- c
+			}
+		}()
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	cmd := command(ctx, t.FFmpeg, args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		if s.ln != nil {
+			_ = s.ln.Close()
+		}
+		return nil, err
+	}
+	stderr := &limitedBuffer{max: 4096}
+	cmd.Stderr = stderr
+	if err := cmd.Start(); err != nil {
+		cancel()
+		if s.ln != nil {
+			_ = s.ln.Close()
+		}
+		return nil, fmt.Errorf("ffmpeg: iniciar: %w", err)
+	}
+	s.Video = &procReader{r: stdout, cmd: cmd, cancel: cancel, stderr: stderr}
+	return s, nil
+}

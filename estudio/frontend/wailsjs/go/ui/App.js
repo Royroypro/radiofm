@@ -234,6 +234,10 @@ export function SaveSpot(arg1) {
   return window['go']['ui']['App']['SaveSpot'](arg1);
 }
 
+export function SaveTVSources(arg1) {
+  return window['go']['ui']['App']['SaveTVSources'](arg1);
+}
+
 export function SetDuck(arg1) {
   return window['go']['ui']['App']['SetDuck'](arg1);
 }
@@ -320,6 +324,10 @@ export function TVSetLayers(arg1, arg2, arg3, arg4) {
 
 export function TVSetScene(arg1) {
   return window['go']['ui']['App']['TVSetScene'](arg1);
+}
+
+export function TVSetSource(arg1) {
+  return window['go']['ui']['App']['TVSetSource'](arg1);
 }
 
 export function TVStatus() {

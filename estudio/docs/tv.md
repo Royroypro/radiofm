@@ -81,7 +81,27 @@ muestra «atrasados» o «descartados»), baje a 480p o use el codificador por h
 - El **fondo del visualizador** puede ser un video en bucle (`-stream_loop -1`, sincronizado con la hora
   desde que arranca la TV); entonces el espectro va en la franja de abajo en vez de al centro.
 
+## Fuentes: video local y en línea (Estudio 1.9)
+
+Como el «Origen multimedia» de OBS. En la pantalla TV → **Fuentes**:
+
+- **+ Video local**: un archivo del disco, con **Bucle** opcional. Se lee a ritmo real (`-re`).
+- **+ URL**: una señal en línea: http/https (incluye **HLS** `.m3u8`), rtmp, rtsp (por TCP) o srt. Usa
+  reconexión de ffmpeg y, si se corta, el Estudio reconecta cada 5 s mientras siga al aire.
+- **Audio**: «radio» (se ve la fuente y se oye la radio) o «de la fuente» (la TV lleva el sonido de la
+  fuente; la radio no cambia). Si la fuente no trae audio, la TV sigue con el de la radio y, según la
+  opción, se dibuja el espectro abajo.
+- **▶ Al aire** la pone en la TV con fundido, por encima de los videoclips y la placa; **Automático**
+  vuelve a seguir a la radio. Un archivo sin bucle que termina vuelve solo a automático.
+- Mientras suena el audio de la fuente, el cintillo muestra «En vivo · nombre de la fuente».
+- **Técnica**: un solo ffmpeg por fuente entrega el video crudo por stdout y el audio (f32le) por TCP local,
+  así salen del mismo proceso y quedan sincronizados (`platform/ffmpeg.OpenSource`). La imagen se muestra
+  a ritmo de reloj desde que llega el primer cuadro; el audio de la fuente pasa por un ring buffer con poco
+  atraso (como el de la radio).
+
 ## Próximas fases
+
+- Cámara del estudio (dshow), escenas con previo y programa, y la regla «micrófono abierto → cámara».
 
 - Cuñas en video (versión en video de la cuña desde el panel).
 - **TV-C**: cámara del estudio (dshow), fuentes en línea (http, HLS, rtsp, srt), escenas tipo vMix con

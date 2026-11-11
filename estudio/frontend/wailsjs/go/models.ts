@@ -494,6 +494,26 @@ export namespace config {
 	        this.url = source["url"];
 	    }
 	}
+	export class TVSource {
+	    id: string;
+	    name: string;
+	    path: string;
+	    loop: boolean;
+	    audio: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TVSource(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.loop = source["loop"];
+	        this.audio = source["audio"];
+	    }
+	}
 	export class TVSettings {
 	    enabled: boolean;
 	    url: string;
@@ -516,6 +536,7 @@ export namespace config {
 	    ticker: string;
 	    clip_offset_ms: number;
 	    spectrum_on_video: string;
+	    sources: TVSource[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TVSettings(source);
@@ -544,7 +565,26 @@ export namespace config {
 	        this.ticker = source["ticker"];
 	        this.clip_offset_ms = source["clip_offset_ms"];
 	        this.spectrum_on_video = source["spectrum_on_video"];
+	        this.sources = this.convertValues(source["sources"], TVSource);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class StationSettings {
 	    name: string;
@@ -618,6 +658,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 	
 
 }
@@ -2017,6 +2058,10 @@ export namespace video {
 	    scene: string;
 	    showing: string;
 	    clip: string;
+	    source: string;
+	    src_err: string;
+	    src_live: boolean;
+	    src_audio: boolean;
 	    encoder: ffmpeg.VideoStatus;
 	    fps: number;
 	    late: number;
@@ -2032,6 +2077,10 @@ export namespace video {
 	        this.scene = source["scene"];
 	        this.showing = source["showing"];
 	        this.clip = source["clip"];
+	        this.source = source["source"];
+	        this.src_err = source["src_err"];
+	        this.src_live = source["src_live"];
+	        this.src_audio = source["src_audio"];
 	        this.encoder = this.convertValues(source["encoder"], ffmpeg.VideoStatus);
 	        this.fps = source["fps"];
 	        this.late = source["late"];

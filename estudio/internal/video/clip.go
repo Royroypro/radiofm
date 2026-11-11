@@ -21,6 +21,7 @@ type clip struct {
 	idx    int64 // número del cuadro actual (-1 = ninguno todavía)
 	ended  atomic.Bool
 	silent atomic.Bool // el video no trae audio (se dibuja el espectro encima)
+	live   bool
 	rc     io.ReadCloser
 	cancel context.CancelFunc
 }
@@ -39,13 +40,19 @@ func startClip(ctx context.Context, dec decodeFunc, path string, pos time.Durati
 		cancel()
 		return nil, err
 	}
+	return newClip(ctx, cancel, rc, at, false, w, h, fps), nil
+}
+
+// newClip lee cuadros de rc. live = la hora la marca la llegada del primer
+// cuadro (fuentes en vivo o archivos leídos a ritmo real), no at.
+func newClip(ctx context.Context, cancel context.CancelFunc, rc io.ReadCloser, at time.Time, live bool, w, h, fps int) *clip {
 	c := &clip{start: at, fps: fps, q: make(chan *Frame, clipQueue), free: make(chan *Frame, clipQueue+2),
-		idx: -1, rc: rc, cancel: cancel}
+		idx: -1, rc: rc, cancel: cancel, live: live}
 	for i := 0; i < clipQueue+2; i++ {
 		c.free <- NewFrame(w, h)
 	}
 	go c.read(ctx)
-	return c, nil
+	return c
 }
 
 func (c *clip) read(ctx context.Context) {
@@ -78,6 +85,18 @@ func (c *clip) read(ctx context.Context) {
 // frame devuelve el cuadro que corresponde a now. ok = false si todavía no hay
 // ninguno o si el video terminó (y ya se mostró su último cuadro).
 func (c *clip) frame(now time.Time) (*Frame, bool) {
+	if c.live && c.idx < 0 { // en vivo: la hora empieza con el primer cuadro que llega
+		select {
+		case f, open := <-c.q:
+			if !open {
+				return nil, false
+			}
+			c.cur, c.idx, c.start = f, 0, now
+			return f, true
+		default:
+			return nil, false
+		}
+	}
 	want := int64(now.Sub(c.start).Seconds() * float64(c.fps))
 	for c.idx < want {
 		select {
