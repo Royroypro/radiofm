@@ -2,6 +2,18 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.7.0 — modo TV (fase TV-A)
+
+- **Modo TV**: nueva pantalla **TV**. El Estudio arma el canal de TV de la web y lo emite por RTMP al
+  servidor (mediamtx) con el mismo audio de la radio:
+  - **visualizador** de espectro animado con el audio que suena (sobre un fondo o el degradado de la marca);
+  - capas de **logo**, **reloj**, cintillo **«Ahora suena»**, **ticker** y placa **«Publicidad»** en las tandas;
+  - escena **Placa** (imagen a pantalla completa) con fundido;
+  - monitor del programa en la pantalla TV.
+- Audio y video en paso fijo: nunca se desincronizan. H.264 por x264 o por hardware (NVENC, Quick Sync,
+  AMF); 480p, 720p o 1080p a 25 o 30 fps.
+- Ver `docs/tv.md`. Próximas fases: videoclips, cámaras y fuentes en línea, escenas y parrilla de TV.
+
 ## 1.6.0 — ecualizador y ampliación estéreo
 
 - **Ecualizador gráfico de 10 bandas** (31 Hz a 16 kHz, ±12 dB) y **ampliación estéreo** (0 % mono,

@@ -5,6 +5,7 @@ go 1.27.3
 require (
 	github.com/gen2brain/malgo v0.11.27
 	github.com/wailsapp/wails/v2 v2.17.1
+	golang.org/x/image v0.41.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.42.0
 	modernc.org/sqlite v1.62.0

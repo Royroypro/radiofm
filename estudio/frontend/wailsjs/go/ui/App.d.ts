@@ -12,6 +12,7 @@ import {reports} from '../models';
 import {app} from '../models';
 import {config} from '../models';
 import {sync} from '../models';
+import {video} from '../models';
 import {tools} from '../models';
 import {voicetrack} from '../models';
 
@@ -53,6 +54,8 @@ export function GenerateDay(arg1:string):Promise<void>;
 
 export function Grid():Promise<Array<domain.GridCell>>;
 
+export function HasTVPassword():Promise<boolean>;
+
 export function History(arg1:number):Promise<Array<domain.Play>>;
 
 export function ImportFolder(arg1:string,arg2:number,arg3:boolean):Promise<library.ImportResult>;
@@ -88,6 +91,8 @@ export function OpenRecordings():Promise<void>;
 export function PickFile(arg1:string):Promise<string>;
 
 export function PickFolder(arg1:string):Promise<string>;
+
+export function PickImage(arg1:string):Promise<string>;
 
 export function PreviewHandler():Promise<http.Handler>;
 
@@ -139,6 +144,8 @@ export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
 
 export function SetSound(arg1:Array<number>,arg2:number):Promise<void>;
 
+export function SetTVPassword(arg1:string):Promise<void>;
+
 export function SetTimeAnnounce(arg1:boolean):Promise<void>;
 
 export function SetTrackAttributes(arg1:domain.TrackFilter,arg2:domain.TrackAttributes):Promise<number>;
@@ -156,6 +163,16 @@ export function StopCarts():Promise<void>;
 export function SyncNow():Promise<void>;
 
 export function SyncStatus():Promise<sync.Status>;
+
+export function TVApply():Promise<void>;
+
+export function TVOnAir(arg1:boolean):Promise<void>;
+
+export function TVSetLayers(arg1:boolean,arg2:boolean,arg3:boolean,arg4:boolean):Promise<void>;
+
+export function TVSetScene(arg1:string):Promise<void>;
+
+export function TVStatus():Promise<video.Status>;
 
 export function Today():Promise<string>;
 

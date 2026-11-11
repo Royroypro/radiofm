@@ -13,6 +13,7 @@ import (
 const (
 	ServerToken     = "server_token"     // token Bearer del panel web (/api/studio/*)
 	IcecastPassword = "icecast_password" // contraseña de fuente de Icecast
+	TVPassword      = "tv_password"      // clave para publicar la TV (panel → Ajustes → Streams)
 )
 
 // Store guarda secretos cifrados en secrets.json (carpeta de datos). En Windows

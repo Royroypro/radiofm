@@ -21,6 +21,7 @@ type Settings struct {
 	Server    ServerSettings    `json:"server"`
 	Station   StationSettings   `json:"station"`
 	Rotation  RotationSettings  `json:"rotation"`
+	TV        TVSettings        `json:"tv"`
 	Locutions LocutionSettings  `json:"locutions"`
 	Safety    SafetySettings    `json:"safety"`
 	Logger    LoggerSettings    `json:"logger"`
@@ -53,6 +54,40 @@ type AudioSettings struct {
 // Crossfade devuelve la duración del crossfade.
 func (a AudioSettings) Crossfade() time.Duration {
 	return time.Duration(a.CrossfadeMs) * time.Millisecond
+}
+
+// TVSettings: modo TV (video para la web). La clave va en secrets (TVPassword).
+type TVSettings struct {
+	Enabled     bool   `json:"enabled"`
+	URL         string `json:"url"`        // rtmp://servidor:1935/tv
+	User        string `json:"user"`       // usuario de publicación (panel → Ajustes → Streams)
+	Resolution  string `json:"resolution"` // 480p | 720p | 1080p
+	FPS         int    `json:"fps"`        // 25 | 30
+	BitrateKbps int    `json:"bitrate_kbps"`
+	Codec       string `json:"codec"`       // x264 | nvenc | qsv | amf
+	Logo        string `json:"logo"`        // PNG (con transparencia); vacío = nombre de la radio
+	LogoPos     string `json:"logo_pos"`    // tl | tr | bl | br
+	Background  string `json:"background"`  // imagen de fondo; vacío = degradado
+	Plate       string `json:"plate"`       // imagen de la escena «placa»
+	Accent      string `json:"accent"`      // #rrggbb
+	Accent2     string `json:"accent2"`     // #rrggbb
+	Panel       string `json:"panel"`       // #rrggbb (fondo de recuadros y del degradado)
+	ShowLogo    bool   `json:"show_logo"`   // capas encendidas al arrancar
+	ShowNow     bool   `json:"show_now"`    // cintillo «ahora suena»
+	ShowClock   bool   `json:"show_clock"`  // reloj
+	ShowTicker  bool   `json:"show_ticker"` // texto que corre abajo
+	Ticker      string `json:"ticker"`
+}
+
+// Size devuelve el ancho y alto de la resolución elegida.
+func (t TVSettings) Size() (int, int) {
+	switch t.Resolution {
+	case "480p":
+		return 854, 480
+	case "1080p":
+		return 1920, 1080
+	}
+	return 1280, 720
 }
 
 // IcecastSettings: emisión a la web.
@@ -188,6 +223,9 @@ func Defaults() Settings {
 		Icecast: IcecastSettings{Host: IngestHost, Port: 8010, Mount: "/radio", User: "source",
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
 		Server:    ServerSettings{URL: ServerURL},
+		TV: TVSettings{URL: "rtmp://" + IngestHost + ":1935/tv", Resolution: "720p", FPS: 30, BitrateKbps: 2500,
+			Codec: "x264", LogoPos: "tr", Accent: "#e5262a", Accent2: "#f7a21b", Panel: "#1b2a6e",
+			ShowLogo: true, ShowNow: true, ShowClock: true},
 		Station:   StationSettings{Name: "Radio Club 25", City: "Huacho", Timezone: "America/Lima", Latitude: -11.1067, Longitude: -77.6050},
 		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3, MaxEnergyJump: 2, MaxGenreRun: 3},
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},
@@ -327,6 +365,18 @@ func (c Settings) Validate() error {
 		return errors.New("el fundido de tanda debe estar entre 0 y 5 s")
 	case c.UI.Theme != "" && c.UI.Theme != "dark" && c.UI.Theme != "light" && c.UI.Theme != "club25" && c.UI.Theme != "custom":
 		return errors.New("tema desconocido")
+	}
+	if t := c.TV; t.Enabled {
+		switch {
+		case !strings.HasPrefix(t.URL, "rtmp://") && !strings.HasPrefix(t.URL, "rtmps://") && !strings.HasPrefix(t.URL, "srt://"):
+			return errors.New("TV: la dirección debe empezar con rtmp://, rtmps:// o srt://")
+		case t.FPS != 25 && t.FPS != 30:
+			return errors.New("TV: los cuadros por segundo deben ser 25 o 30")
+		case t.BitrateKbps < 300 || t.BitrateKbps > 12000:
+			return errors.New("TV: la tasa de video debe estar entre 300 y 12000 kbps")
+		case t.Resolution != "480p" && t.Resolution != "720p" && t.Resolution != "1080p":
+			return errors.New("TV: resolución desconocida")
+		}
 	}
 	if len(c.Audio.EQ) > 10 {
 		return errors.New("el ecualizador tiene 10 bandas")

@@ -20,6 +20,7 @@ el archivo Go. Antes de portar, comprobar la cabecera de licencia del archivo co
 | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | 20261104 | Apache-2.0 con excepciones LLVM | solo para compilar (CGO), no se distribuye |
 | [NSIS](https://nsis.sourceforge.io) | 3.11 | zlib/libpng | solo para compilar el instalador, no se distribuye por separado |
 | Nunito (fuente) | v16 | OFL-1.1 | tipografía de la interfaz (`frontend/src/assets/fonts/OFL.txt`) |
+| [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) (incluye las fuentes Go) | v0.41.0 | BSD-3-Clause | modo TV: escalar imágenes y dibujar los textos del grafismo |
 
 ## Proyectos de referencia
 
@@ -33,6 +34,9 @@ el archivo Go. Antes de portar, comprobar la cabecera de licencia del archivo co
 | [Rotter](https://github.com/nick-prater/rotter) / Chronicle | GPL | solo ideas: grabador de emisión por horas con retención (fase D) |
 | [Mixxx](https://mixxx.org) | GPL-2.0-or-later | curvas de crossfade, *talkover ducking*, AutoDJ, intro/outro, forma de onda por picos |
 | [Liquidsoap](https://www.liquidsoap.info) | GPL-2.0-or-later | diseño de `smart_crossfade`, fallback por silencio, normalización |
+| [OBS Studio](https://obsproject.com) | GPL-2.0-or-later | solo ideas: escenas → fuentes → transiciones del modo TV |
+| [CasparCG](https://casparcg.com) | GPL-3.0 | solo ideas: capas de grafismo (logo, cintillo, ticker) sobre el programa |
+| [mediamtx](https://github.com/bluenviron/mediamtx) | MIT | servidor de la TV (en el servidor web): recibe el RTMP del modo TV y lo sirve en HLS |
 | [Rivendell](https://github.com/ElvishArtisan/rivendell) | GPL-2.0 (verificar archivo por archivo) | modelo de datos de radio (carts, relojes, parrilla, log, transiciones) y la idea del **Voicetracker** — solo ideas salvo archivos "or later" |
 | D. Ellis, "Beat Tracking by Dynamic Programming" (2007); prior de tempo de [librosa](https://librosa.org) (ISC) | artículo / ISC | idea de la estimación de tempo por autocorrelación de ataques con prior centrado en 120 BPM (`library/tempo.go`, escrito desde cero) |
 | [LibreTime](https://libretime.org) | AGPL-3.0 | solo ideas: *smart blocks*, comprobantes |

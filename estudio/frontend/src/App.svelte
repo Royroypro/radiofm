@@ -18,6 +18,7 @@
   import Reports from './pages/Reports.svelte'
   import OnAir from './pages/OnAir.svelte'
   import Carts from './pages/Carts.svelte'
+  import TV from './pages/TV.svelte'
   import { onair, handleKey } from './lib/onair.svelte'
   import Placeholder from './pages/Placeholder.svelte'
   import { toast } from './lib/toast.svelte'
@@ -35,6 +36,7 @@
     { id: 'spots', label: 'Cuñas' },
     { id: 'carts', label: 'Botonera' },
     { id: 'reports', label: 'Reportes' },
+    { id: 'tv', label: 'TV' },
     { id: 'settings', label: 'Ajustes' },
   ]
 
@@ -105,6 +107,8 @@
       <VoiceTrack />
     {:else if page === 'reports'}
       <Reports />
+    {:else if page === 'tv'}
+      <TV />
     {:else if page === 'settings'}
       <Settings {info} />
     {:else}

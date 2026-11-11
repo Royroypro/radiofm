@@ -494,6 +494,54 @@ export namespace config {
 	        this.url = source["url"];
 	    }
 	}
+	export class TVSettings {
+	    enabled: boolean;
+	    url: string;
+	    user: string;
+	    resolution: string;
+	    fps: number;
+	    bitrate_kbps: number;
+	    codec: string;
+	    logo: string;
+	    logo_pos: string;
+	    background: string;
+	    plate: string;
+	    accent: string;
+	    accent2: string;
+	    panel: string;
+	    show_logo: boolean;
+	    show_now: boolean;
+	    show_clock: boolean;
+	    show_ticker: boolean;
+	    ticker: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TVSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.url = source["url"];
+	        this.user = source["user"];
+	        this.resolution = source["resolution"];
+	        this.fps = source["fps"];
+	        this.bitrate_kbps = source["bitrate_kbps"];
+	        this.codec = source["codec"];
+	        this.logo = source["logo"];
+	        this.logo_pos = source["logo_pos"];
+	        this.background = source["background"];
+	        this.plate = source["plate"];
+	        this.accent = source["accent"];
+	        this.accent2 = source["accent2"];
+	        this.panel = source["panel"];
+	        this.show_logo = source["show_logo"];
+	        this.show_now = source["show_now"];
+	        this.show_clock = source["show_clock"];
+	        this.show_ticker = source["show_ticker"];
+	        this.ticker = source["ticker"];
+	    }
+	}
 	export class StationSettings {
 	    name: string;
 	    city: string;
@@ -520,6 +568,7 @@ export namespace config {
 	    server: ServerSettings;
 	    station: StationSettings;
 	    rotation: RotationSettings;
+	    tv: TVSettings;
 	    locutions: LocutionSettings;
 	    safety: SafetySettings;
 	    logger: LoggerSettings;
@@ -538,6 +587,7 @@ export namespace config {
 	        this.server = this.convertValues(source["server"], ServerSettings);
 	        this.station = this.convertValues(source["station"], StationSettings);
 	        this.rotation = this.convertValues(source["rotation"], RotationSettings);
+	        this.tv = this.convertValues(source["tv"], TVSettings);
 	        this.locutions = this.convertValues(source["locutions"], LocutionSettings);
 	        this.safety = this.convertValues(source["safety"], SafetySettings);
 	        this.logger = this.convertValues(source["logger"], LoggerSettings);
@@ -564,6 +614,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 
 }
 
@@ -1067,6 +1118,51 @@ export namespace ffmpeg {
 	        this.kbps = source["kbps"];
 	        this.bytes_sent = source["bytes_sent"];
 	        this.format = source["format"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class VideoStatus {
+	    connected: boolean;
+	    // Go type: time
+	    since?: any;
+	    retries: number;
+	    last_error?: string;
+	    frames: number;
+	    dropped: number;
+	    kbps: number;
+	    codec: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VideoStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connected = source["connected"];
+	        this.since = this.convertValues(source["since"], null);
+	        this.retries = source["retries"];
+	        this.last_error = source["last_error"];
+	        this.frames = source["frames"];
+	        this.dropped = source["dropped"];
+	        this.kbps = source["kbps"];
+	        this.codec = source["codec"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1902,6 +1998,51 @@ export namespace ui {
 	        this.level = source["level"];
 	        this.mic_ready = source["mic_ready"];
 	    }
+	}
+
+}
+
+export namespace video {
+	
+	export class Status {
+	    running: boolean;
+	    scene: string;
+	    encoder: ffmpeg.VideoStatus;
+	    fps: number;
+	    late: number;
+	    size: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.running = source["running"];
+	        this.scene = source["scene"];
+	        this.encoder = this.convertValues(source["encoder"], ffmpeg.VideoStatus);
+	        this.fps = source["fps"];
+	        this.late = source["late"];
+	        this.size = source["size"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

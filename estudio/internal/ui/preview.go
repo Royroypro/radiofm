@@ -22,6 +22,18 @@ func (a *App) PreviewHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		// /preview/tv.jpg: el programa de la TV (monitor de la pantalla TV)
+		if r.URL.Path == "/preview/tv.jpg" && a.core != nil {
+			b := a.core.TV.Snapshot()
+			if len(b) == 0 {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "image/jpeg")
+			w.Header().Set("Cache-Control", "no-store")
+			_, _ = w.Write(b)
+			return
+		}
 		// /preview/airlog/{archivo}: una hora de la grabación de la emisión
 		if file, ok := strings.CutPrefix(r.URL.Path, "/preview/airlog/"); ok && a.core != nil {
 			p, err := a.core.AirLog.FilePath(file)

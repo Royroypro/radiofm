@@ -11,8 +11,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -45,6 +48,7 @@ import (
 	"radioclub25/estudio/internal/service/timeannounce"
 	"radioclub25/estudio/internal/service/voicetrack"
 	"radioclub25/estudio/internal/version"
+	"radioclub25/estudio/internal/video"
 )
 
 // App reúne las piezas construidas.
@@ -62,6 +66,11 @@ type App struct {
 	Reports   *reports.Service
 	Weather   *weather.Client
 	Secrets   *secrets.Store
+	TV        *video.Service
+	runCtx    context.Context // el de Start (para rearrancar la TV desde la interfaz)
+	tvMu      sync.Mutex
+	tvArtist  string // última canción (el cintillo vuelve a ella después de jingles y tandas)
+	tvTitle   string
 	Engine    *audio.Engine
 	OnAir     *onair.Service
 	Voice     *voicetrack.Service // voice tracking (grabar intervenciones entre canciones)
@@ -143,6 +152,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	ecfg.DuckRelease = time.Duration(s.Audio.DuckReleaseMs) * time.Millisecond
 	ecfg.SilenceAfter = time.Duration(s.Safety.SilenceSeconds) * time.Second
 	a.Engine = audio.NewEngine(ecfg)
+	a.TV = video.New(a.Tools, a.Engine.TVOutput(), a.Engine.SetTVTap, log)
 	a.Streaming = streaming.New(a.Tools, a.Engine, a.Settings,
 		func() (string, error) { return a.Secrets.Get(secrets.IcecastPassword) }, log)
 	a.AirLog = airlog.New(a.Engine, a.Tools.Command, func() airlog.Settings {
@@ -173,6 +183,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	}, onair.Hooks{
 		OnSegment: func(seg onair.Segment) {
 			if seg.Path != "" {
+				a.tvNowPlaying(seg)
 				a.Streaming.UpdateSong(seg.Display(), seg.Music)
 				a.Sync.NowPlaying(seg.Artist, seg.Title, string(seg.Kind))
 				a.RDS.Update(rds.Now{Artist: seg.Artist, Title: seg.Title, Music: seg.Music})
@@ -275,6 +286,8 @@ func (a *App) Start(ctx context.Context) {
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.OnAir.Run(ctx) }()
 	a.Streaming.Restart(ctx)
+	a.runCtx = ctx
+	a.ApplyTV()
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.Sync.Run(ctx) }()
 	a.wg.Add(2)
@@ -566,6 +579,7 @@ func (a *App) Close() {
 	}
 	a.wg.Wait()
 	a.Streaming.Stop()
+	a.TV.Stop()
 	a.audioMu.Lock()
 	if a.output != nil {
 		_ = a.output.Close()
@@ -607,4 +621,69 @@ func (a *App) ApplyProcessor() {
 		p = audio.NewProcessor(ps) // «Sin procesar» pero con ecualizador o ampliación
 	}
 	_ = a.Engine.SetProcessor(p, scope)
+}
+
+// ApplyTV arranca, reinicia o detiene el modo TV según los ajustes.
+func (a *App) ApplyTV() {
+	t := a.Settings().TV
+	pw, _ := a.Secrets.Get(secrets.TVPassword)
+	if !t.Enabled {
+		a.TV.Stop()
+		return
+	}
+	ctx := a.runCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	w, h := t.Size()
+	out := t.URL
+	if t.User != "" || pw != "" { // mediamtx acepta usuario y clave en la consulta de la URL RTMP
+		sep := "?"
+		if strings.Contains(out, "?") {
+			sep = "&"
+		}
+		out += sep + "user=" + url.QueryEscape(t.User) + "&pass=" + url.QueryEscape(pw)
+	}
+	look := video.Look{Station: a.Settings().Station.Name, LogoPos: t.LogoPos,
+		Accent:   video.ParseHex(t.Accent, color.NRGBA{229, 38, 42, 255}),
+		Accent2:  video.ParseHex(t.Accent2, color.NRGBA{247, 162, 27, 255}),
+		Text:     color.NRGBA{255, 255, 255, 255},
+		ShowLogo: t.ShowLogo, ShowNow: t.ShowNow, ShowClk: t.ShowClock, ShowTick: t.ShowTicker, Ticker: t.Ticker,
+		Loc: a.Settings().Location()}
+	look.Panel = video.ParseHex(t.Panel, color.NRGBA{27, 42, 110, 255})
+	look.Panel.A = 225
+	img := func(p string) image.Image {
+		if p == "" {
+			return nil
+		}
+		im, err := video.LoadImage(p)
+		if err != nil {
+			a.Log.Error("TV: abrir imagen", "archivo", p, "err", err)
+			return nil
+		}
+		return im
+	}
+	look.Logo = img(t.Logo)
+	a.TV.Start(ctx, video.Config{
+		Output: ffmpeg.VideoConfig{URL: out, W: w, H: h, FPS: t.FPS, BitrateKbps: t.BitrateKbps, Codec: t.Codec},
+		Look:   look, Background: img(t.Background), Plate: img(t.Plate)})
+	a.tvMu.Lock()
+	artist, title := a.tvArtist, a.tvTitle
+	a.tvMu.Unlock()
+	a.TV.SetNowPlaying(artist, title, false)
+}
+
+// tvNowPlaying actualiza el cintillo de la TV: canciones (y enlaces) lo cambian;
+// las cuñas muestran la placa «Publicidad»; jingles y locuciones dejan la última canción.
+func (a *App) tvNowPlaying(seg onair.Segment) {
+	a.tvMu.Lock()
+	defer a.tvMu.Unlock()
+	switch {
+	case seg.Break:
+		a.TV.SetNowPlaying(seg.Artist, seg.Title, true)
+		return
+	case seg.Music || seg.Kind == domain.PlayRelay:
+		a.tvArtist, a.tvTitle = seg.Artist, seg.Title
+	}
+	a.TV.SetNowPlaying(a.tvArtist, a.tvTitle, false)
 }

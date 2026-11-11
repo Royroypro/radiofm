@@ -128,6 +128,8 @@ type Engine struct {
 	encRing  *RingBuffer // lo vacía el codificador
 	logRing  *RingBuffer // copia de la salida FM para el grabador legal (airlog)
 	logTapOn atomic.Bool
+	tvRing   *RingBuffer // copia del stream para el modo TV (video)
+	tvTapOn  atomic.Bool
 	micOn    atomic.Bool
 	duckOn   atomic.Bool
 	encTapOn atomic.Bool
@@ -170,6 +172,7 @@ func NewEngine(cfg Config) *Engine {
 		recRing:   NewRingBuffer(int(DurationToFrames(4*time.Second)) * Channels),
 		encRing:   NewRingBuffer(int(DurationToFrames(cfg.EncoderBuffer)) * Channels),
 		logRing:   NewRingBuffer(int(DurationToFrames(5*time.Second)) * Channels),
+		tvRing:    NewRingBuffer(int(DurationToFrames(2*time.Second)) * Channels),
 	}
 	e.duckGain.Store(math.Float32bits(1))
 	e.limitGain.Store(math.Float32bits(1))
@@ -278,6 +281,17 @@ func (e *Engine) SetLoggerTap(on bool) { e.logTapOn.Store(on) }
 // LoggerOutput es el buffer del que lee el grabador de la emisión (lo que sale
 // por la tarjeta, después del procesador y el limitador).
 func (e *Engine) LoggerOutput() *RingBuffer { return e.logRing }
+
+// SetTVTap activa la copia del stream hacia el modo TV.
+func (e *Engine) SetTVTap(on bool) {
+	if on {
+		e.tvRing.Discard(e.tvRing.Len())
+	}
+	e.tvTapOn.Store(on)
+}
+
+// TVOutput es el buffer del que lee el modo TV (el mismo audio que va a Icecast).
+func (e *Engine) TVOutput() *RingBuffer { return e.tvRing }
 
 // EncoderOutput es el buffer del que lee el codificador de Icecast.
 func (e *Engine) EncoderOutput() *RingBuffer { return e.encRing }
@@ -486,6 +500,9 @@ func (e *Engine) renderBlock(out []float32) {
 		if w := e.encRing.Write(stream); w < n {
 			e.encDropped.Add(int64(n - w))
 		}
+	}
+	if e.tvTapOn.Load() {
+		e.tvRing.Write(stream) // si la TV se atrasa, se descarta
 	}
 	e.renderedFrm.Add(int64(frames))
 }

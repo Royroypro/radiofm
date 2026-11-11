@@ -78,6 +78,10 @@ export function Grid() {
   return window['go']['ui']['App']['Grid']();
 }
 
+export function HasTVPassword() {
+  return window['go']['ui']['App']['HasTVPassword']();
+}
+
 export function History(arg1) {
   return window['go']['ui']['App']['History'](arg1);
 }
@@ -148,6 +152,10 @@ export function PickFile(arg1) {
 
 export function PickFolder(arg1) {
   return window['go']['ui']['App']['PickFolder'](arg1);
+}
+
+export function PickImage(arg1) {
+  return window['go']['ui']['App']['PickImage'](arg1);
 }
 
 export function PreviewHandler() {
@@ -250,6 +258,10 @@ export function SetSound(arg1, arg2) {
   return window['go']['ui']['App']['SetSound'](arg1, arg2);
 }
 
+export function SetTVPassword(arg1) {
+  return window['go']['ui']['App']['SetTVPassword'](arg1);
+}
+
 export function SetTimeAnnounce(arg1) {
   return window['go']['ui']['App']['SetTimeAnnounce'](arg1);
 }
@@ -284,6 +296,26 @@ export function SyncNow() {
 
 export function SyncStatus() {
   return window['go']['ui']['App']['SyncStatus']();
+}
+
+export function TVApply() {
+  return window['go']['ui']['App']['TVApply']();
+}
+
+export function TVOnAir(arg1) {
+  return window['go']['ui']['App']['TVOnAir'](arg1);
+}
+
+export function TVSetLayers(arg1, arg2, arg3, arg4) {
+  return window['go']['ui']['App']['TVSetLayers'](arg1, arg2, arg3, arg4);
+}
+
+export function TVSetScene(arg1) {
+  return window['go']['ui']['App']['TVSetScene'](arg1);
+}
+
+export function TVStatus() {
+  return window['go']['ui']['App']['TVStatus']();
 }
 
 export function Today() {
