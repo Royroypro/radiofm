@@ -94,6 +94,8 @@ export function PickFolder(arg1:string):Promise<string>;
 
 export function PickImage(arg1:string):Promise<string>;
 
+export function PickVideo(arg1:string):Promise<string>;
+
 export function PreviewHandler():Promise<http.Handler>;
 
 export function PreviewTransition(arg1:number,arg2:number):Promise<ui.TransitionPreview>;

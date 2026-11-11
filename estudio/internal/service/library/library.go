@@ -27,6 +27,41 @@ type Media interface {
 var AudioExtensions = map[string]bool{".mp3": true, ".wav": true, ".flac": true, ".ogg": true, ".m4a": true,
 	".aac": true, ".wma": true, ".opus": true}
 
+// VideoExtensions son los videos que se importan (modo TV). Un video con el
+// mismo nombre que un audio de la misma carpeta queda como videoclip de esa
+// pista; uno sin audio gemelo es una pista propia (su audio suena en la radio).
+var VideoExtensions = map[string]bool{".mp4": true, ".mkv": true, ".webm": true, ".mov": true, ".avi": true,
+	".mpg": true, ".mpeg": true, ".m4v": true, ".ts": true}
+
+// IsVideo dice si la ruta es un video.
+func IsVideo(p string) bool { return VideoExtensions[strings.ToLower(filepath.Ext(p))] }
+
+// PairVideos empareja videos con audios del mismo nombre (sin extensión, sin
+// distinguir mayúsculas) en la misma carpeta. Devuelve el video de cada audio
+// y la lista final a importar (audios + videos sin gemelo).
+func PairVideos(audios, videos []string) (map[string]string, []string) {
+	key := func(p string) string {
+		return strings.ToLower(strings.TrimSuffix(p, filepath.Ext(p)))
+	}
+	byKey := map[string]string{}
+	for _, a := range audios {
+		byKey[key(a)] = a
+	}
+	pair := map[string]string{}
+	files := append([]string(nil), audios...)
+	for _, v := range videos {
+		if a, ok := byKey[key(v)]; ok {
+			if _, dup := pair[a]; !dup {
+				pair[a] = v
+				continue
+			}
+		}
+		pair[v] = v // video suelto: pista propia
+		files = append(files, v)
+	}
+	return pair, files
+}
+
 // Service gestiona la biblioteca.
 type Service struct {
 	tracks domain.TrackRepository
@@ -195,7 +230,8 @@ func (s *Service) ImportFolder(ctx context.Context, dir string, categoryID int64
 	if _, err := s.cats.Get(ctx, categoryID); err != nil {
 		return res, domain.Invalid("category", "Elija una categoría válida")
 	}
-	files, err := listAudio(dir, recursive)
+	audios, videos, err := listMedia(dir, recursive)
+	videoOf, files := PairVideos(audios, videos)
 	if err != nil {
 		return res, domain.Invalid("dir", "No se pudo leer la carpeta: "+err.Error())
 	}
@@ -244,7 +280,7 @@ func (s *Service) ImportFolder(ctx context.Context, dir string, categoryID int64
 		}
 		t := &domain.Track{Path: r.path, Title: r.info.Title, Artist: r.info.Artist, Album: r.info.Album,
 			Genre: r.info.Genre, Year: r.info.Year, Composer: r.info.Composer, CategoryID: categoryID, Duration: r.info.Duration,
-			Active: true}
+			Active: true, VideoPath: videoOf[r.path]}
 		if t.Title == "" {
 			t.Artist, t.Title = domain.TitleFromFilename(r.path)
 			if t.Artist == "" {
@@ -269,7 +305,13 @@ func (s *Service) ImportFolder(ctx context.Context, dir string, categoryID int64
 }
 
 func listAudio(dir string, recursive bool) ([]string, error) {
-	var files []string
+	files, _, err := listMedia(dir, recursive)
+	return files, err
+}
+
+// listMedia devuelve los audios y los videos de la carpeta.
+func listMedia(dir string, recursive bool) ([]string, []string, error) {
+	var files, videos []string
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // carpetas sin permiso: se saltan
@@ -280,15 +322,20 @@ func listAudio(dir string, recursive bool) ([]string, error) {
 			}
 			return nil
 		}
-		if AudioExtensions[strings.ToLower(filepath.Ext(p))] {
+		ext := strings.ToLower(filepath.Ext(p))
+		if AudioExtensions[ext] || VideoExtensions[ext] {
 			abs, err := filepath.Abs(p)
 			if err == nil {
-				files = append(files, abs)
+				if VideoExtensions[ext] {
+					videos = append(videos, abs)
+				} else {
+					files = append(files, abs)
+				}
 			}
 		}
 		return nil
 	})
-	return files, err
+	return files, videos, err
 }
 
 // CheckMissing marca las pistas cuyo archivo ya no existe (y desmarca las que volvieron).

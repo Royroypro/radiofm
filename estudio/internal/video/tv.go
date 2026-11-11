@@ -24,6 +24,7 @@ type Scene string
 const (
 	SceneVisual Scene = "visual" // fondo + espectro animado (por defecto)
 	SceneImage  Scene = "image"  // placa: imagen a pantalla completa
+	SceneClip   Scene = "clip"   // videoclip de lo que suena (lo elige el director, no el operador)
 )
 
 // Config es todo lo que necesita el modo TV para arrancar.
@@ -32,6 +33,9 @@ type Config struct {
 	Look       Look
 	Background image.Image // nil = degradado con los colores de la marca
 	Plate      image.Image // imagen de la escena «placa»
+	// ClipOffset adelanta (positivo) o atrasa el video respecto del audio, para
+	// compensar la latencia de la tarjeta.
+	ClipOffset time.Duration
 }
 
 // AudioSource es de donde sale el audio (Engine.TVOutput).
@@ -45,6 +49,8 @@ type AudioSource interface {
 type Status struct {
 	Running bool               `json:"running"`
 	Scene   Scene              `json:"scene"`
+	Showing Scene              `json:"showing"` // lo que se ve ahora (el videoclip si hay)
+	Clip    string             `json:"clip"`    // archivo del videoclip que suena
 	Encoder ffmpeg.VideoStatus `json:"encoder"`
 	FPS     float64            `json:"fps"`  // cuadros por segundo generados (medidos)
 	Late    int64              `json:"late"` // cuadros que se generaron tarde (PC lenta)
@@ -53,10 +59,11 @@ type Status struct {
 
 // Service es el modo TV: genera los cuadros a ritmo fijo y los entrega al codificador.
 type Service struct {
-	tools ffmpeg.Tools
-	audio AudioSource
-	tap   func(on bool)
-	log   *slog.Logger
+	tools  ffmpeg.Tools
+	audio  AudioSource
+	tap    func(on bool)
+	log    *slog.Logger
+	decode decodeFunc
 
 	mu      sync.Mutex
 	cancel  context.CancelFunc
@@ -69,21 +76,42 @@ type Service struct {
 		artist, title string
 		brk           bool
 	}
-	layers struct{ set, logo, now, clk, tick bool }
+	layers  struct{ set, logo, now, clk, tick bool }
+	clipReq struct {
+		set  bool
+		path string // "" = quitar el video
+		pos  time.Duration
+		at   time.Time
+	}
+	clipName string // video que suena (para la interfaz)
 
 	snapMu  sync.Mutex
 	snap    []byte // último JPEG del programa (monitor)
 	snapAt  time.Time
 	want    atomic.Int64 // último pedido del monitor (unix ms): solo se codifica si alguien mira
 	fps     atomic.Uint64
+	showing atomic.Value // Scene que se ve (string)
 	late    atomic.Int64
 	running atomic.Bool
 }
 
 // New crea el servicio. tap enciende o apaga la copia del audio hacia la TV.
 func New(tools ffmpeg.Tools, audio AudioSource, tap func(bool), log *slog.Logger) *Service {
-	return &Service{tools: tools, audio: audio, tap: tap, log: log, scene: SceneVisual}
+	s := &Service{tools: tools, audio: audio, tap: tap, log: log, scene: SceneVisual, decode: tools.DecodeVideo}
+	s.showing.Store(string(SceneVisual))
+	return s
 }
+
+// PlayClip pone el video path desde pos, sincronizado con el audio que empezó
+// a sonar en at (el director lo llama al empezar una canción con video).
+func (s *Service) PlayClip(path string, pos time.Duration, at time.Time) {
+	s.mu.Lock()
+	s.clipReq.set, s.clipReq.path, s.clipReq.pos, s.clipReq.at = true, path, pos, at
+	s.mu.Unlock()
+}
+
+// StopClip quita el video (vuelve el visualizador).
+func (s *Service) StopClip() { s.PlayClip("", 0, time.Time{}) }
 
 // Start (re)arranca el modo TV con cfg.
 func (s *Service) Start(ctx context.Context, cfg Config) {
@@ -142,7 +170,8 @@ func (s *Service) SetLayers(logo, now, clk, tick bool) {
 func (s *Service) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := Status{Running: s.running.Load(), Scene: s.scene, FPS: math.Float64frombits(s.fps.Load()), Late: s.late.Load()}
+	st := Status{Running: s.running.Load(), Scene: s.scene, FPS: math.Float64frombits(s.fps.Load()), Late: s.late.Load(),
+		Clip: s.clipName, Showing: Scene(s.showing.Load().(string))}
 	if s.enc != nil {
 		st.Encoder = s.enc.Status()
 		st.Size = strconv.Itoa(s.cfg.Output.W) + "×" + strconv.Itoa(s.cfg.Output.H)
@@ -184,9 +213,20 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 
 	cur, prev := SceneVisual, SceneVisual
 	fadeLeft, fadeLen := 0, fps/2 // fundido de medio segundo
+	var cl *clip
+	var clipFrame *Frame
+	defer func() {
+		if cl != nil {
+			cl.close()
+		}
+	}()
 	render := func(sc Scene, dst *Frame) {
 		if sc == SceneImage && plate != nil {
 			dst.CopyFrom(plate)
+			return
+		}
+		if sc == SceneClip && clipFrame != nil {
+			dst.CopyFrom(clipFrame)
 			return
 		}
 		dst.CopyFrom(bgFrame)
@@ -226,12 +266,57 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 				s.layers.set = false
 			}
 			want := s.scene
+			req := s.clipReq
+			s.clipReq.set = false
 			s.mu.Unlock()
+
+			// videoclip: el director pide uno nuevo o quitarlo
+			if req.set {
+				if cl != nil {
+					cl.close()
+					cl = nil
+				}
+				name := ""
+				if req.path != "" {
+					c, err := startClip(ctx, s.decode, req.path, req.pos, req.at.Add(-cfg.ClipOffset), w, h, fps)
+					if err != nil {
+						s.log.Error("TV: abrir video", "archivo", req.path, "err", err)
+					} else {
+						cl, name = c, req.path
+					}
+				}
+				s.mu.Lock()
+				s.clipName = name
+				s.mu.Unlock()
+			}
+			clipFrame = nil
+			if cl != nil {
+				f, ok := cl.frame(time.Now())
+				if ok {
+					clipFrame = f
+				} else if cl.ended.Load() {
+					cl.close()
+					cl = nil
+					s.mu.Lock()
+					s.clipName = ""
+					s.mu.Unlock()
+				}
+			}
+			// la escena del operador manda; si no, el videoclip; si no, el visualizador
+			if want == SceneVisual && clipFrame != nil {
+				want = SceneClip
+			}
+			if want == SceneImage && plate == nil {
+				want = SceneVisual
+			}
+			s.showing.Store(string(want))
 
 			// audio del cuadro: exactamente spf muestras (silencio si falta; si
 			// sobra mucho por la deriva de relojes, se descarta)
-			if extra := s.audio.Len() - spf*2*8; extra > 0 {
-				s.audio.Discard(extra + spf*2*2)
+			// (poco atraso: el videoclip se sincroniza con la hora, así que el audio de la
+			// TV no debe quedar más de ~4 cuadros detrás de lo que suena)
+			if l := s.audio.Len(); l > spf*2*4 {
+				s.audio.Discard(l - spf*2*2)
 			}
 			n := s.audio.Read(samples)
 			clear(samples[n:])

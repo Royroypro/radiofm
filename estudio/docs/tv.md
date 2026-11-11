@@ -1,4 +1,4 @@
-# Modo TV (Estudio 1.7)
+# Modo TV (Estudio 1.7 y 1.8)
 
 El Estudio arma el canal de TV de la web y lo emite al servidor por RTMP (mediamtx, ruta `tv`), con el
 **mismo audio** que va a Icecast. La web ya lo reproduce en la tarjeta TV (HLS con hls.js).
@@ -58,10 +58,27 @@ El Estudio arma el canal de TV de la web y lo emite al servidor por RTMP (mediam
 720p30 con x264 `veryfast` usa del orden de un núcleo de CPU. Si la PC de cabina no alcanza (la pantalla
 muestra «atrasados» o «descartados»), baje a 480p o use el codificador por hardware de la tarjeta de video.
 
+## Videoclips, videos y promos (Estudio 1.8, fase TV-B)
+
+- Cada pista puede tener un **video** (`tracks.video_path`). Al importar una carpeta:
+  - un video (`.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.mpg`, `.m4v`, `.ts`) con **el mismo nombre** que un
+    audio de la misma carpeta queda como su videoclip;
+  - un video **sin audio gemelo** se importa como pista propia: su audio suena en la radio (ffmpeg lo
+    decodifica igual) y su imagen sale en la TV. Así se programan **promos y videos** en la misma playlist.
+- También se asigna a mano: Biblioteca → pista → **Video para la TV** (con vista previa). La lista marca 🎬.
+- **Director**: cuando empieza a sonar una pista con video, la TV pasa al videoclip (con fundido); si la
+  siguiente no tiene video, vuelve el visualizador. Si el operador eligió la Placa, la placa manda.
+- **Sincronía**: el cuadro que se muestra sale de la hora en que empezó el audio (desde su cue-in), no del
+  ritmo de ffmpeg. ffmpeg decodifica por delante (hasta 8 cuadros, escalado sin deformar con bandas negras y
+  a los fps del canal). Si arrancó tarde o se atrasa, se saltan cuadros para alcanzar al audio; si va
+  adelantado, se espera. **Sincronía de videoclips (ms)** en la pantalla TV compensa la latencia que quede.
+- El audio de la TV queda como mucho ~4 cuadros detrás de lo que suena (se descarta lo que sobre), para que
+  la referencia de hora valga también para lo que oye el televidente.
+- Si el video termina antes que la canción, o no se puede abrir, vuelve el visualizador.
+
 ## Próximas fases
 
-- **TV-B**: videoclips sincronizados con la canción (video con el mismo nombre del audio), videos y promos
-  desde la biblioteca, cuñas en video.
+- Cuñas en video (versión en video de la cuña desde el panel).
 - **TV-C**: cámara del estudio (dshow), fuentes en línea (http, HLS, rtsp, srt), escenas tipo vMix con
   previo y programa, y la regla «micrófono abierto → cámara».
 - **TV-D**: parrilla de TV, placas programadas, ticker desde el panel y publicidad sobre el video.

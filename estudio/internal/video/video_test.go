@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
+	"io"
 	"log/slog"
 	"math"
 	"os"
@@ -194,8 +195,19 @@ func TestEncodeToFile(t *testing.T) {
 	})
 	s.SetNowPlaying("Artista", "Canción", false)
 	_ = s.Snapshot()
-	time.Sleep(6 * time.Second)
+	// a los 2 s entra un videoclip (generado) que dura 10 s
+	clipFile := filepath.Join(t.TempDir(), "clip.mp4")
+	if out, err := exec.Command(tools.FFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:duration=10",
+		"-pix_fmt", "yuv420p", clipFile).CombinedOutput(); err != nil {
+		t.Fatalf("generar clip: %v %s", err, out)
+	}
+	time.Sleep(2 * time.Second)
+	s.PlayClip(clipFile, 0, time.Now())
+	time.Sleep(4 * time.Second)
 	st := s.Status()
+	if st.Showing != SceneClip {
+		t.Fatalf("con un videoclip sonando debe verse el clip, se ve %q", st.Showing)
+	}
 	snap := s.Snapshot()
 	s.Stop()
 	time.Sleep(1500 * time.Millisecond)     // ffmpeg cierra el archivo
@@ -246,5 +258,107 @@ func TestEncodeToFile(t *testing.T) {
 	}
 	if math.Abs(vd-ad) > 0.1 {
 		t.Fatalf("audio y video deben durar lo mismo: video %.3f s, audio %.3f s", vd, ad)
+	}
+}
+
+// fakeVideo entrega n cuadros: el cuadro k tiene Y = k (para saber cuál se muestra).
+type fakeVideo struct {
+	w, h, n, k int
+	buf        []byte
+}
+
+func (f *fakeVideo) Read(p []byte) (int, error) {
+	if len(f.buf) == 0 {
+		if f.k >= f.n {
+			return 0, io.EOF
+		}
+		fr := NewFrame(f.w, f.h)
+		for i := range fr.Y {
+			fr.Y[i] = byte(f.k)
+		}
+		f.buf = fr.AppendTo(nil)
+		f.k++
+	}
+	n := copy(p, f.buf)
+	f.buf = f.buf[n:]
+	return n, nil
+}
+func (f *fakeVideo) Close() error { return nil }
+
+// El videoclip se sincroniza con la hora del audio: si arranca «tarde» salta
+// cuadros hasta alcanzarlo, y al terminar avisa para volver al visualizador.
+func TestClipFollowsAudioClock(t *testing.T) {
+	dec := func(ctx context.Context, path string, start time.Duration, w, h, fps int) (io.ReadCloser, error) {
+		return &fakeVideo{w: w, h: h, n: 40}, nil
+	}
+	at := time.Now().Add(-500 * time.Millisecond) // el audio empezó hace medio segundo
+	c, err := startClip(context.Background(), dec, "x.mp4", 0, at, 32, 18, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.close()
+	var f *Frame
+	var ok bool
+	for i := 0; i < 100 && (!ok || f.Y[0] < 15); i++ { // el decodificador entrega de a poco: alcanza al audio
+		time.Sleep(10 * time.Millisecond)
+		f, ok = c.frame(at.Add(500 * time.Millisecond))
+	}
+	if !ok || f.Y[0] != 15 {
+		t.Fatalf("a los 0,5 s a 30 fps debe verse el cuadro 15 (se ve %v, ok=%v)", f, ok)
+	}
+	// adelantado: pedir un instante anterior no retrocede (repite el cuadro)
+	if f, _ := c.frame(at.Add(100 * time.Millisecond)); f.Y[0] != 15 {
+		t.Fatalf("no debe retroceder: %d", f.Y[0])
+	}
+	// después del final: termina
+	for i := 0; i < 100; i++ {
+		if _, ok := c.frame(at.Add(10 * time.Second)); !ok {
+			if !c.ended.Load() {
+				t.Fatal("debe marcar que terminó")
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("el clip no terminó")
+}
+
+// Decodifica un video real (generado con ffmpeg): sale al tamaño y ritmo pedidos.
+func TestDecodeVideoReal(t *testing.T) {
+	tools, err := ffmpeg.Locate()
+	if err != nil {
+		t.Skip("sin ffmpeg")
+	}
+	src := filepath.Join(t.TempDir(), "clip.mp4")
+	gen := exec.Command(tools.FFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=25:duration=2",
+		"-pix_fmt", "yuv420p", src)
+	if out, err := gen.CombinedOutput(); err != nil {
+		t.Fatalf("generar video: %v %s", err, out)
+	}
+	rc, err := tools.DecodeVideo(context.Background(), src, 500*time.Millisecond, 64, 36, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rc.Close()
+	f := NewFrame(64, 36)
+	n := 0
+	for {
+		if _, err := io.ReadFull(rc, f.Y); err != nil {
+			break
+		}
+		if _, err := io.ReadFull(rc, f.U); err != nil {
+			break
+		}
+		if _, err := io.ReadFull(rc, f.V); err != nil {
+			break
+		}
+		n++
+	}
+	// 1,5 s (desde 0,5 s) a 30 fps ≈ 45 cuadros (4:3 en 16:9 con bandas negras)
+	if n < 42 || n > 48 {
+		t.Fatalf("cuadros = %d, quería ~45", n)
+	}
+	if f.Y[0] > 20 { // la esquina es banda negra (pad)
+		t.Fatalf("la esquina debe ser negra (banda lateral): Y=%d", f.Y[0])
 	}
 }

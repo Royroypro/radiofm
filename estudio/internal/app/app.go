@@ -685,7 +685,8 @@ func (a *App) ApplyTV() {
 	look.Logo = img(t.Logo)
 	a.TV.Start(ctx, video.Config{
 		Output: ffmpeg.VideoConfig{URL: out, W: w, H: h, FPS: t.FPS, BitrateKbps: t.BitrateKbps, Codec: t.Codec},
-		Look:   look, Background: img(t.Background), Plate: img(t.Plate)})
+		Look:   look, Background: img(t.Background), Plate: img(t.Plate),
+		ClipOffset: time.Duration(t.ClipOffsetMs) * time.Millisecond})
 	a.tvMu.Lock()
 	artist, title := a.tvArtist, a.tvTitle
 	a.tvMu.Unlock()
@@ -697,6 +698,13 @@ func (a *App) ApplyTV() {
 func (a *App) tvNowPlaying(seg onair.Segment) {
 	a.tvMu.Lock()
 	defer a.tvMu.Unlock()
+	// videoclip: la pista que empieza trae video → sale en la TV sincronizado;
+	// si no trae, vuelve el visualizador
+	if seg.Video != "" {
+		a.TV.PlayClip(seg.Video, seg.CueIn, time.Now())
+	} else {
+		a.TV.StopClip()
+	}
 	switch {
 	case seg.Break:
 		a.TV.SetNowPlaying(seg.Artist, seg.Title, true)

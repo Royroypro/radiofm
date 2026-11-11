@@ -56,6 +56,18 @@ func (a *App) PreviewHandler() http.Handler {
 			http.ServeFile(w, r, p)
 			return
 		}
+		// /preview/video/{id}: el video de una pista (vista previa en la biblioteca)
+		if idStr, ok := strings.CutPrefix(r.URL.Path, "/preview/video/"); ok && a.core != nil {
+			id, _ := strconv.ParseInt(idStr, 10, 64)
+			t, err := a.core.Library.Track(r.Context(), id)
+			if err != nil || t.VideoPath == "" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeFile(w, r, t.VideoPath)
+			return
+		}
 		idStr, ok := strings.CutPrefix(r.URL.Path, "/preview/track/")
 		if !ok {
 			http.NotFound(w, r)

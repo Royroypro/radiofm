@@ -54,3 +54,9 @@ func (a *App) PickImage(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
 		{DisplayName: "Imágenes", Pattern: "*.png;*.jpg;*.jpeg;*.gif"}}})
 }
+
+// PickVideo abre el diálogo para elegir un video (videoclip o promo de una pista).
+func (a *App) PickVideo(title string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
+		{DisplayName: "Videos", Pattern: "*.mp4;*.mkv;*.webm;*.mov;*.avi;*.mpg;*.mpeg;*.m4v;*.ts"}}})
+}

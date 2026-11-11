@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.8.0 — videoclips en la TV (fase TV-B)
+
+- **Videoclips**: si la canción que suena tiene video, la TV lo muestra **sincronizado con el audio** (con el
+  logo, el reloj y el cintillo encima); sin video, vuelve el visualizador.
+- Al importar, el video con el mismo nombre que el audio se asigna solo; un video sin audio gemelo se
+  importa como pista propia (**promos y videos** en la misma playlist: su audio en la radio, su imagen en la TV).
+- Biblioteca: marca 🎬, **Video para la TV** con vista previa para asignar o quitar a mano.
+- Pantalla TV: muestra el videoclip que suena y permite ajustar la sincronía (ms).
+
 ## 1.7.1 — credenciales de la TV desde el panel
 
 - El modo TV toma solo del panel web la dirección RTMP y el usuario y la clave de publicación

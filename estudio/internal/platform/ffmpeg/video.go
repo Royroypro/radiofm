@@ -299,3 +299,31 @@ func (e *VideoEncoder) session(ctx context.Context) error {
 		}
 	}
 }
+
+// DecodeVideo arranca ffmpeg para decodificar el video de path desde start a
+// cuadros crudos yuv420p de w×h a fps cuadros por segundo (sin audio), sin
+// deformar: se escala para que entre y se completa con negro. Lee lo más
+// rápido posible: el que consume marca el ritmo (y la sincronía con el audio).
+func (t Tools) DecodeVideo(ctx context.Context, path string, start time.Duration, w, h, fps int) (io.ReadCloser, error) {
+	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
+	if start > 0 {
+		args = append(args, "-ss", fmt.Sprintf("%.3f", start.Seconds()))
+	}
+	vf := fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease:flags=bicubic,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,fps=%d,format=yuv420p",
+		w, h, w, h, fps)
+	args = append(args, "-i", path, "-an", "-sn", "-vf", vf, "-f", "rawvideo", "-pix_fmt", "yuv420p", "pipe:1")
+	ctx, cancel := context.WithCancel(ctx)
+	cmd := command(ctx, t.FFmpeg, args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	stderr := &limitedBuffer{max: 4096}
+	cmd.Stderr = stderr
+	if err := cmd.Start(); err != nil {
+		cancel()
+		return nil, fmt.Errorf("ffmpeg: iniciar: %w", err)
+	}
+	return &procReader{r: stdout, cmd: cmd, cancel: cancel, stderr: stderr}, nil
+}

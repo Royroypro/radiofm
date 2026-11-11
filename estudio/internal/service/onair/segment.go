@@ -48,6 +48,7 @@ type Segment struct {
 	// la duración se calcula al arrancar. Si la señal se cae antes, suena música de
 	// respaldo y se vuelve a intentar.
 	SatEnd time.Time `json:"sat_end"`
+	Video  string    `json:"video"` // video de la pista para la TV (videoclip o promo)
 }
 
 // Key identifica el segmento (para saber si lo precargado sigue siendo lo siguiente).
@@ -89,7 +90,8 @@ func (x *expander) trackSegment(t domain.Track) Segment {
 	}
 	return Segment{Kind: kind, Path: t.Path, TrackID: t.ID, Artist: t.Artist, Title: t.Title, GainDB: t.GainDB,
 		CueIn: t.CueIn, Length: t.PlayLength(), Segue: t.Segue(x.crossfade), Intro: t.Intro,
-		Music: kind == domain.PlayMusic, Envelope: t.Envelope, Duration: t.Duration, Ending: t.Ending, FadeOut: t.FadeOut}
+		Music: kind == domain.PlayMusic, Envelope: t.Envelope, Duration: t.Duration, Ending: t.Ending, FadeOut: t.FadeOut,
+		Video: t.VideoPath}
 }
 
 // expand devuelve los segmentos de it. Puede devolver cero (p. ej. temperatura sin dato).

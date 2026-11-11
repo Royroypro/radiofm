@@ -514,6 +514,7 @@ export namespace config {
 	    show_clock: boolean;
 	    show_ticker: boolean;
 	    ticker: string;
+	    clip_offset_ms: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TVSettings(source);
@@ -540,6 +541,7 @@ export namespace config {
 	        this.show_clock = source["show_clock"];
 	        this.show_ticker = source["show_ticker"];
 	        this.ticker = source["ticker"];
+	        this.clip_offset_ms = source["clip_offset_ms"];
 	    }
 	}
 	export class StationSettings {
@@ -954,6 +956,7 @@ export namespace domain {
 	    album: string;
 	    genre: string;
 	    composer: string;
+	    video_path: string;
 	    year: string;
 	    category_id: number;
 	    duration: number;
@@ -1000,6 +1003,7 @@ export namespace domain {
 	        this.album = source["album"];
 	        this.genre = source["genre"];
 	        this.composer = source["composer"];
+	        this.video_path = source["video_path"];
 	        this.year = source["year"];
 	        this.category_id = source["category_id"];
 	        this.duration = source["duration"];
@@ -1251,6 +1255,7 @@ export namespace onair {
 	    duration: number;
 	    // Go type: time
 	    sat_end: any;
+	    video: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Segment(source);
@@ -1282,6 +1287,7 @@ export namespace onair {
 	        this.break = source["break"];
 	        this.duration = source["duration"];
 	        this.sat_end = this.convertValues(source["sat_end"], null);
+	        this.video = source["video"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2007,6 +2013,8 @@ export namespace video {
 	export class Status {
 	    running: boolean;
 	    scene: string;
+	    showing: string;
+	    clip: string;
 	    encoder: ffmpeg.VideoStatus;
 	    fps: number;
 	    late: number;
@@ -2020,6 +2028,8 @@ export namespace video {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.running = source["running"];
 	        this.scene = source["scene"];
+	        this.showing = source["showing"];
+	        this.clip = source["clip"];
 	        this.encoder = this.convertValues(source["encoder"], ffmpeg.VideoStatus);
 	        this.fps = source["fps"];
 	        this.late = source["late"];

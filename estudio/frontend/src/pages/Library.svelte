@@ -7,6 +7,7 @@
   import {
     Categories, CategoryKinds, SaveCategory, DeleteCategory, Tracks, UpdateTrack, DeleteTrack,
     ReanalyzeTrack, ResetTrackMarks, SetTrackAttributes, ImportFolder, PickFolder, AnalyzerStatus, CheckMissing,
+    PickVideo,
   } from '../../wailsjs/go/ui/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { domain, type ui, type library } from '../../wailsjs/go/models'
@@ -252,7 +253,7 @@
           {#each tracks as t (t.id)}
             {@const st = status(t)}
             <tr class:sel={sel?.id === t.id} onclick={() => select(t)}>
-              <td>{t.artist}</td><td>{t.title}</td>
+              <td>{t.artist}</td><td>{#if t.video_path}<span title="Tiene video para la TV">🎬 </span>{/if}{t.title}</td>
               <td><span class="dot" style:background={catColor(t.category_id)}></span>{catName(t.category_id)}</td>
               <td class="num">{dur(t.duration)}</td>
               <td class="num">{t.analyzed && !t.analyze_err ? t.loudness.toFixed(1) + ' LUFS' : '—'}</td>
@@ -293,6 +294,18 @@
         <label class="field">Idioma<input bind:value={edit.language} placeholder="es" maxlength="10" /></label>
       </div>
       <label class="field">Ánimo<input bind:value={edit.mood} placeholder="alegre, romántica, nostálgica…" maxlength="40" /></label>
+      <h2 style="margin-top:8px">Video para la TV</h2>
+      <div class="row">
+        <button class="small ghost" onclick={async () => { const v = await PickVideo('Video de la pista (videoclip o promo)'); if (v && edit) edit.video_path = v }}>Elegir video…</button>
+        <span class="small muted grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{edit.video_path || 'Sin video: en la TV sale el visualizador'}</span>
+        {#if edit.video_path}<button class="small ghost" onclick={() => { if (edit) edit.video_path = '' }}>Quitar</button>{/if}
+      </div>
+      {#if edit.video_path && sel?.video_path === edit.video_path}
+        <!-- svelte-ignore a11y_media_has_caption -->
+        <video class="vprev" src={`/preview/video/${edit.id}`} controls preload="metadata"></video>
+      {/if}
+      <p class="muted small">Al importar, un video con el mismo nombre que el audio (en la misma carpeta) se asigna solo. Un video
+        importado sin audio gemelo es una pista propia: su audio suena en la radio y su imagen en la TV. Guarde para aplicar.</p>
       <div class="grid2">
         <label class="field">Vigente desde<input type="date" bind:value={edit.from} /></label>
         <label class="field">Hasta<input type="date" bind:value={edit.to} /></label>
@@ -403,4 +416,5 @@
   .editor { display: flex; flex-direction: column; gap: 8px; }
   .badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); margin-left: 6px; vertical-align: middle; }
   .path { word-break: break-all; margin: 0; }
+  .vprev { width: 100%; max-height: 220px; background: #000; border-radius: 6px; }
 </style>

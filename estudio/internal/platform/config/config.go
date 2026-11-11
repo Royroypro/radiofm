@@ -77,6 +77,8 @@ type TVSettings struct {
 	ShowClock   bool   `json:"show_clock"`  // reloj
 	ShowTicker  bool   `json:"show_ticker"` // texto que corre abajo
 	Ticker      string `json:"ticker"`
+	// ClipOffsetMs adelanta (positivo) o atrasa los videoclips respecto del audio.
+	ClipOffsetMs int `json:"clip_offset_ms"`
 }
 
 // Size devuelve el ancho y alto de la resolución elegida.

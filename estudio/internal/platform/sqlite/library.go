@@ -95,7 +95,7 @@ func NewTrackRepo(db *sql.DB) *TrackRepo { return &TrackRepo{db: db} }
 
 const trackCols = `id, path, title, artist, album, genre, year, category_id, duration_ms, active, valid_from, valid_to,
 	analyzed, loudness, gain_db, cue_in_ms, cue_out_ms, segue_ms, intro_ms, analyze_err, missing, last_played_at,
-	play_count, created_at, envelope, ending, fade_out_ms, marks_manual, bpm, energy, voice, language, mood, tempo_done, composer`
+	play_count, created_at, envelope, ending, fade_out_ms, marks_manual, bpm, energy, voice, language, mood, tempo_done, composer, video_path`
 
 func scanTrack(r rowScanner) (*domain.Track, error) {
 	var t domain.Track
@@ -107,7 +107,7 @@ func scanTrack(r rowScanner) (*domain.Track, error) {
 	if err := r.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.Genre, &t.Year, &t.CategoryID, &durMs, &active,
 		&from, &to, &analyzed, &t.Loudness, &t.GainDB, &cueIn, &cueOut, &segue, &intro, &t.AnalyzeErr, &missing, &last,
 		&t.PlayCount, &created, &t.Envelope, &ending, &fadeOut, &manual, &t.BPM, &t.Energy, &t.Voice, &t.Language, &t.Mood,
-		&tempoDone, &t.Composer); err != nil {
+		&tempoDone, &t.Composer, &t.VideoPath); err != nil {
 		return nil, err
 	}
 	t.TempoDone = tempoDone == 1
@@ -142,9 +142,9 @@ func (r *TrackRepo) Upsert(ctx context.Context, t *domain.Track) (bool, error) {
 			t.CreatedAt = time.Now()
 		}
 		res, err := r.db.ExecContext(ctx, `INSERT INTO tracks (path, title, artist, album, genre, year, category_id,
-			duration_ms, active, created_at, composer) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+			duration_ms, active, created_at, composer, video_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
 			t.Path, t.Title, t.Artist, t.Album, t.Genre, t.Year, t.CategoryID, ms(t.Duration), b2i(t.Active), fmtTime(t.CreatedAt),
-			t.Composer)
+			t.Composer, t.VideoPath)
 		if err != nil {
 			return false, fmt.Errorf("tracks: insertar: %w", err)
 		}
@@ -160,8 +160,9 @@ func (r *TrackRepo) Upsert(ctx context.Context, t *domain.Track) (bool, error) {
 		reanalyze = ", analyzed=0"
 	}
 	_, err = r.db.ExecContext(ctx, `UPDATE tracks SET title=?, artist=?, album=?, genre=?, year=?, duration_ms=?, missing=0,
-		composer=CASE WHEN ? <> '' THEN ? ELSE composer END`+reanalyze+` WHERE id=?`,
-		t.Title, t.Artist, t.Album, t.Genre, t.Year, ms(t.Duration), t.Composer, t.Composer, id)
+		composer=CASE WHEN ? <> '' THEN ? ELSE composer END,
+		video_path=CASE WHEN ? <> '' THEN ? ELSE video_path END`+reanalyze+` WHERE id=?`,
+		t.Title, t.Artist, t.Album, t.Genre, t.Year, ms(t.Duration), t.Composer, t.Composer, t.VideoPath, t.VideoPath, id)
 	return false, err
 }
 
@@ -211,9 +212,9 @@ func (r *TrackRepo) List(ctx context.Context, f domain.TrackFilter) ([]domain.Tr
 func (r *TrackRepo) Update(ctx context.Context, t *domain.Track) error {
 	return checkAffected(r.db.ExecContext(ctx, `UPDATE tracks SET title=?, artist=?, album=?, genre=?, year=?,
 		category_id=?, active=?, valid_from=?, valid_to=?, gain_db=?, cue_in_ms=?, cue_out_ms=?, segue_ms=?, intro_ms=?,
-		marks_manual=?, bpm=?, energy=?, voice=?, language=?, mood=?, composer=? WHERE id=?`,
+		marks_manual=?, bpm=?, energy=?, voice=?, language=?, mood=?, composer=?, video_path=? WHERE id=?`,
 		t.Title, t.Artist, t.Album, t.Genre, t.Year, t.CategoryID, b2i(t.Active), fmtTimePtr(t.ValidFrom),
-		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), b2i(t.MarksManual), t.BPM, t.Energy, t.Voice, t.Language, t.Mood, t.Composer, t.ID))
+		fmtTimePtr(t.ValidTo), t.GainDB, ms(t.CueIn), ms(t.CueOut), ms(t.SegueAt), ms(t.Intro), b2i(t.MarksManual), t.BPM, t.Energy, t.Voice, t.Language, t.Mood, t.Composer, t.VideoPath, t.ID))
 }
 
 // Delete borra una pista de la biblioteca (no el archivo).

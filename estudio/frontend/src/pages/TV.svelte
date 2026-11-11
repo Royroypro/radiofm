@@ -50,6 +50,7 @@
     try {
       s.tv.fps = Number(s.tv.fps)
       s.tv.bitrate_kbps = Number(s.tv.bitrate_kbps)
+      s.tv.clip_offset_ms = Number(s.tv.clip_offset_ms)
       await SaveSettings(config.Settings.createFrom(s))
       await TVApply()
       dirty = false
@@ -97,6 +98,7 @@
         <div class="screen">
           {#if snap}<img src={snap} alt="Programa de la TV" />{:else}<span class="muted">TV apagada</span>{/if}
           {#if st?.running}<span class="live" class:ok={st.encoder.connected}>{st.encoder.connected ? '● AL AIRE' : 'conectando…'}</span>{/if}
+          {#if st?.running && st.showing === 'clip'}<span class="clipname">🎬 {st.clip.split(/[\/]/).pop()}</span>{/if}
         </div>
         <div class="row wrap">
           <span class="muted small">Escena:</span>
@@ -167,8 +169,11 @@
           <label class="field">Color de acento<input type="color" bind:value={s.tv.accent2} /></label>
           <label class="field">Color de fondo<input type="color" bind:value={s.tv.panel} /></label>
         </div>
+        <label class="field" title="Si el videoclip se ve antes o después que el audio en la web, ajústelo aquí (positivo = adelanta el video)">Sincronía de videoclips (ms)
+          <input type="number" min="-2000" max="2000" step="20" bind:value={s.tv.clip_offset_ms} /></label>
         <label class="field">Texto del ticker<input bind:value={s.tv.ticker} placeholder="Escríbenos al WhatsApp… · Síguenos en Facebook…" /></label>
-        <p class="muted small">Sin video, la TV muestra el espectro del audio que suena, con el logo, el reloj y el cintillo «ahora suena»;
+        <p class="muted small">Si la canción que suena tiene video (Biblioteca → Video para la TV), sale el videoclip sincronizado con el
+          audio. Sin video, la TV muestra el espectro del audio que suena, con el logo, el reloj y el cintillo «ahora suena»;
           en las tandas aparece la placa «Publicidad». El audio es el mismo que va a la web.</p>
       </section>
     </div>
@@ -186,6 +191,8 @@
   .live { position: absolute; top: 8px; left: 8px; font-size: 12px; font-weight: 700; padding: 2px 8px;
     border-radius: 4px; background: #555; color: #fff; }
   .live.ok { background: #d62828; }
+  .clipname { position: absolute; bottom: 8px; left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px;
+    background: rgba(0, 0, 0, .6); color: #fff; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wrap { flex-wrap: wrap; gap: 8px; align-items: center; }
   .cfg { display: flex; flex-direction: column; gap: 10px; }
   .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }

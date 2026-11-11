@@ -158,6 +158,10 @@ export function PickImage(arg1) {
   return window['go']['ui']['App']['PickImage'](arg1);
 }
 
+export function PickVideo(arg1) {
+  return window['go']['ui']['App']['PickVideo'](arg1);
+}
+
 export function PreviewHandler() {
   return window['go']['ui']['App']['PreviewHandler']();
 }

@@ -84,7 +84,8 @@ type Track struct {
 	Artist     string        `json:"artist"`
 	Album      string        `json:"album"`
 	Genre      string        `json:"genre"`
-	Composer   string        `json:"composer"` // compositor (etiqueta del archivo; informe APDAYC)
+	Composer   string        `json:"composer"`   // compositor (etiqueta del archivo; informe APDAYC)
+	VideoPath  string        `json:"video_path"` // video para la TV (videoclip o promo); "" = sin video
 	Year       string        `json:"year"`
 	CategoryID int64         `json:"category_id"`
 	Duration   time.Duration `json:"duration"`

@@ -149,3 +149,24 @@ func TestUpdateTrackValidation(t *testing.T) {
 		t.Fatal("no se puede borrar una categoría con pistas")
 	}
 }
+
+func TestPairVideos(t *testing.T) {
+	dir := filepath.Join("C:", "musica")
+	a1, a2 := filepath.Join(dir, "Grupo 5 - Motor.mp3"), filepath.Join(dir, "Otra.mp3")
+	v1 := filepath.Join(dir, "grupo 5 - motor.MP4") // gemelo de a1 (sin distinguir mayúsculas)
+	v2 := filepath.Join(dir, "Promo verano.mp4")    // sin audio: pista propia
+	v3 := filepath.Join(dir, "sub", "Otra.mp4")     // otra carpeta: no es gemelo
+	pair, files := library.PairVideos([]string{a1, a2}, []string{v1, v2, v3})
+	if pair[a1] != v1 {
+		t.Fatalf("el video gemelo debe asignarse al audio: %v", pair)
+	}
+	if pair[a2] != "" {
+		t.Fatalf("un video de otra carpeta no es gemelo: %v", pair)
+	}
+	if pair[v2] != v2 || pair[v3] != v3 {
+		t.Fatalf("los videos sin gemelo son pistas propias con su video: %v", pair)
+	}
+	if len(files) != 4 {
+		t.Fatalf("a importar: 2 audios + 2 videos sueltos, hay %v", files)
+	}
+}
