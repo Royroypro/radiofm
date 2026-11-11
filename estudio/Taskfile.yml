@@ -6,7 +6,7 @@
 version: '3'
 
 vars:
-  VERSION: 1.5.2
+  VERSION: 1.6.0
   LDFLAGS: -X radioclub25/estudio/internal/version.Version={{.VERSION}}
   TC: pwsh -NoProfile -File scripts/with-toolchain.ps1
 

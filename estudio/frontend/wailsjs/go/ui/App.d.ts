@@ -137,6 +137,8 @@ export function SetProcessor(arg1:string,arg2:string):Promise<void>;
 
 export function SetServerConnection(arg1:string,arg2:string):Promise<void>;
 
+export function SetSound(arg1:Array<number>,arg2:number):Promise<void>;
+
 export function SetTimeAnnounce(arg1:boolean):Promise<void>;
 
 export function SetTrackAttributes(arg1:domain.TrackFilter,arg2:domain.TrackAttributes):Promise<number>;

@@ -602,7 +602,9 @@ func (a *App) ApplyProcessor() {
 	}
 	var p *audio.Processor
 	if ps, ok := audio.PresetSettings(audio.ProcPreset(s.ProcPreset)); ok {
-		p = audio.NewProcessor(ps)
+		p = audio.NewProcessor(ps.WithSound(s.EQ, s.StereoWidth))
+	} else if ps, ok := audio.SoundOnly(s.EQ, s.StereoWidth); ok {
+		p = audio.NewProcessor(ps) // «Sin procesar» pero con ecualizador o ampliación
 	}
 	_ = a.Engine.SetProcessor(p, scope)
 }

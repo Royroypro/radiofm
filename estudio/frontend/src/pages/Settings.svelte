@@ -6,6 +6,7 @@
   import { config, type audio, type ui } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
   import Appearance from '../lib/Appearance.svelte'
+  import SoundEQ from '../lib/SoundEQ.svelte'
 
   let { info }: { info: ui.AppInfo | null } = $props()
   let s: config.Settings | null = $state(null)
@@ -18,6 +19,7 @@
 
   onMount(async () => {
     s = await Settings()
+    if (!s.audio.eq || s.audio.eq.length !== 10) s.audio.eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     sync = await SyncStatus()
     checks = await ToolsStatus()
     try {
@@ -32,7 +34,7 @@
     try {
       await SaveSettings(config.Settings.createFrom(s))
       dirty = false
-      toast.show('Ajustes guardados. Algunos cambios de audio se aplican al reiniciar el motor.')
+      toast.show('Ajustes guardados. El procesador se aplica al instante; dispositivos y ducking, al reiniciar el motor.')
     } catch (e) {
       toast.error(e)
     }
@@ -169,6 +171,11 @@
           <label class="field">Relajación (ms)<input type="number" min="10" max="5000" bind:value={s.audio.duck_release_ms} /></label>
         </div>
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ecualizador y ampliación estéreo</h2>
+      <SoundEQ audio={s.audio as any} />
     </section>
 
     <section class="panel">

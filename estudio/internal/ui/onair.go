@@ -116,6 +116,18 @@ func (a *App) SetProcessor(preset, scope string) error {
 	return nil
 }
 
+// SetSound cambia el ecualizador (10 bandas en dB) y la ampliación estéreo (%),
+// los guarda y los aplica al instante (para mover los controles escuchando).
+func (a *App) SetSound(eq []float64, stereoWidth int) error {
+	s := a.core.Settings()
+	s.Audio.EQ, s.Audio.StereoWidth = eq, stereoWidth
+	if err := a.core.SaveSettings(s); err != nil {
+		return err
+	}
+	a.core.ApplyProcessor()
+	return nil
+}
+
 // SetTimeAnnounce enciende o apaga la hora locutada (interruptor de Al aire).
 // Apagada, los elementos de hora locutada de la playlist se saltan.
 func (a *App) SetTimeAnnounce(on bool) error {

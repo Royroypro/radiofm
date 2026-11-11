@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.6.0 — ecualizador y ampliación estéreo
+
+- **Ecualizador gráfico de 10 bandas** (31 Hz a 16 kHz, ±12 dB) y **ampliación estéreo** (0 % mono,
+  100 % normal, hasta 200 %) en el procesador del bus: después del AGC y antes de los compresores.
+  Ajustes → Ecualizador y ampliación estéreo, con presets (Plano, Más graves, Voz clara, Brillo,
+  FM con cuerpo). Se aplica al instante mientras se mueven los controles.
+- Funciona también con el procesador en «Sin procesar» (solo ecualizador y ampliación).
+- Guardar los Ajustes aplica el procesador al momento (antes había que reiniciar el motor).
+
 ## 1.5.2 — zona horaria
 
 - Corrige «zona horaria inválida: unknown time zone America/Lima» al cambiar ajustes (p. ej. apagar la

@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// Procesador de audio del bus master: AGC lento → compresor de 3 bandas. El
+// Procesador de audio del bus master: AGC lento → ecualizador de 10 bandas →
+// ampliación estéreo → compresor de 3 bandas. El
 // limitador de picos (Limiter) va después. Es lo que hace que la radio suene
 // pareja como una FM comercial: canciones grabadas a distinto nivel quedan
 // iguales y la voz del locutor no queda tapada ni salta.
@@ -49,6 +50,57 @@ type ProcSettings struct {
 	Low         BandSettings  // < 150 Hz
 	Mid         BandSettings
 	High        BandSettings // > 4 kHz
+
+	// Bypass: sin AGC ni compresores (preset «Sin procesar» con ecualizador o
+	// ampliación activos).
+	Bypass bool
+	// EQ es la ganancia de cada banda del ecualizador (dB, ±12) en EQFreqs.
+	EQ [EQBands]float64
+	// Wide es la ampliación estéreo: 0 = normal, −1 = mono, +1 = el doble de ancho
+	// (el cero es neutro: los ajustes sin ampliación no cambian el estéreo).
+	Wide float64
+}
+
+// EQBands es la cantidad de bandas del ecualizador gráfico.
+const EQBands = 10
+
+// EQFreqs son las frecuencias centrales de las bandas (octavas, como un ecualizador gráfico de consola).
+var EQFreqs = [EQBands]float64{31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000}
+
+// eqQ es el Q de cada banda: ~1 octava de ancho, las vecinas se suman sin huecos.
+const eqQ = 1.41
+
+// soundNeutral dice si el ecualizador está plano y el estéreo normal (no hace falta procesarlos).
+func (s ProcSettings) soundNeutral() bool {
+	return s.EQ == [EQBands]float64{} && s.Wide == 0
+}
+
+// WithSound agrega a s el ecualizador (dB por banda; se ignoran las que falten)
+// y la ampliación estéreo (porcentaje: 100 = normal).
+func (s ProcSettings) WithSound(eq []float64, widthPct int) ProcSettings {
+	for i := 0; i < EQBands && i < len(eq); i++ {
+		s.EQ[i] = min(max(eq[i], -12), 12)
+	}
+	s.Wide = float64(min(max(widthPct, 0), 200))/100 - 1
+	return s
+}
+
+// SoundOnly es un procesador sin dinámica: solo ecualizador y ampliación.
+// ok=false si los dos están en neutro (no hace falta procesador).
+func SoundOnly(eq []float64, widthPct int) (ProcSettings, bool) {
+	s := ProcSettings{Bypass: true}.WithSound(eq, widthPct)
+	return s, !s.soundNeutral()
+}
+
+// peaking calcula un filtro de campana (Audio EQ Cookbook, R. Bristow-Johnson).
+func peaking(freq, gainDB, q float64) biquad {
+	A := math.Pow(10, gainDB/40)
+	w := 2 * math.Pi * freq / SampleRate
+	cosw := math.Cos(w)
+	alpha := math.Sin(w) / (2 * q)
+	a0 := 1 + alpha/A
+	return biquad{b0: float32((1 + alpha*A) / a0), b1: float32(-2 * cosw / a0), b2: float32((1 - alpha*A) / a0),
+		a1: float32(-2 * cosw / a0), a2: float32((1 - alpha/A) / a0)}
 }
 
 // PresetSettings devuelve los parámetros de un preset (ok=false si es ProcOff o desconocido).
@@ -155,6 +207,11 @@ type Processor struct {
 	lowLP, highHP  lr4
 	low, mid, high bandComp
 
+	eq    [EQBands]biquad
+	eqN   int // bandas activas (las de 0 dB no se calculan)
+	width float32
+	sound bool // hay ecualizador o ampliación que aplicar
+
 	// Reduction es la reducción máxima de los compresores en el último bloque
 	// (0…1, 1 = sin reducción) y AGC la ganancia del AGC: para el medidor de Al aire.
 	Reduction float32
@@ -173,12 +230,25 @@ func NewProcessor(s ProcSettings) *Processor {
 	p.agcCoef = timeCoef(s.AGCTime)
 	p.agcMS = p.agcTarget * p.agcTarget
 	p.gateCoef = timeCoef(300 * time.Millisecond)
+	for i, g := range s.EQ {
+		if g != 0 && EQFreqs[i] < SampleRate/2 {
+			p.eq[p.eqN] = peaking(EQFreqs[i], g, eqQ)
+			p.eqN++
+		}
+	}
+	p.width = float32(1 + min(max(s.Wide, -1), 1))
+	p.sound = p.eqN > 0 || p.width != 1
 	return p
 }
 
 // Process procesa buf (entrelazado) en el lugar.
 func (p *Processor) Process(buf []float32) {
 	red := float32(1)
+	if p.s.Bypass {
+		p.processSound(buf)
+		p.Reduction, p.AGC = 1, 1
+		return
+	}
 	for i := 0; i+1 < len(buf); i += 2 {
 		l, r := buf[i], buf[i+1]
 
@@ -193,6 +263,9 @@ func (p *Processor) Process(buf []float32) {
 			p.agcGain += (want - p.agcGain) * p.agcCoef
 		}
 		l, r = l*p.agcGain, r*p.agcGain
+		if p.sound {
+			l, r = p.soundSample(l, r)
+		}
 
 		// bandas: graves y agudos por Linkwitz-Riley, medios = resto (reconstrucción exacta)
 		lowL, lowR := p.lowLP.process(0, l), p.lowLP.process(1, r)
@@ -208,4 +281,27 @@ func (p *Processor) Process(buf []float32) {
 		red = min(red, p.low.gain, p.mid.gain, p.high.gain)
 	}
 	p.Reduction, p.AGC = red, p.agcGain
+}
+
+// processSound aplica solo el ecualizador y la ampliación (sin dinámica).
+func (p *Processor) processSound(buf []float32) {
+	if !p.sound {
+		return
+	}
+	for i := 0; i+1 < len(buf); i += 2 {
+		buf[i], buf[i+1] = p.soundSample(buf[i], buf[i+1])
+	}
+}
+
+// soundSample: ecualizador (bandas en cascada) y ampliación estéreo por
+// medio/lados (M = (L+R)/2 queda igual; los lados S = (L−R)/2 se multiplican).
+func (p *Processor) soundSample(l, r float32) (float32, float32) {
+	for k := 0; k < p.eqN; k++ {
+		l, r = p.eq[k].process(0, l), p.eq[k].process(1, r)
+	}
+	if p.width != 1 {
+		m, s := (l+r)/2, (l-r)/2*p.width
+		l, r = m+s, m-s
+	}
+	return l, r
 }

@@ -233,6 +233,8 @@ export namespace config {
 	    break_fade_ms: number;
 	    proc_preset: string;
 	    proc_scope: string;
+	    eq: number[];
+	    stereo_width: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AudioSettings(source);
@@ -253,6 +255,8 @@ export namespace config {
 	        this.break_fade_ms = source["break_fade_ms"];
 	        this.proc_preset = source["proc_preset"];
 	        this.proc_scope = source["proc_scope"];
+	        this.eq = source["eq"];
+	        this.stereo_width = source["stereo_width"];
 	    }
 	}
 	export class IcecastSettings {

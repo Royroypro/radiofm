@@ -246,6 +246,10 @@ export function SetServerConnection(arg1, arg2) {
   return window['go']['ui']['App']['SetServerConnection'](arg1, arg2);
 }
 
+export function SetSound(arg1, arg2) {
+  return window['go']['ui']['App']['SetSound'](arg1, arg2);
+}
+
 export function SetTimeAnnounce(arg1) {
   return window['go']['ui']['App']['SetTimeAnnounce'](arg1);
 }

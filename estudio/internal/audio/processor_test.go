@@ -123,3 +123,76 @@ func TestProcessorStreamOnly(t *testing.T) {
 		t.Fatal("el stream debe salir procesado (nivel distinto de la FM)")
 	}
 }
+
+// toneLR: seno de freq en L y en R con la fase de R invertida si anti (señal solo «lados»).
+func toneLR(n int, a, freq float64, anti bool) []float32 {
+	buf := make([]float32, n*Channels)
+	for i := 0; i < n; i++ {
+		v := float32(a * math.Sin(2*math.Pi*freq*float64(i)/SampleRate))
+		buf[2*i], buf[2*i+1] = v, v
+		if anti {
+			buf[2*i+1] = -v
+		}
+	}
+	return buf
+}
+
+func TestEQBoostsOnlyItsBand(t *testing.T) {
+	eq := make([]float64, EQBands)
+	eq[5] = 6 // 1 kHz
+	s, ok := SoundOnly(eq, 100)
+	if !ok {
+		t.Fatal("con una banda en +6 dB debe haber procesador")
+	}
+	for _, c := range []struct {
+		freq, want float64
+	}{{1000, 6}, {62, 0}, {8000, 0}} {
+		p := NewProcessor(s)
+		buf := toneLR(SampleRate, 0.1, c.freq, false)
+		in := rmsDB(buf[SampleRate:]) // segunda mitad (sin el transitorio)
+		p.Process(buf)
+		got := rmsDB(buf[SampleRate:]) - in
+		if math.Abs(got-c.want) > 0.7 {
+			t.Fatalf("%v Hz: cambio %.2f dB, quería %.0f", c.freq, got, c.want)
+		}
+	}
+}
+
+func TestSoundNeutralIsNoProcessor(t *testing.T) {
+	if _, ok := SoundOnly(nil, 100); ok {
+		t.Fatal("ecualizador plano y estéreo normal: no debe procesar")
+	}
+	if _, ok := SoundOnly(make([]float64, EQBands), 100); ok {
+		t.Fatal("ecualizador en cero: no debe procesar")
+	}
+}
+
+func TestStereoWidth(t *testing.T) {
+	// mono (0 %): una señal solo de lados desaparece
+	s, _ := SoundOnly(nil, 0)
+	buf := toneLR(4096, 0.3, 440, true)
+	NewProcessor(s).Process(buf)
+	if peakOf(buf) > 1e-6 {
+		t.Fatalf("en mono los lados deben anularse (pico %v)", peakOf(buf))
+	}
+	// 150 %: los lados suben 1,5 veces; el centro (L = R) no cambia
+	s, _ = SoundOnly(nil, 150)
+	side, mid := toneLR(4096, 0.2, 440, true), toneLR(4096, 0.2, 440, false)
+	p := NewProcessor(s)
+	p.Process(side)
+	p.Process(mid)
+	if d := rmsDB(side) - 20*math.Log10(0.2/math.Sqrt2); math.Abs(d-20*math.Log10(1.5)) > 0.1 {
+		t.Fatalf("lados: %.2f dB, quería +3,5", d)
+	}
+	if d := rmsDB(mid) - 20*math.Log10(0.2/math.Sqrt2); math.Abs(d) > 0.1 {
+		t.Fatalf("el centro no debe cambiar: %.2f dB", d)
+	}
+}
+
+func TestPresetWithFlatSoundUnchanged(t *testing.T) {
+	a, _ := PresetSettings(ProcFM)
+	b := a.WithSound(make([]float64, EQBands), 100)
+	if a != b {
+		t.Fatal("ecualizador plano y 100 % no deben cambiar el preset")
+	}
+}

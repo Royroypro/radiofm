@@ -44,6 +44,10 @@ type AudioSettings struct {
 	BreakFadeMs     int     `json:"break_fade_ms"` // fundido de la música al entrar una tanda
 	ProcPreset      string  `json:"proc_preset"`   // procesador: natural | fm | voice | off
 	ProcScope       string  `json:"proc_scope"`    // a qué se aplica: both (FM y stream) | stream
+	// EQ: ecualizador de 10 bandas (dB, ±12) en 31, 62, 125, 250, 500 Hz, 1, 2, 4, 8 y 16 kHz.
+	EQ []float64 `json:"eq"`
+	// StereoWidth: ampliación estéreo en % (100 = normal, 0 = mono, hasta 200).
+	StereoWidth int `json:"stereo_width"`
 }
 
 // Crossfade devuelve la duración del crossfade.
@@ -179,7 +183,8 @@ const (
 func Defaults() Settings {
 	return Settings{
 		Audio: AudioSettings{CrossfadeMs: 3000, DuckDepthDB: -12, DuckThresholdDB: -35, DuckAttackMs: 50,
-			DuckReleaseMs: 500, HardFadeMs: 2000, BreakFadeMs: 1000, ProcPreset: "natural", ProcScope: "both"},
+			DuckReleaseMs: 500, HardFadeMs: 2000, BreakFadeMs: 1000, ProcPreset: "natural", ProcScope: "both",
+			StereoWidth: 100},
 		Icecast: IcecastSettings{Host: IngestHost, Port: 8010, Mount: "/radio", User: "source",
 			Format: "mp3", BitrateKbps: 128, Source: "bus", MetadataMusic: true},
 		Server:    ServerSettings{URL: ServerURL},
@@ -322,6 +327,17 @@ func (c Settings) Validate() error {
 		return errors.New("el fundido de tanda debe estar entre 0 y 5 s")
 	case c.UI.Theme != "" && c.UI.Theme != "dark" && c.UI.Theme != "light" && c.UI.Theme != "club25" && c.UI.Theme != "custom":
 		return errors.New("tema desconocido")
+	}
+	if len(c.Audio.EQ) > 10 {
+		return errors.New("el ecualizador tiene 10 bandas")
+	}
+	for _, g := range c.Audio.EQ {
+		if g < -12 || g > 12 {
+			return errors.New("cada banda del ecualizador va de −12 a +12 dB")
+		}
+	}
+	if c.Audio.StereoWidth < 0 || c.Audio.StereoWidth > 200 {
+		return errors.New("la ampliación estéreo va de 0 % a 200 %")
 	}
 	if _, err := time.LoadLocation(c.Station.Timezone); err != nil {
 		return fmt.Errorf("zona horaria inválida: %w", err)

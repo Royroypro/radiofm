@@ -72,7 +72,13 @@ func (a *App) Devices() ([]audio.Device, error) { return audio.ListDevices() }
 func (a *App) Settings() config.Settings { return a.core.Settings() }
 
 // SaveSettings guarda la configuración.
-func (a *App) SaveSettings(s config.Settings) error { return a.core.SaveSettings(s) }
+func (a *App) SaveSettings(s config.Settings) error {
+	if err := a.core.SaveSettings(s); err != nil {
+		return err
+	}
+	a.core.ApplyProcessor() // procesador, ecualizador y ampliación se aplican al guardar
+	return nil
+}
 
 // PickFolder abre el diálogo de Windows para elegir una carpeta.
 func (a *App) PickFolder(title string) (string, error) {
