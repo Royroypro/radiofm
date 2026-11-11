@@ -362,6 +362,18 @@ export function TriggerCart(arg1, arg2) {
   return window['go']['ui']['App']['TriggerCart'](arg1, arg2);
 }
 
+export function UpdateCheck() {
+  return window['go']['ui']['App']['UpdateCheck']();
+}
+
+export function UpdateInstall() {
+  return window['go']['ui']['App']['UpdateInstall']();
+}
+
+export function UpdateStatus() {
+  return window['go']['ui']['App']['UpdateStatus']();
+}
+
 export function UpdateTrack(arg1) {
   return window['go']['ui']['App']['UpdateTrack'](arg1);
 }

@@ -2051,6 +2051,56 @@ export namespace ui {
 
 }
 
+export namespace updater {
+	
+	export class Status {
+	    current: string;
+	    latest: string;
+	    available: boolean;
+	    ready: boolean;
+	    progress: number;
+	    checking: boolean;
+	    error: string;
+	    // Go type: time
+	    checked_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = source["current"];
+	        this.latest = source["latest"];
+	        this.available = source["available"];
+	        this.ready = source["ready"];
+	        this.progress = source["progress"];
+	        this.checking = source["checking"];
+	        this.error = source["error"];
+	        this.checked_at = this.convertValues(source["checked_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace video {
 	
 	export class Status {

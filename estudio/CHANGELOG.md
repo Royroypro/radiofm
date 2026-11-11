@@ -2,6 +2,15 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.9.2 — actualizaciones automáticas
+
+- El programa **busca versiones nuevas solo** (al minuto de abrir y cada 30 min) en el manifiesto del
+  servidor, **descarga el instalador en segundo plano** y lo verifica (SHA-256).
+- Cuando está listo aparece un aviso abajo a la derecha: **Actualizar ahora** cierra el programa, instala en
+  silencio (Windows pide confirmar con «Sí») y lo **vuelve a abrir solo**. «Después» lo deja para la próxima vez.
+- No se instala sin permiso: reiniciar corta el aire unos segundos; el aviso lo recuerda si está al aire.
+- Clic en la versión (barra lateral, «v1.9.2 ⟳») busca actualizaciones en el momento.
+
 ## 1.9.1 — ordenar la playlist en Al aire y silenciar videos
 
 - **Al aire → Playlist**: cambiar el orden de lo que va a sonar **arrastrando** un elemento (una línea naranja

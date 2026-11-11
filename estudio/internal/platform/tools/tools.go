@@ -146,6 +146,12 @@ func (c *counter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Download baja url a dst verificando el SHA-256 (si no coincide, no deja nada).
+// cb recibe los bytes descargados; puede ser nil.
+func Download(ctx context.Context, url, dst, wantSHA string, cb func(int64)) (int64, error) {
+	return download(ctx, url, dst, wantSHA, cb)
+}
+
 func download(ctx context.Context, url, dst, wantSHA string, cb func(int64)) (int64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

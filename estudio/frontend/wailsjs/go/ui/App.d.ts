@@ -14,6 +14,7 @@ import {config} from '../models';
 import {sync} from '../models';
 import {video} from '../models';
 import {tools} from '../models';
+import {updater} from '../models';
 import {voicetrack} from '../models';
 
 export function AnalyzerStatus():Promise<library.AnalyzerStatus>;
@@ -195,6 +196,12 @@ export function TrackByID(arg1:number):Promise<domain.Track>;
 export function Tracks(arg1:domain.TrackFilter):Promise<ui.TrackPage>;
 
 export function TriggerCart(arg1:number,arg2:number):Promise<void>;
+
+export function UpdateCheck():Promise<void>;
+
+export function UpdateInstall():Promise<void>;
+
+export function UpdateStatus():Promise<updater.Status>;
 
 export function UpdateTrack(arg1:domain.Track):Promise<void>;
 

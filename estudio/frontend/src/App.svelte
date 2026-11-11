@@ -5,8 +5,8 @@
 -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Info } from '../wailsjs/go/ui/App'
-  import type { ui } from '../wailsjs/go/models'
+  import { Info, UpdateStatus, UpdateCheck, UpdateInstall } from '../wailsjs/go/ui/App'
+  import type { ui, updater } from '../wailsjs/go/models'
   import isotipo from './assets/brand/isotipo.svg'
   import Library from './pages/Library.svelte'
   import Settings from './pages/Settings.svelte'
@@ -51,8 +51,46 @@
     onair.start()
     Info().then((i) => (info = i))
     const t = setInterval(() => (now = new Date()), 500)
-    return () => clearInterval(t)
+    const u = setInterval(pollUpdate, 30000)
+    pollUpdate()
+    return () => {
+      clearInterval(t)
+      clearInterval(u)
+    }
   })
+
+  // ---- actualizaciones: el programa las busca y descarga solo; instalar es un clic ----
+  let upd: updater.Status | null = $state(null)
+  let updHidden = $state('') // versión que el operador dejó para después
+  let updBusy = $state(false)
+  async function pollUpdate() {
+    try {
+      upd = await UpdateStatus()
+    } catch {}
+  }
+  async function checkUpdate() {
+    await UpdateCheck()
+    toast.show('Buscando actualizaciones…')
+    setTimeout(async () => {
+      await pollUpdate()
+      if (upd && !upd.available && !upd.error) toast.show(`Club25 Estudio ${upd.current} está al día`)
+      else if (upd?.error) toast.show(upd.error, true)
+    }, 4000)
+  }
+  async function installUpdate() {
+    const air = onair.view?.air.running
+    const msg = [`Instalar la versión ${upd?.latest}.`, '',
+      'El programa se cierra, se instala (Windows pide confirmar con «Sí») y se vuelve a abrir solo.']
+    if (air) msg.push('', 'OJO: el aire se corta unos segundos mientras se reinicia.')
+    if (!confirm(msg.join(String.fromCharCode(10)))) return
+    updBusy = true
+    try {
+      await UpdateInstall()
+    } catch (e) {
+      updBusy = false
+      toast.error(e)
+    }
+  }
 
   const current = $derived(pages.find((p) => p.id === page)!)
 </script>
@@ -66,7 +104,7 @@
       <img src={isotipo} alt="" />
       <div>
         <strong>Club25 Estudio</strong>
-        <span class="muted small">v{info?.version ?? '…'}</span>
+        <button class="ver muted small" title="Buscar actualizaciones" onclick={checkUpdate}>v{info?.version ?? '…'} ⟳</button>
       </div>
     </div>
     <nav>
@@ -86,6 +124,16 @@
       <p class="error small">ffmpeg no encontrado: la biblioteca no puede analizar ni reproducir.</p>
     {/if}
   </aside>
+  {/if}
+
+  {#if upd?.ready && updHidden !== upd.latest}
+    <div class="update" role="status">
+      <span>⬆ <strong>Club25 Estudio {upd.latest}</strong> está lista para instalar</span>
+      <button class="ok small" disabled={updBusy} onclick={installUpdate}>{updBusy ? 'Instalando…' : 'Actualizar ahora'}</button>
+      <button class="ghost small" onclick={() => (updHidden = upd!.latest)} title="Se vuelve a ofrecer al abrir el programa">Después</button>
+    </div>
+  {:else if upd?.available && !upd.ready && upd.progress > 0 && updHidden !== upd.latest}
+    <div class="update small" role="status">Descargando la versión {upd.latest}… {upd.progress} %</div>
   {/if}
 
   <main>
@@ -138,4 +186,8 @@
   .air { display: flex; gap: 4px; justify-content: center; margin-top: auto; }
   time { font-size: 28px; text-align: center; font-variant-numeric: tabular-nums; }
   main { overflow: hidden; padding: 16px; display: flex; flex-direction: column; min-width: 0; }
+  .update { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 10px; align-items: center;
+    padding: 10px 14px; border-radius: 10px; background: var(--panel, #1b2333); border: 1px solid var(--accent, #e5262a);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+  .ver { background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
 </style>

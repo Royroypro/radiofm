@@ -3,11 +3,13 @@ package ui
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"radioclub25/estudio/internal/platform/config"
 	"radioclub25/estudio/internal/platform/secrets"
+	"radioclub25/estudio/internal/service/updater"
 	"radioclub25/estudio/internal/video"
 )
 
@@ -94,4 +96,23 @@ func (a *App) SaveTVSources(sources []config.TVSource) error {
 	s := a.core.Settings()
 	s.TV.Sources = sources
 	return a.core.SaveSettings(s)
+}
+
+// UpdateStatus devuelve si hay una versión nueva y si ya está descargada.
+func (a *App) UpdateStatus() updater.Status { return a.core.Updater.Status() }
+
+// UpdateCheck busca una versión nueva ahora.
+func (a *App) UpdateCheck() { a.core.Updater.Check() }
+
+// UpdateInstall instala la versión descargada: el programa se cierra, se instala
+// (Windows pide confirmar) y se vuelve a abrir solo.
+func (a *App) UpdateInstall() error {
+	if err := a.core.Updater.Install(); err != nil {
+		return err
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		runtime.Quit(a.ctx)
+	}()
+	return nil
 }

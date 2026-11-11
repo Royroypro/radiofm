@@ -46,6 +46,7 @@ import (
 	"radioclub25/estudio/internal/service/streaming"
 	syncsvc "radioclub25/estudio/internal/service/sync"
 	"radioclub25/estudio/internal/service/timeannounce"
+	"radioclub25/estudio/internal/service/updater"
 	"radioclub25/estudio/internal/service/voicetrack"
 	"radioclub25/estudio/internal/version"
 	"radioclub25/estudio/internal/video"
@@ -67,6 +68,7 @@ type App struct {
 	Weather   *weather.Client
 	Secrets   *secrets.Store
 	TV        *video.Service
+	Updater   *updater.Service
 	runCtx    context.Context // el de Start (para rearrancar la TV desde la interfaz)
 	tvMu      sync.Mutex
 	tvArtist  string // última canción (el cintillo vuelve a ella después de jingles y tandas)
@@ -153,6 +155,7 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 	ecfg.SilenceAfter = time.Duration(s.Safety.SilenceSeconds) * time.Second
 	a.Engine = audio.NewEngine(ecfg)
 	a.TV = video.New(a.Tools, a.Engine.TVOutput(), a.Engine.SetTVTap, log)
+	a.Updater = updater.New(func() string { return a.Settings().Server.URL }, version.Version, dataDir, log)
 	a.Streaming = streaming.New(a.Tools, a.Engine, a.Settings,
 		func() (string, error) { return a.Secrets.Get(secrets.IcecastPassword) }, log)
 	a.AirLog = airlog.New(a.Engine, a.Tools.Command, func() airlog.Settings {
@@ -288,6 +291,8 @@ func (a *App) Start(ctx context.Context) {
 	a.Streaming.Restart(ctx)
 	a.runCtx = ctx
 	a.ApplyTV()
+	a.wg.Add(1)
+	go func() { defer a.wg.Done(); a.Updater.Run(ctx) }()
 	a.wg.Add(1)
 	go func() { defer a.wg.Done(); a.Sync.Run(ctx) }()
 	a.wg.Add(2)
