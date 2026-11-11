@@ -20,6 +20,7 @@ type clip struct {
 	cur    *Frame
 	idx    int64 // número del cuadro actual (-1 = ninguno todavía)
 	ended  atomic.Bool
+	silent atomic.Bool // el video no trae audio (se dibuja el espectro encima)
 	rc     io.ReadCloser
 	cancel context.CancelFunc
 }
@@ -27,13 +28,13 @@ type clip struct {
 const clipQueue = 8
 
 // decodeFunc es Tools.DecodeVideo (los tests usan un falso).
-type decodeFunc func(ctx context.Context, path string, start time.Duration, w, h, fps int) (io.ReadCloser, error)
+type decodeFunc func(ctx context.Context, path string, start time.Duration, w, h, fps int, loop bool) (io.ReadCloser, error)
 
 // startClip arranca la decodificación de path desde pos; at es el momento en
 // que suena el audio de esa posición.
-func startClip(ctx context.Context, dec decodeFunc, path string, pos time.Duration, at time.Time, w, h, fps int) (*clip, error) {
+func startClip(ctx context.Context, dec decodeFunc, path string, pos time.Duration, at time.Time, w, h, fps int, loop bool) (*clip, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	rc, err := dec(ctx, path, pos, w, h, fps)
+	rc, err := dec(ctx, path, pos, w, h, fps, loop)
 	if err != nil {
 		cancel()
 		return nil, err

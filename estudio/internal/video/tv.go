@@ -36,6 +36,12 @@ type Config struct {
 	// ClipOffset adelanta (positivo) o atrasa el video respecto del audio, para
 	// compensar la latencia de la tarjeta.
 	ClipOffset time.Duration
+	// SpectrumOnVideo: espectro en la franja inferior sobre los videos:
+	// "silent" (solo videos sin audio, por defecto), "always" o "never".
+	SpectrumOnVideo string
+	// BackgroundVideo: video en bucle de fondo del visualizador (mudo o no: se
+	// usa solo la imagen). "" = la imagen de fondo o el degradado.
+	BackgroundVideo string
 }
 
 // AudioSource es de donde sale el audio (Engine.TVOutput).
@@ -59,11 +65,13 @@ type Status struct {
 
 // Service es el modo TV: genera los cuadros a ritmo fijo y los entrega al codificador.
 type Service struct {
-	tools  ffmpeg.Tools
-	audio  AudioSource
-	tap    func(on bool)
-	log    *slog.Logger
-	decode decodeFunc
+	tools    ffmpeg.Tools
+	audio    AudioSource
+	tap      func(on bool)
+	log      *slog.Logger
+	decode   decodeFunc
+	hasAudio func(ctx context.Context, path string) bool
+	audioOf  sync.Map // ruta → bool (si el video trae audio), para no consultar dos veces
 
 	mu      sync.Mutex
 	cancel  context.CancelFunc
@@ -97,7 +105,8 @@ type Service struct {
 
 // New crea el servicio. tap enciende o apaga la copia del audio hacia la TV.
 func New(tools ffmpeg.Tools, audio AudioSource, tap func(bool), log *slog.Logger) *Service {
-	s := &Service{tools: tools, audio: audio, tap: tap, log: log, scene: SceneVisual, decode: tools.DecodeVideo}
+	s := &Service{tools: tools, audio: audio, tap: tap, log: log, scene: SceneVisual, decode: tools.DecodeVideo,
+		hasAudio: tools.HasAudio}
 	s.showing.Store(string(SceneVisual))
 	return s
 }
@@ -213,13 +222,34 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 
 	cur, prev := SceneVisual, SceneVisual
 	fadeLeft, fadeLen := 0, fps/2 // fundido de medio segundo
-	var cl *clip
+	var cl, bgClip *clip
 	var clipFrame *Frame
 	defer func() {
 		if cl != nil {
 			cl.close()
 		}
+		if bgClip != nil {
+			bgClip.close()
+		}
 	}()
+	if cfg.BackgroundVideo != "" { // fondo en bucle: sigue la hora desde ahora
+		if c, err := startClip(ctx, s.decode, cfg.BackgroundVideo, 0, time.Now(), w, h, fps, true); err != nil {
+			s.log.Error("TV: abrir video de fondo", "archivo", cfg.BackgroundVideo, "err", err)
+		} else {
+			bgClip = c
+		}
+	}
+	// band: espectro en la franja de abajo, encima de un video
+	band := func(dst *Frame) { vis.DrawBand(dst, w*3/100, h*64/100, w*94/100, h*26/100, 215) }
+	spectrumOn := func(c *clip) bool {
+		switch cfg.SpectrumOnVideo {
+		case "always":
+			return true
+		case "never":
+			return false
+		}
+		return c.silent.Load()
+	}
 	render := func(sc Scene, dst *Frame) {
 		if sc == SceneImage && plate != nil {
 			dst.CopyFrom(plate)
@@ -227,7 +257,19 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 		}
 		if sc == SceneClip && clipFrame != nil {
 			dst.CopyFrom(clipFrame)
+			if cl != nil && spectrumOn(cl) {
+				band(dst)
+			}
 			return
+		}
+		if bgClip != nil {
+			if f, ok := bgClip.frame(time.Now()); ok {
+				dst.CopyFrom(f)
+				if cfg.SpectrumOnVideo != "never" {
+					band(dst)
+				}
+				return
+			}
 		}
 		dst.CopyFrom(bgFrame)
 		vis.Draw(dst, w*8/100, h*18/100, w*84/100, h*60/100)
@@ -278,11 +320,12 @@ func (s *Service) loop(ctx context.Context, enc *ffmpeg.VideoEncoder, gfx *Graph
 				}
 				name := ""
 				if req.path != "" {
-					c, err := startClip(ctx, s.decode, req.path, req.pos, req.at.Add(-cfg.ClipOffset), w, h, fps)
+					c, err := startClip(ctx, s.decode, req.path, req.pos, req.at.Add(-cfg.ClipOffset), w, h, fps, false)
 					if err != nil {
 						s.log.Error("TV: abrir video", "archivo", req.path, "err", err)
 					} else {
 						cl, name = c, req.path
+						go s.markSilent(ctx, c, req.path)
 					}
 				}
 				s.mu.Lock()
@@ -383,4 +426,16 @@ func redact(u string) string {
 func shade(c color.NRGBA, k float64) color.NRGBA {
 	f := func(v uint8) uint8 { return uint8(float64(v) * (1 - k)) }
 	return color.NRGBA{f(c.R), f(c.G), f(c.B), 255}
+}
+
+// markSilent averigua (una vez por archivo) si el video trae audio: los mudos
+// llevan el espectro del audio de la radio en la franja de abajo.
+func (s *Service) markSilent(ctx context.Context, c *clip, path string) {
+	if v, ok := s.audioOf.Load(path); ok {
+		c.silent.Store(!v.(bool))
+		return
+	}
+	has := s.hasAudio(ctx, path)
+	s.audioOf.Store(path, has)
+	c.silent.Store(!has)
 }

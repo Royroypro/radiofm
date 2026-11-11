@@ -304,8 +304,13 @@ func (e *VideoEncoder) session(ctx context.Context) error {
 // cuadros crudos yuv420p de w×h a fps cuadros por segundo (sin audio), sin
 // deformar: se escala para que entre y se completa con negro. Lee lo más
 // rápido posible: el que consume marca el ritmo (y la sincronía con el audio).
-func (t Tools) DecodeVideo(ctx context.Context, path string, start time.Duration, w, h, fps int) (io.ReadCloser, error) {
+//
+// loop = repetir sin fin (fondo en bucle).
+func (t Tools) DecodeVideo(ctx context.Context, path string, start time.Duration, w, h, fps int, loop bool) (io.ReadCloser, error) {
 	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
+	if loop {
+		args = append(args, "-stream_loop", "-1")
+	}
 	if start > 0 {
 		args = append(args, "-ss", fmt.Sprintf("%.3f", start.Seconds()))
 	}
@@ -326,4 +331,13 @@ func (t Tools) DecodeVideo(ctx context.Context, path string, start time.Duration
 		return nil, fmt.Errorf("ffmpeg: iniciar: %w", err)
 	}
 	return &procReader{r: stdout, cmd: cmd, cancel: cancel, stderr: stderr}, nil
+}
+
+// HasAudio dice si el archivo tiene alguna pista de audio (un video mudo no).
+func (t Tools) HasAudio(ctx context.Context, path string) bool {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	out, err := command(ctx, t.FFprobe, "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+		"-of", "csv=p=0", path).Output()
+	return err == nil && len(strings.TrimSpace(string(out))) > 0
 }

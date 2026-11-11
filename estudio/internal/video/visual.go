@@ -149,3 +149,29 @@ func (v *Visualizer) Draw(f *Frame, x, y, w, h int) {
 		f.FillRect(bx, py, bw, 4, v.high, 230)
 	}
 }
+
+// DrawBand pinta las barras en una franja (x, y, w, h) encima de un video: sin
+// reflejo, desde el borde de abajo de la franja, con opacidad alpha (0–255) y
+// una sombra suave detrás para que se lean sobre cualquier imagen.
+func (v *Visualizer) DrawBand(f *Frame, x, y, w, h int, alpha uint8) {
+	bars := len(v.level)
+	slot := float64(w) / float64(bars)
+	bw := max(int(slot*0.62), 2)
+	base := y + h
+	// sombra a todo el ancho, más oscura abajo (en tramos), para que las barras se lean
+	for i, a := range []uint8{25, 40, 55, 70} {
+		f.FillRect(0, y+h*(40+15*i)/100, f.W, h*15/100+2, v.shadow, a)
+	}
+	for b := 0; b < bars; b++ {
+		bx := x + int(float64(b)*slot+(slot-float64(bw))/2)
+		bh := max(int(v.level[b]*float32(h)*0.92), 2)
+		for yy := 0; yy < bh; yy += 6 {
+			seg := min(6, bh-yy)
+			t := float64(yy) / float64(h)
+			c := YUV{lerp8(v.low.Y, v.high.Y, t), lerp8(v.low.U, v.high.U, t), lerp8(v.low.V, v.high.V, t)}
+			f.FillRect(bx, base-yy-seg, bw, seg, c, alpha)
+		}
+		py := base - int(v.peak[b]*float32(h)*0.92) - 5
+		f.FillRect(bx, py, bw, 3, v.high, alpha)
+	}
+}

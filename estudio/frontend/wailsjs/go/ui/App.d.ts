@@ -88,6 +88,8 @@ export function OnAirStopAfter():Promise<void>;
 
 export function OpenRecordings():Promise<void>;
 
+export function PickBackground(arg1:string):Promise<string>;
+
 export function PickFile(arg1:string):Promise<string>;
 
 export function PickFolder(arg1:string):Promise<string>;

@@ -515,6 +515,7 @@ export namespace config {
 	    show_ticker: boolean;
 	    ticker: string;
 	    clip_offset_ms: number;
+	    spectrum_on_video: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TVSettings(source);
@@ -542,6 +543,7 @@ export namespace config {
 	        this.show_ticker = source["show_ticker"];
 	        this.ticker = source["ticker"];
 	        this.clip_offset_ms = source["clip_offset_ms"];
+	        this.spectrum_on_video = source["spectrum_on_video"];
 	    }
 	}
 	export class StationSettings {

@@ -79,6 +79,8 @@ type TVSettings struct {
 	Ticker      string `json:"ticker"`
 	// ClipOffsetMs adelanta (positivo) o atrasa los videoclips respecto del audio.
 	ClipOffsetMs int `json:"clip_offset_ms"`
+	// SpectrumOnVideo: espectro abajo sobre los videos: silent (solo mudos) | always | never.
+	SpectrumOnVideo string `json:"spectrum_on_video"`
 }
 
 // Size devuelve el ancho y alto de la resolución elegida.
@@ -227,7 +229,7 @@ func Defaults() Settings {
 		Server: ServerSettings{URL: ServerURL},
 		TV: TVSettings{URL: "rtmp://" + IngestHost + ":1935/tv", Resolution: "720p", FPS: 30, BitrateKbps: 2500,
 			Codec: "x264", LogoPos: "tr", Accent: "#e5262a", Accent2: "#f7a21b", Panel: "#1b2a6e",
-			ShowLogo: true, ShowNow: true, ShowClock: true},
+			ShowLogo: true, ShowNow: true, ShowClock: true, SpectrumOnVideo: "silent"},
 		Station:   StationSettings{Name: "Radio Club 25", City: "Huacho", Timezone: "America/Lima", Latitude: -11.1067, Longitude: -77.6050},
 		Rotation:  RotationSettings{ArtistSeparationMin: 45, TitleSeparationHours: 3, MaxEnergyJump: 2, MaxGenreRun: 3},
 		Locutions: LocutionSettings{HourPrefix: "HRS", MinutePrefix: "MIN", TempPrefix: "TMP"},

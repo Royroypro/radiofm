@@ -60,3 +60,9 @@ func (a *App) PickVideo(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
 		{DisplayName: "Videos", Pattern: "*.mp4;*.mkv;*.webm;*.mov;*.avi;*.mpg;*.mpeg;*.m4v;*.ts"}}})
 }
+
+// PickBackground abre el diálogo para el fondo de la TV: imagen o video en bucle.
+func (a *App) PickBackground(title string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: []runtime.FileFilter{
+		{DisplayName: "Imágenes y videos", Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.mp4;*.mkv;*.webm;*.mov;*.avi;*.m4v"}}})
+}

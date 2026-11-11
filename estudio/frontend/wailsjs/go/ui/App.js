@@ -146,6 +146,10 @@ export function OpenRecordings() {
   return window['go']['ui']['App']['OpenRecordings']();
 }
 
+export function PickBackground(arg1) {
+  return window['go']['ui']['App']['PickBackground'](arg1);
+}
+
 export function PickFile(arg1) {
   return window['go']['ui']['App']['PickFile'](arg1);
 }

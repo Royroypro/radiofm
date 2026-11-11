@@ -208,6 +208,9 @@ func TestEncodeToFile(t *testing.T) {
 	if st.Showing != SceneClip {
 		t.Fatalf("con un videoclip sonando debe verse el clip, se ve %q", st.Showing)
 	}
+	if v, ok := s.audioOf.Load(clipFile); !ok || v.(bool) {
+		t.Fatalf("el clip generado no tiene audio: debe detectarse como mudo (%v, %v)", v, ok)
+	}
 	snap := s.Snapshot()
 	s.Stop()
 	time.Sleep(1500 * time.Millisecond)     // ffmpeg cierra el archivo
@@ -288,11 +291,11 @@ func (f *fakeVideo) Close() error { return nil }
 // El videoclip se sincroniza con la hora del audio: si arranca «tarde» salta
 // cuadros hasta alcanzarlo, y al terminar avisa para volver al visualizador.
 func TestClipFollowsAudioClock(t *testing.T) {
-	dec := func(ctx context.Context, path string, start time.Duration, w, h, fps int) (io.ReadCloser, error) {
+	dec := func(ctx context.Context, path string, start time.Duration, w, h, fps int, loop bool) (io.ReadCloser, error) {
 		return &fakeVideo{w: w, h: h, n: 40}, nil
 	}
 	at := time.Now().Add(-500 * time.Millisecond) // el audio empezó hace medio segundo
-	c, err := startClip(context.Background(), dec, "x.mp4", 0, at, 32, 18, 30)
+	c, err := startClip(context.Background(), dec, "x.mp4", 0, at, 32, 18, 30, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +338,7 @@ func TestDecodeVideoReal(t *testing.T) {
 	if out, err := gen.CombinedOutput(); err != nil {
 		t.Fatalf("generar video: %v %s", err, out)
 	}
-	rc, err := tools.DecodeVideo(context.Background(), src, 500*time.Millisecond, 64, 36, 30)
+	rc, err := tools.DecodeVideo(context.Background(), src, 500*time.Millisecond, 64, 36, 30, false)
 	if err != nil {
 		t.Fatal(err)
 	}

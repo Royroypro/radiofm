@@ -2,6 +2,14 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.8.1 — espectro sobre los videos
+
+- Los **videos sin audio** (por ejemplo un video de fondo puesto a una canción) muestran el **espectro del audio
+  de la radio** en la franja de abajo, encima del video, con una sombra suave para que se lea. Opción en la
+  pantalla TV: solo en videos sin audio (por defecto), en todos o nunca.
+- El **fondo del visualizador** puede ser un **video en bucle** (además de una imagen): el espectro va en la
+  franja de abajo.
+
 ## 1.8.0 — videoclips en la TV (fase TV-B)
 
 - **Videoclips**: si la canción que suena tiene video, la TV lo muestra **sincronizado con el audio** (con el

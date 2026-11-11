@@ -683,10 +683,19 @@ func (a *App) ApplyTV() {
 		return im
 	}
 	look.Logo = img(t.Logo)
+	// el fondo puede ser una imagen o un video en bucle
+	var bgImage image.Image
+	bgVideo := ""
+	if library.IsVideo(t.Background) {
+		bgVideo = t.Background
+	} else {
+		bgImage = img(t.Background)
+	}
 	a.TV.Start(ctx, video.Config{
 		Output: ffmpeg.VideoConfig{URL: out, W: w, H: h, FPS: t.FPS, BitrateKbps: t.BitrateKbps, Codec: t.Codec},
-		Look:   look, Background: img(t.Background), Plate: img(t.Plate),
-		ClipOffset: time.Duration(t.ClipOffsetMs) * time.Millisecond})
+		Look:   look, Background: bgImage, Plate: img(t.Plate), BackgroundVideo: bgVideo,
+		SpectrumOnVideo: t.SpectrumOnVideo,
+		ClipOffset:      time.Duration(t.ClipOffsetMs) * time.Millisecond})
 	a.tvMu.Lock()
 	artist, title := a.tvArtist, a.tvTitle
 	a.tvMu.Unlock()

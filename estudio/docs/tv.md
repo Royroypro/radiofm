@@ -75,6 +75,11 @@ muestra «atrasados» o «descartados»), baje a 480p o use el codificador por h
 - El audio de la TV queda como mucho ~4 cuadros detrás de lo que suena (se descarta lo que sobre), para que
   la referencia de hora valga también para lo que oye el televidente.
 - Si el video termina antes que la canción, o no se puede abrir, vuelve el visualizador.
+- **Espectro sobre los videos** (1.8.1): en los videos **sin audio** (se averigua con ffprobe una vez por
+  archivo), el espectro del audio de la radio va en la franja de abajo (64–90 % de la altura) con una sombra
+  a todo el ancho. Opción: solo mudos (por defecto), siempre o nunca.
+- El **fondo del visualizador** puede ser un video en bucle (`-stream_loop -1`, sincronizado con la hora
+  desde que arranca la TV); entonces el espectro va en la franja de abajo en vez de al centro.
 
 ## Próximas fases
 

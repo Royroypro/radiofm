@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { Settings, SaveSettings, TVStatus, TVSetScene, TVSetLayers, TVOnAir, TVApply, SetTVPassword, HasTVPassword, PickImage } from '../../wailsjs/go/ui/App'
+  import { Settings, SaveSettings, TVStatus, TVSetScene, TVSetLayers, TVOnAir, TVApply, SetTVPassword, HasTVPassword, PickImage, PickBackground } from '../../wailsjs/go/ui/App'
   import { config, type video } from '../../wailsjs/go/models'
   import { toast } from '../lib/toast.svelte'
 
@@ -72,7 +72,7 @@
   }
 
   async function pick(field: 'logo' | 'background' | 'plate', title: string) {
-    const p = await PickImage(title)
+    const p = field === 'background' ? await PickBackground(title) : await PickImage(title)
     if (p && s) {
       s.tv[field] = p
       dirty = true
@@ -155,7 +155,7 @@
           <label class="field">Posición del logo<select bind:value={s.tv.logo_pos}>
             <option value="tr">Arriba a la derecha</option><option value="tl">Arriba a la izquierda</option>
             <option value="br">Abajo a la derecha</option><option value="bl">Abajo a la izquierda</option></select></label>
-          <div class="field">Fondo del visualizador
+          <div class="field" title="Imagen o video en bucle (si es video, el espectro va en la franja de abajo)">Fondo del visualizador (imagen o video)
             <span class="row"><button class="small ghost" onclick={() => pick('background', 'Fondo de la TV')}>Elegir…</button>
               <span class="small muted ell">{s.tv.background || 'degradado de la marca'}</span>
               {#if s.tv.background}<button class="small ghost" onclick={() => { s!.tv.background = ''; dirty = true }}>✕</button>{/if}</span></div>
@@ -169,6 +169,10 @@
           <label class="field">Color de acento<input type="color" bind:value={s.tv.accent2} /></label>
           <label class="field">Color de fondo<input type="color" bind:value={s.tv.panel} /></label>
         </div>
+        <label class="field" title="Franja de barras del audio en la parte de abajo, encima de los videos">Espectro sobre los videos
+          <select bind:value={s.tv.spectrum_on_video}>
+            <option value="silent">Solo en videos sin audio</option><option value="always">En todos los videos</option>
+            <option value="never">Nunca</option></select></label>
         <label class="field" title="Si el videoclip se ve antes o después que el audio en la web, ajústelo aquí (positivo = adelanta el video)">Sincronía de videoclips (ms)
           <input type="number" min="-2000" max="2000" step="20" bind:value={s.tv.clip_offset_ms} /></label>
         <label class="field">Texto del ticker<input bind:value={s.tv.ticker} placeholder="Escríbenos al WhatsApp… · Síguenos en Facebook…" /></label>
