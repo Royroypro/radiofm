@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -30,6 +31,8 @@ type panel struct {
 	mu         stdsync.Mutex
 	airplays   []apiclient.Airplay
 	down       atomic.Bool
+	cmdSent    atomic.Bool
+	cmdDone    atomic.Value // resultado informado por la PC
 }
 
 func newPanel(t *testing.T) *panel {
@@ -73,6 +76,24 @@ func newPanel(t *testing.T) *panel {
 		p.airplays = append(p.airplays, in.Airplays...)
 		p.mu.Unlock()
 		_, _ = w.Write([]byte(`{"received":1,"inserted":1,"ignored":0,"rejected":[]}`))
+	}))
+	mux.HandleFunc("/api/studio/commands", ok(func(w http.ResponseWriter, r *http.Request) {
+		if p.cmdSent.CompareAndSwap(false, true) { // una orden, una sola vez
+			_, _ = w.Write([]byte(`{"commands":[{"id":7,"kind":"next","arg":"","created_at":"2026-11-11T10:00:00Z"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"commands":[]}`))
+	}))
+	mux.HandleFunc("/api/studio/commands/7/done", ok(func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			OK     bool   `json:"ok"`
+			Result string `json:"result"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.OK {
+			p.cmdDone.Store(in.Result)
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}))
 	mux.HandleFunc("/uploads/fm/", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(p.audio) })
 	p.srv = httptest.NewServer(mux)
@@ -127,6 +148,12 @@ func TestSync(t *testing.T) {
 		ApplyConfig:  func(c apiclient.Config) { applied.Store(c.Station.Timezone) },
 		SpotsChanged: func() { replans.Add(1) },
 		Mode:         func() string { return "auto" }, Encoder: func() any { return map[string]any{"connected": true} },
+		Command: func(kind, arg string) (string, error) {
+			if kind != "next" {
+				return "", errors.New("inesperada")
+			}
+			return "pasó a lo siguiente", nil
+		},
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	go svc.Run(ctx)
@@ -143,6 +170,11 @@ func TestSync(t *testing.T) {
 		if err != nil || string(b) != string(p.audio) || s.Duration != 20*time.Second || !s.Active {
 			t.Fatalf("cuña local mal sincronizada: %+v (%v)", s, err)
 		}
+	}
+
+	// control remoto: la orden del panel se ejecuta y se informa
+	if !waitFor(8*time.Second, func() bool { return p.cmdDone.Load() == "pasó a lo siguiente" }) {
+		t.Fatal("la orden del panel debe ejecutarse y responderse")
 	}
 
 	// lo que suena y emisiones

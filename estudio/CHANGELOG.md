@@ -2,6 +2,18 @@
 
 Formato: una sección por fase del plan ([../docs/estudio/plan.md](../docs/estudio/plan.md)).
 
+## 1.10.0 — monitoreo, respaldo y control remoto desde el panel
+
+- **Estado completo al panel** en cada señal (cada 30 s): lo que suena y lo que viene, próxima tanda, silencio,
+  errores de audio, problemas recientes, web, TV, grabador, RDS, actualización y último respaldo. El panel
+  muestra **alarmas** por frecuencia (sin señal, automatización detenida, silencio, web o TV caídas…) en el
+  resumen, en «Estudio (PC)» y en el control remoto.
+- **Respaldo diario** de la base del Estudio (programación, biblioteca sin los audios, cuñas, ajustes) **al
+  servidor**: el panel guarda las últimas 14 copias de cada PC.
+- **Control remoto** (Panel → Control remoto): siguiente, iniciar, detener, modo automático o asistido, TV al aire
+  o apagada, y subir, bajar o quitar lo que viene. La PC pide las órdenes cada 5 s y responde el resultado; las que
+  no recibe en 2 min se descartan.
+
 ## 1.9.2 — actualizaciones automáticas
 
 - El programa **busca versiones nuevas solo** (al minuto de abrir y cada 30 min) en el manifiesto del

@@ -175,6 +175,7 @@ export namespace audio {
 	    dropouts: number;
 	    enc_dropped: number;
 	    rendered: number;
+	    silent_for: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Status(source);
@@ -194,6 +195,7 @@ export namespace audio {
 	        this.dropouts = source["dropouts"];
 	        this.enc_dropped = source["enc_dropped"];
 	        this.rendered = source["rendered"];
+	        this.silent_for = source["silent_for"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

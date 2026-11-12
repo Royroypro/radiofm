@@ -1,6 +1,14 @@
-{{/* Resumen del panel admin. .Data: Status, AdsTotal, AdsLive, Programs, OnAir, TopAds, AdsActive, FMShort []studio.CampaignCompliance */}}
+{{/* Resumen del panel admin. .Data: Status, AdsTotal, AdsLive, Programs, OnAir, TopAds, AdsActive, FMShort []studio.CampaignCompliance,
+     Alarms []admin.StudioAlarms (problemas de las PC del estudio) */}}
 {{define "content"}}
 {{$d := .Data}}
+{{range $d.Alarms}}
+<div class="alert {{if eq (index .Alarms 0).Level "critical"}}alert-error{{else}}alert-warn{{end}}">
+  <strong>{{.Freq.Label}} · {{.Freq.City}}:</strong>
+  {{range $i, $a := .Alarms}}{{if $i}} · {{end}}{{$a.Text}}{{end}}.
+  <a href="/admin/studio">Ver el estudio</a>
+</div>
+{{end}}
 {{with $d.FMShort}}
 <div class="alert alert-warn">
   <strong>Publicidad FM atrasada hoy:</strong>

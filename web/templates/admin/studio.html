@@ -12,6 +12,8 @@
     {{if .Online}}<span class="pill live">PC conectada</span>{{else}}<span class="pill">PC sin conexión</span>{{end}}
     {{if not .Freq.Active}}<span class="pill">Oculta en la web</span>{{end}}</h2>
 
+  {{range .Alarms}}<div class="alert {{if eq .Level "critical"}}alert-error{{else}}alert-warn{{end}}">{{.Text}}</div>{{end}}
+
   {{if and (eq $d.TokenFor .Freq.ID) $d.NewToken}}
   <div class="alert alert-warn">
     <p><strong>Copie este token ahora: no se volverá a mostrar.</strong> Péguelo en el Club25 Estudio de {{.Freq.City}} → Ajustes → Sincronización. Si lo pierde, genere otro.</p>
@@ -27,7 +29,20 @@
         <tr><th>Modo</th><td>{{$st.Mode.Label}}</td></tr>
         <tr><th>Sonando</th><td>{{with $st.NowPlaying}}<strong>{{.Display}}</strong>{{with .Kind}} <span class="pill">{{.}}</span>{{end}}{{else}}—{{end}}
           {{with $st.NowPlayingAt}}<div class="small muted">informado {{datetime .}}</div>{{end}}</td></tr>
-        <tr><th>Codificador</th><td><code class="small">{{$st.EncoderJSON}}</code></td></tr>
+        {{$r := .Report}}
+        <tr><th>Automatización</th><td>{{if $r.Running}}<span class="pill live">en marcha</span>{{else}}<span class="pill">detenida</span>{{end}}
+          {{if $r.Waiting}}<span class="pill">esperando al operador</span>{{end}}
+          {{with $r.NextBreak}}<div class="small muted">próxima tanda {{datetime .}}</div>{{end}}</td></tr>
+        <tr><th>Web · TV</th><td>
+          {{if $r.Web.Enabled}}{{if $r.Web.Connected}}<span class="pill live">radio en la web</span>{{else}}<span class="pill">radio sin conexión</span>{{end}}{{end}}
+          {{if $r.TV.Enabled}}{{if $r.TV.Connected}}<span class="pill live">TV al aire</span>{{else}}<span class="pill">TV sin conexión</span>{{end}}{{end}}</td></tr>
+        <tr><th>Grabador · RDS</th><td>
+          {{if $r.Logger.Enabled}}{{if $r.Logger.Recording}}<span class="pill live">grabando</span>{{else}}<span class="pill">no graba</span>{{end}}{{else}}<span class="muted">grabador apagado</span>{{end}}
+          {{if $r.RDS.Enabled}}{{if $r.RDS.Connected}}<span class="pill live">RDS</span>{{else}}<span class="pill">RDS sin conexión</span>{{end}}{{end}}</td></tr>
+        <tr><th>Respaldo</th><td>{{with $r.BackupAt}}último {{datetime .}}{{else}}<span class="muted">nunca</span>{{end}}
+          {{with .Backups}}<div class="small muted">{{len .}} copias en el servidor (la última: {{index . 0}})</div>{{end}}</td></tr>
+        {{if $r.Update.Available}}<tr><th>Actualización</th><td>Hay una versión nueva ({{$r.Update.Latest}}) lista en la PC: el operador la instala con un clic.</td></tr>{{end}}
+        {{with $r.Warnings}}<tr><th>Problemas recientes</th><td class="small">{{range .}}<div>{{.}}</div>{{end}}</td></tr>{{end}}
       </tbody>
     </table>
     <div>
@@ -52,5 +67,7 @@
   </div>
 </section>
 {{end}}
+<p class="small muted">Las copias de la base de cada PC (programación, biblioteca sin los audios, cuñas y ajustes) se guardan
+  en el servidor en <code>data/studio-backups/</code>: las últimas {{14}} por frecuencia.</p>
 <p class="small muted">Cada PC envía una señal cada minuto. Sin señal en 3 minutos aparece «sin conexión»; la emisión FM no depende de internet.</p>
 {{end}}

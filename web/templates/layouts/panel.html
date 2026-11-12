@@ -30,6 +30,7 @@
       <a href="/admin/stats" {{if hasPrefix .Path "/admin/stats"}}class="active"{{end}}>Estadísticas</a>
       <a href="/admin/programs" {{if hasPrefix .Path "/admin/programs"}}class="active"{{end}}>Programación</a>
       <a href="/admin/frequencies" {{if hasPrefix .Path "/admin/frequencies"}}class="active"{{end}}>Frecuencias</a>
+      <a href="/admin/control" {{if hasPrefix .Path "/admin/control"}}class="active"{{end}}>Control remoto</a>
       {{if isAdmin .User}}
       <a href="/admin/settings" {{if hasPrefix .Path "/admin/settings"}}class="active"{{end}}>Marca y contacto</a>
       <a href="/admin/streams" {{if hasPrefix .Path "/admin/streams"}}class="active"{{end}}>Streams y emisión</a>

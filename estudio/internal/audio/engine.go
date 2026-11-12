@@ -118,7 +118,8 @@ type Engine struct {
 	streamLim  *Limiter  // limitador propio de esa copia
 	master     float32
 	micGain    float32
-	silent     int64 // frames seguidos en silencio
+	silent     int64        // frames seguidos en silencio
+	silentPub  atomic.Int64 // copia de silent para Status (cualquier goroutine)
 	silenceSet bool
 
 	// entradas y salidas compartidas
@@ -488,6 +489,7 @@ func (e *Engine) renderBlock(out []float32) {
 		} else {
 			e.silent, e.silenceSet = 0, false
 		}
+		e.silentPub.Store(e.silent)
 	}
 
 	// 6. copia hacia el codificador (si se atasca, se descarta: nunca frena la salida)
@@ -530,6 +532,7 @@ type Status struct {
 	Dropouts    int64               `json:"dropouts"`
 	EncDropped  int64               `json:"enc_dropped"`
 	Rendered    time.Duration       `json:"rendered"`
+	SilentFor   time.Duration       `json:"silent_for"` // tiempo seguido en silencio en la salida (0 = suena)
 }
 
 // Slot devuelve el estado de un slot.
@@ -553,6 +556,7 @@ func (e *Engine) Status() Status {
 	f := func(a *atomic.Uint32) float32 { return math.Float32frombits(a.Load()) }
 	s.Levels = Levels{PeakL: f(&e.levels[0]), PeakR: f(&e.levels[1]), RMSL: f(&e.levels[2]), RMSR: f(&e.levels[3])}
 	s.DuckGain, s.LimiterGain = f(&e.duckGain), f(&e.limitGain)
+	s.SilentFor = FramesToDuration(e.silentPub.Load())
 	s.ProcGain, s.AGCGain = f(&e.procGain), f(&e.agcGain)
 	if e.recOn.Load() {
 		s.RecPeak = f(&e.recPeak)

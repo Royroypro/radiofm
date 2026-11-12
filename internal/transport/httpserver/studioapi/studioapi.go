@@ -18,8 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -177,7 +179,7 @@ func (h *Handler) Schedule(w http.ResponseWriter, r *http.Request) {
 // Heartbeat registra la señal de vida de la PC: POST /api/studio/heartbeat
 func (h *Handler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	var in studio.HeartbeatInput
-	if !decode(w, r, &in, 8<<10) {
+	if !decode(w, r, &in, 32<<10) {
 		return
 	}
 	if err := h.Studio.Heartbeat(r.Context(), middleware.StudioFrequencyFrom(r.Context()), in); err != nil {
@@ -279,4 +281,52 @@ func onePerCampaign(list []domain.FMSpot) []domain.FMSpot {
 		out = append(out, s)
 	}
 	return out
+}
+
+// Backup recibe la copia diaria de la base de la PC: POST /api/studio/backup
+// Cuerpo: el archivo .db comprimido con gzip. Cabecera X-Backup-Name: estudio-AAAAMMDD.db.
+func (h *Handler) Backup(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, studio.MaxBackupBytes+1)
+	err := studio.SaveBackup(h.Cfg.StudioBackupsDir(), middleware.StudioFrequencyFrom(r.Context()),
+		r.Header.Get("X-Backup-Name"), r.Body)
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// Commands entrega a la PC las órdenes del panel: GET /api/studio/commands
+// → {"commands":[{"id":1,"kind":"next","arg":"","created_at":"…"}]}
+func (h *Handler) Commands(w http.ResponseWriter, r *http.Request) {
+	list, err := h.Studio.TakeCommands(r.Context(), middleware.StudioFrequencyFrom(r.Context()))
+	if err != nil {
+		h.fail(w, err)
+		return
+	}
+	if list == nil {
+		list = []domain.StudioCommand{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"commands": list})
+}
+
+// CommandDone recibe el resultado: POST /api/studio/commands/{id}/done {"ok":true,"result":"…"} → 204
+func (h *Handler) CommandDone(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		OK     bool   `json:"ok"`
+		Result string `json:"result"`
+	}
+	if !decode(w, r, &in, 4<<10) {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		h.fail(w, domain.ErrNotFound)
+		return
+	}
+	if err := h.Studio.FinishCommand(r.Context(), middleware.StudioFrequencyFrom(r.Context()), id, in.OK, in.Result); err != nil {
+		h.fail(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

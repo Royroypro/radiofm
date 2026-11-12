@@ -3,7 +3,8 @@
 //   - configuración de la radio (nombre, zona horaria, coordenadas) cada 10 min;
 //   - cuñas cada 2 min (con ETag): descarga los audios verificando el SHA-256,
 //     actualiza las locales y desactiva las que el panel ya no envía;
-//   - heartbeat cada 60 s (versión, modo, estado del codificador);
+//   - heartbeat cada 30 s (versión, modo, estado del codificador y estado completo);
+//   - órdenes del panel (control remoto) cada 5 s;
 //   - "lo que suena" al cambiar;
 //   - emisiones de cuñas: cola local (SQLite) que se envía cada 30 s o al
 //     momento; si no hay red se acumula y se envía al volver (sin duplicar).
@@ -56,7 +57,11 @@ type Deps struct {
 	SpotsChanged func()                 // replanificar tandas
 	Mode         func() string
 	Encoder      func() any
-	Log          *slog.Logger
+	Status       func() any // estado completo para el panel (puede ser nil)
+	// Command ejecuta una orden del panel (control remoto) y devuelve el
+	// resultado; nil = la PC no acepta control remoto.
+	Command func(kind, arg string) (string, error)
+	Log     *slog.Logger
 }
 
 // Status es el estado de la sincronización para la interfaz.
@@ -170,7 +175,14 @@ func (s *Service) Run(ctx context.Context) {
 					lastSpots = now
 				}
 			}
-			if force || now.Sub(lastHeartbeat) >= time.Minute {
+			// control remoto: órdenes del panel (cada 5 s); después de ejecutar alguna,
+			// el heartbeat sale enseguida para que el panel vea el cambio
+			if s.d.Command != nil {
+				if n := s.commands(ctx, c); n > 0 {
+					lastHeartbeat = time.Time{}
+				}
+			}
+			if force || now.Sub(lastHeartbeat) >= 30*time.Second {
 				if s.run(ctx, func() error { return s.heartbeat(ctx, c) }) {
 					lastHeartbeat = now
 				}
@@ -239,7 +251,11 @@ func (s *Service) syncConfig(ctx context.Context, c *apiclient.Client) error {
 }
 
 func (s *Service) heartbeat(ctx context.Context, c *apiclient.Client) error {
-	return c.SendHeartbeat(ctx, apiclient.Heartbeat{Version: s.d.Version, Mode: s.d.Mode(), Encoder: s.d.Encoder()})
+	hb := apiclient.Heartbeat{Version: s.d.Version, Mode: s.d.Mode(), Encoder: s.d.Encoder()}
+	if s.d.Status != nil {
+		hb.Status = s.d.Status()
+	}
+	return c.SendHeartbeat(ctx, hb)
 }
 
 func (s *Service) sendNowPlaying(ctx context.Context, c *apiclient.Client) error {
@@ -412,4 +428,26 @@ func short(sha string) string {
 		return "sinhash"
 	}
 	return sha
+}
+
+// commands pide las órdenes del panel, las ejecuta y responde. Devuelve cuántas.
+func (s *Service) commands(ctx context.Context, c *apiclient.Client) int {
+	var list []apiclient.Command
+	if !s.run(ctx, func() error {
+		var err error
+		list, err = c.GetCommands(ctx)
+		return err
+	}) {
+		return 0
+	}
+	for _, cmd := range list {
+		res, err := s.d.Command(cmd.Kind, cmd.Arg)
+		ok := err == nil
+		if err != nil {
+			res = err.Error()
+		}
+		s.d.Log.Info("orden del panel", "orden", cmd.Kind, "arg", cmd.Arg, "ok", ok, "resultado", res)
+		_ = c.CommandDone(ctx, cmd.ID, ok, res)
+	}
+	return len(list)
 }

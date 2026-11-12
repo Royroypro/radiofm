@@ -82,6 +82,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"TopAds":    top,
 		"AdsActive": h.Ads.Enabled(),
 		"FMShort":   h.fmShortfall(ctx),
+		"Alarms":    h.studioAlarms(ctx),
 	})
 }
 

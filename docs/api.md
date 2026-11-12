@@ -120,9 +120,33 @@ antelación). Responde `ETag`; con `If-None-Match` igual devuelve `304` sin cuer
 `weekday` 0 = domingo. Solo programas activos. Un programa puede cruzar la medianoche (`end` < `start`).
 
 ### `POST /api/studio/heartbeat`
-Cada ~60 s. Cuerpo: `{"version": "0.1.0", "mode": "auto" | "assisted" | "live", "encoder": {…}}`
+Cada ~30 s (y enseguida después de ejecutar una orden del panel). Cuerpo:
+`{"version": "0.1.0", "mode": "auto" | "assisted" | "live", "encoder": {…}, "status": {…}}`
 (`encoder` es libre, máx. 2 KB; p. ej. `{"connected": true, "kbps": 128, "retries": 0, "dropped": 0}`).
+`status` (opcional, máx. 16 KB) es el estado completo de la PC (`domain.StudioReport`): `running`, `waiting`,
+`now`, `next_break`, `left_today_s`, `silence_for_s`, `audio_error`, `warnings[]`, `queue[]` (lo que suena y lo
+que viene: `id`, `at`, `title`, `artist`, `kind`, `hard`, `playing`), `web`/`tv`/`logger`/`rds`
+(`enabled`, `connected` o `recording`, `error`), `update` (`latest`, `available`) y `backup_at`. Con él el panel
+arma las **alarmas** (`StudioState.Alarms`: sin señal, detenida, silencio, error de audio, poca playlist, web o
+TV caídas, grabador, RDS, sin respaldo en 2 días) y el **control remoto**.
 Respuesta: `{"ok": true, "server_time": "…"}`. El panel muestra la PC "Sin conexión" tras 3 min sin señal.
+
+### `GET /api/studio/commands`
+Órdenes del control remoto del panel (Panel → Control remoto), pendientes y de los últimos 2 minutos; cada
+una se entrega **una sola vez** (las vencidas se descartan). La PC lo pide cada 5 s.
+```json
+{"commands": [{"id": 7, "kind": "move", "arg": "42 -1", "created_at": "2026-11-11T15:00:00Z"}]}
+```
+`kind`: `next`, `start`, `stop`, `mode` (`arg` auto/assisted/live), `move` (`arg` "<id> <-1|1>"),
+`remove` (`arg` id del elemento), `tv` (`arg` on/off).
+
+### `POST /api/studio/commands/{id}/done`
+`{"ok": true, "result": "elemento quitado"}` → `204`. El panel muestra el resultado.
+
+### `POST /api/studio/backup`
+Copia diaria de la base de la PC: el archivo `.db` comprimido con gzip en el cuerpo (máx. 100 MB) y la
+cabecera `X-Backup-Name: estudio-AAAAMMDD.db` → `204`. Se guarda en `data/studio-backups/<frecuencia>/` (las
+últimas 14; entran en el respaldo del servidor, no se publican).
 
 ### `POST /api/studio/nowplaying`
 Cuerpo: `{"artist": "Grupo 5", "title": "Motor y motivo", "kind": "music", "ends_at": "…"}` → `204`.

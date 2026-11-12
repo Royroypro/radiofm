@@ -45,6 +45,17 @@ func (rd *Renderer) funcs() template.FuncMap {
 			}
 			return out
 		},
+		"timeHM": func(t any) string { return fmtTime(t, loc, "15:04") },
+		// dict arma un mapa para pasar varios valores a una plantilla: dict "A" 1 "B" 2
+		"dict": func(kv ...any) map[string]any {
+			m := make(map[string]any, len(kv)/2)
+			for i := 0; i+1 < len(kv); i += 2 {
+				if k, ok := kv[i].(string); ok {
+					m[k] = kv[i+1]
+				}
+			}
+			return m
+		},
 		"hasPrefix": strings.HasPrefix,
 		"lower":     strings.ToLower,
 		"add":       func(a, b int) int { return a + b },

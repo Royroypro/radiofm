@@ -66,6 +66,10 @@ func (c Config) DBPath() string { return filepath.Join(c.DataDir, "radioclub25.d
 // UploadsDir es la carpeta de archivos subidos.
 func (c Config) UploadsDir() string { return filepath.Join(c.DataDir, "uploads") }
 
+// StudioBackupsDir es donde se guardan las copias de la base de cada PC del estudio
+// (dentro de data/: entran en el respaldo del servidor, no se publican).
+func (c Config) StudioBackupsDir() string { return filepath.Join(c.DataDir, "studio-backups") }
+
 // Load lee la configuración del entorno.
 func Load() (Config, error) {
 	c := Config{

@@ -82,7 +82,7 @@ func TestStudioState(t *testing.T) {
 	if err := repo.SetToken(ctx, f.ID, "hash", now); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Heartbeat(ctx, f.ID, now, "1.0.0", domain.StudioAuto, `{"connected":true}`); err != nil {
+	if err := repo.Heartbeat(ctx, f.ID, now, "1.0.0", domain.StudioAuto, `{"connected":true}`, `{"running":true}`); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.SetNowPlaying(ctx, f.ID, domain.NowPlaying{Artist: "Grupo 5", Title: "Motor y motivo", Kind: "music"}, now); err != nil {
@@ -95,6 +95,31 @@ func TestStudioState(t *testing.T) {
 	if st.TokenHash != "hash" || st.Version != "1.0.0" || st.Mode != domain.StudioAuto || st.NowPlaying == nil ||
 		st.NowPlaying.Display() != "Grupo 5 - Motor y motivo" || !st.Online(now, time.Minute) {
 		t.Fatalf("estado = %+v", st)
+	}
+	if !st.Report().Running {
+		t.Fatal("el estado completo debe guardarse con el heartbeat")
+	}
+	// control remoto: encolar, tomar (una sola vez), responder; las vencidas no se entregan
+	old := &domain.StudioCommand{FrequencyID: f.ID, Kind: domain.CmdStop, CreatedAt: now.Add(-10 * time.Minute)}
+	c1 := &domain.StudioCommand{FrequencyID: f.ID, Kind: domain.CmdNext, CreatedAt: now, CreatedBy: "op@radio"}
+	for _, c := range []*domain.StudioCommand{old, c1} {
+		if err := repo.AddCommand(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := repo.TakeCommands(ctx, f.ID, now.Add(-2*time.Minute), now)
+	if err != nil || len(got) != 1 || got[0].ID != c1.ID {
+		t.Fatalf("deben entregarse solo las recientes: %+v, %v", got, err)
+	}
+	if again, _ := repo.TakeCommands(ctx, f.ID, now.Add(-2*time.Minute), now); len(again) != 0 {
+		t.Fatalf("una orden se entrega una sola vez: %+v", again)
+	}
+	if err := repo.FinishCommand(ctx, f.ID, c1.ID, true, "ok", now); err != nil {
+		t.Fatal(err)
+	}
+	recent, _ := repo.RecentCommands(ctx, f.ID, 10)
+	if len(recent) != 2 || recent[0].ID != c1.ID || !recent[0].OK || recent[0].DoneAt == nil || recent[1].TakenAt == nil {
+		t.Fatalf("historial = %+v", recent)
 	}
 	if err := repo.SetToken(ctx, f.ID, "", now); err != nil {
 		t.Fatal(err)

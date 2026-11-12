@@ -198,6 +198,7 @@ type Heartbeat struct {
 	Version string `json:"version"`
 	Mode    string `json:"mode"`
 	Encoder any    `json:"encoder"`
+	Status  any    `json:"status,omitempty"` // estado completo de la PC para el panel (ver app.StudioStatus)
 }
 
 // SendHeartbeat informa que la PC está viva.
@@ -281,4 +282,54 @@ func (c *Client) Download(ctx context.Context, url, dst, wantSHA string) error {
 		return fmt.Errorf("el archivo descargado no coincide (sha256 %s, se esperaba %s)", got, wantSHA)
 	}
 	return os.Rename(tmp, dst)
+}
+
+// UploadBackup sube la copia diaria de la base del Estudio (comprimida con gzip)
+// al servidor: POST /api/studio/backup. name es el nombre del archivo
+// (estudio-AAAAMMDD.db). El servidor guarda las últimas copias de cada frecuencia.
+func (c *Client) UploadBackup(ctx context.Context, name string, gz io.Reader) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/studio/backup", gz)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("User-Agent", "Club25Estudio/"+c.Version)
+	req.Header.Set("Content-Type", "application/gzip")
+	req.Header.Set("X-Backup-Name", name)
+	cl := *c.HTTP
+	cl.Timeout = 10 * time.Minute // la base puede pesar varios MB
+	res, err := cl.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode/100 != 2 {
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 512))
+		return fmt.Errorf("respaldo: HTTP %d %s", res.StatusCode, strings.TrimSpace(string(b)))
+	}
+	return nil
+}
+
+// Command es una orden del panel (control remoto).
+type Command struct {
+	ID        int64     `json:"id"`
+	Kind      string    `json:"kind"`
+	Arg       string    `json:"arg"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// GetCommands pide las órdenes pendientes del panel: GET /api/studio/commands.
+func (c *Client) GetCommands(ctx context.Context) ([]Command, error) {
+	var out struct {
+		Commands []Command `json:"commands"`
+	}
+	_, err := c.do(ctx, http.MethodGet, "/commands", nil, &out, nil)
+	return out.Commands, err
+}
+
+// CommandDone informa el resultado de una orden.
+func (c *Client) CommandDone(ctx context.Context, id int64, ok bool, result string) error {
+	_, err := c.do(ctx, http.MethodPost, fmt.Sprintf("/commands/%d/done", id),
+		map[string]any{"ok": ok, "result": result}, nil, nil)
+	return err
 }

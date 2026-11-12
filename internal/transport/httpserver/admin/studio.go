@@ -1,9 +1,11 @@
 package admin
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"radioclub25/internal/service/studio"
 	"sort"
 	"strings"
 	"time"
@@ -25,10 +27,41 @@ const studioOnline = 3 * time.Minute
 
 // StudioStation es una frecuencia con el estado de su PC del estudio.
 type StudioStation struct {
+	Freq    domain.Frequency
+	State   *domain.StudioState
+	Online  bool
+	Ingest  string // servidor:puerto/montaje al que envía su audio ("" si es externo)
+	Report  domain.StudioReport
+	Alarms  []domain.Alarm
+	Backups []string // copias de la base de la PC guardadas en el servidor
+}
+
+// StudioAlarms es la lista de alarmas de una frecuencia (para el inicio del panel).
+type StudioAlarms struct {
 	Freq   domain.Frequency
-	State  *domain.StudioState
-	Online bool
-	Ingest string // servidor:puerto/montaje al que envía su audio ("" si es externo)
+	Alarms []domain.Alarm
+}
+
+// studioAlarms devuelve las frecuencias con alarmas (solo las que tienen PC).
+func (h *Handler) studioAlarms(ctx context.Context) []StudioAlarms {
+	freqs, err := h.Frequencies.List(ctx)
+	if err != nil {
+		return nil
+	}
+	states, err := h.Studio.States(ctx)
+	if err != nil {
+		return nil
+	}
+	now := time.Now()
+	var out []StudioAlarms
+	for _, f := range freqs {
+		if st := states[f.ID]; st != nil {
+			if al := st.Alarms(now, studioOnline); len(al) > 0 {
+				out = append(out, StudioAlarms{Freq: f, Alarms: al})
+			}
+		}
+	}
+	return out
 }
 
 // StudioPage muestra la PC de cada frecuencia: GET /admin/studio
@@ -55,7 +88,8 @@ func (h *Handler) renderStudio(w http.ResponseWriter, r *http.Request, tokenFor 
 		if st == nil {
 			st = &domain.StudioState{FrequencyID: f.ID, EncoderJSON: "{}"}
 		}
-		s := StudioStation{Freq: f, State: st, Online: st.Online(now, studioOnline)}
+		s := StudioStation{Freq: f, State: st, Online: st.Online(now, studioOnline), Report: st.Report(),
+			Alarms: st.Alarms(now, studioOnline), Backups: studio.Backups(h.Cfg.StudioBackupsDir(), f.ID)}
 		if !f.IsExternal() {
 			s.Ingest = fmt.Sprintf("%s:%d%s", h.Cfg.IngestHost, h.Cfg.IcecastPublicPt, f.Mount)
 		}

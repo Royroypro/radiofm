@@ -28,6 +28,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -128,6 +129,7 @@ type HeartbeatInput struct {
 	Version string            `json:"version"`
 	Mode    domain.StudioMode `json:"mode"`
 	Encoder json.RawMessage   `json:"encoder"` // estado libre del codificador (conectado, kbps, reintentos...)
+	Status  json.RawMessage   `json:"status"`  // estado completo de la PC (domain.StudioReport); opcional
 }
 
 // Heartbeat registra la señal de vida de la PC.
@@ -146,7 +148,14 @@ func (s *Service) Heartbeat(ctx context.Context, fid int64, in HeartbeatInput) e
 		}
 		enc = string(in.Encoder)
 	}
-	return s.state.Heartbeat(ctx, fid, s.now(), in.Version, in.Mode, enc)
+	status := "{}"
+	if len(in.Status) > 0 && string(in.Status) != "null" {
+		if len(in.Status) > 16<<10 || !json.Valid(in.Status) {
+			return domain.Invalid("status", "Estado de la PC inválido")
+		}
+		status = string(in.Status)
+	}
+	return s.state.Heartbeat(ctx, fid, s.now(), in.Version, in.Mode, enc, status)
 }
 
 // SetNowPlaying guarda lo que suena en la PC.
@@ -364,4 +373,65 @@ func validUUID(u string) bool {
 // Report devuelve las emisiones del filtro (el comprobante).
 func (s *Service) Report(ctx context.Context, f domain.AirplayFilter) ([]domain.Airplay, error) {
 	return s.plays.List(ctx, f)
+}
+
+// ---------- Control remoto ----------
+
+// commandTTL: una orden que la PC no tomó en este tiempo ya no se ejecuta (la
+// PC estaba desconectada; ejecutarla tarde sería peor que no hacerlo).
+const commandTTL = 2 * time.Minute
+
+// SendCommand encola una orden del panel para la PC de la frecuencia fid.
+func (s *Service) SendCommand(ctx context.Context, actor domain.Actor, fid int64, kind, arg string) (*domain.StudioCommand, error) {
+	arg = strings.TrimSpace(arg)
+	switch kind {
+	case domain.CmdNext, domain.CmdStart, domain.CmdStop:
+		arg = ""
+	case domain.CmdMode:
+		if !domain.StudioMode(arg).Valid() {
+			return nil, domain.Invalid("arg", "Modo inválido")
+		}
+	case domain.CmdMove:
+		f := strings.Fields(arg)
+		if len(f) != 2 || (f[1] != "-1" && f[1] != "1") {
+			return nil, domain.Invalid("arg", "Movimiento inválido")
+		}
+		if _, err := strconv.ParseInt(f[0], 10, 64); err != nil {
+			return nil, domain.Invalid("arg", "Elemento inválido")
+		}
+	case domain.CmdRemove:
+		if _, err := strconv.ParseInt(arg, 10, 64); err != nil {
+			return nil, domain.Invalid("arg", "Elemento inválido")
+		}
+	case domain.CmdTV:
+		if arg != "on" && arg != "off" {
+			return nil, domain.Invalid("arg", "Use on u off")
+		}
+	default:
+		return nil, domain.Invalid("kind", "Orden desconocida")
+	}
+	c := &domain.StudioCommand{FrequencyID: fid, Kind: kind, Arg: arg, CreatedAt: s.now(), CreatedBy: actor.Email}
+	if err := s.state.AddCommand(ctx, c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// TakeCommands entrega a la PC las órdenes pendientes (las vencidas se descartan).
+func (s *Service) TakeCommands(ctx context.Context, fid int64) ([]domain.StudioCommand, error) {
+	now := s.now()
+	return s.state.TakeCommands(ctx, fid, now.Add(-commandTTL), now)
+}
+
+// FinishCommand guarda lo que respondió la PC.
+func (s *Service) FinishCommand(ctx context.Context, fid, id int64, ok bool, result string) error {
+	if utf8.RuneCountInString(result) > 300 {
+		result = string([]rune(result)[:300])
+	}
+	return s.state.FinishCommand(ctx, fid, id, ok, result, s.now())
+}
+
+// RecentCommands devuelve las últimas órdenes enviadas a la PC.
+func (s *Service) RecentCommands(ctx context.Context, fid int64) ([]domain.StudioCommand, error) {
+	return s.state.RecentCommands(ctx, fid, 15)
 }

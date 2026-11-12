@@ -8,8 +8,10 @@
 package app
 
 import (
+	"compress/gzip"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -20,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -212,6 +215,8 @@ func New(ctx context.Context, dataDir string) (*App, error) {
 		SpotsChanged: a.ReplanSoon,
 		Mode:         func() string { return string(a.OnAir.Snapshot().Mode) },
 		Encoder:      func() any { return a.Streaming.Status().Encoder },
+		Status:       func() any { return a.StudioStatus() },
+		Command:      a.remoteCommand,
 		Log:          log,
 	})
 	a.OnAir.SetCartRepository(sqlite.NewCartRepo(a.DB))
@@ -338,6 +343,7 @@ func (a *App) Start(ctx context.Context) {
 				a.Log.Error("generar playlist", "err", err)
 			}
 			a.backupDaily(ctx)
+			a.uploadBackup(ctx)
 			// las cuñas pueden haber cambiado (sincronización, vigencias): replanificar hoy.
 			// Es también la reposición: Replan cuenta lo ya emitido, así que lo que no
 			// salió en una tanda saltada se repone en las siguientes de su franja.
@@ -425,6 +431,7 @@ func (a *App) backupDaily(ctx context.Context) {
 	sort.Strings(copies)
 	for len(copies) > 14 {
 		_ = os.Remove(dir + string(os.PathSeparator) + copies[0])
+		_ = os.Remove(dir + string(os.PathSeparator) + copies[0] + ".subido")
 		copies = copies[1:]
 	}
 }
@@ -727,4 +734,221 @@ func (a *App) tvNowPlaying(seg onair.Segment) {
 		a.tvArtist, a.tvTitle = seg.Artist, seg.Title
 	}
 	a.TV.SetNowPlaying(a.tvArtist, a.tvTitle, false)
+}
+
+// StudioStatus es el estado de la PC que va al panel web en cada heartbeat
+// (Panel → Estudio): lo que suena, la próxima tanda, los problemas recientes y
+// el estado de la web, la TV, el grabador y el RDS. El panel arma las alarmas.
+type StudioStatus struct {
+	Queue      []QueueItem `json:"queue"` // lo que suena y lo que viene (control remoto)
+	Running    bool        `json:"running"`
+	Waiting    bool        `json:"waiting"`
+	Now        string      `json:"now"`
+	NextBreak  *time.Time  `json:"next_break"`
+	LeftToday  int         `json:"left_today_s"`  // segundos programados que quedan hoy
+	SilenceFor int         `json:"silence_for_s"` // segundos seguidos en silencio (0 = suena)
+	AudioError string      `json:"audio_error"`
+	Warnings   []string    `json:"warnings"` // problemas de los últimos 15 min (los más nuevos primero)
+	Web        struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"web"`
+	TV struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"tv"`
+	Logger struct {
+		Enabled   bool   `json:"enabled"`
+		Recording bool   `json:"recording"`
+		Error     string `json:"error"`
+	} `json:"logger"`
+	RDS struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"rds"`
+	Update struct {
+		Latest    string `json:"latest"`
+		Available bool   `json:"available"`
+	} `json:"update"`
+	BackupAt *time.Time `json:"backup_at"` // último respaldo subido al servidor
+}
+
+// StudioStatus arma el estado para el panel.
+func (a *App) StudioStatus() StudioStatus {
+	var st StudioStatus
+	snap := a.OnAir.Snapshot()
+	st.Running, st.Waiting, st.NextBreak = snap.Running, snap.Waiting, snap.NextBreak
+	if snap.Current != nil {
+		st.Queue = append(st.Queue, queueItem(*snap.Current, true))
+	}
+	for _, it := range snap.Next {
+		if len(st.Queue) >= 15 {
+			break
+		}
+		st.Queue = append(st.Queue, queueItem(it, false))
+	}
+	st.LeftToday = int(snap.Remaining / time.Second)
+	for _, d := range snap.Decks {
+		if d.Current && d.Segment != nil {
+			st.Now = d.Segment.Display()
+		}
+	}
+	if snap.Engine.SilentFor > 0 {
+		st.SilenceFor = int(snap.Engine.SilentFor / time.Second)
+	}
+	cut := time.Now().Add(-15 * time.Minute)
+	for i := len(snap.Warnings) - 1; i >= 0 && len(st.Warnings) < 8; i-- {
+		if w := snap.Warnings[i]; w.At.After(cut) {
+			st.Warnings = append(st.Warnings, w.At.In(a.Settings().Location()).Format("15:04")+" "+w.Message)
+		}
+	}
+	a.audioMu.Lock()
+	st.AudioError = a.audioErr
+	a.audioMu.Unlock()
+	ws := a.Streaming.Status()
+	st.Web.Enabled, st.Web.Connected, st.Web.Error = ws.Enabled, ws.Encoder.Connected, firstText(ws.Error, ws.Encoder.LastError)
+	tv := a.TV.Status()
+	st.TV.Enabled, st.TV.Connected, st.TV.Error = a.Settings().TV.Enabled, tv.Encoder.Connected, tv.Encoder.LastError
+	lg := a.AirLog.Status()
+	st.Logger.Enabled, st.Logger.Recording, st.Logger.Error = lg.Enabled, lg.Recording, lg.Error
+	rd := a.RDS.Status()
+	st.RDS.Enabled, st.RDS.Connected, st.RDS.Error = rd.Enabled, rd.Connected, rd.Error
+	up := a.Updater.Status()
+	st.Update.Latest, st.Update.Available = up.Latest, up.Available
+	st.BackupAt = a.lastBackup()
+	return st
+}
+
+func firstText(v ...string) string {
+	for _, s := range v {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// uploadBackup sube al servidor la copia del día de la base (una vez por día):
+// si el disco de la PC falla, la programación, la biblioteca (sin los audios),
+// las cuñas y la configuración se recuperan del panel. Marca lo subido con un
+// archivo .subido al lado de la copia.
+func (a *App) uploadBackup(ctx context.Context) {
+	tok, err := a.Secrets.Get(secrets.ServerToken)
+	if err != nil || tok == "" {
+		return // sin panel configurado
+	}
+	dir := filepath.Join(a.DataDir, "backups")
+	name := "estudio-" + time.Now().Format("20060102") + ".db"
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path + ".subido"); err == nil {
+		return
+	}
+	if _, err := os.Stat(path); err != nil {
+		return
+	}
+	pr, pw := io.Pipe()
+	go func() {
+		f, err := os.Open(path)
+		if err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		defer f.Close()
+		gz := gzip.NewWriter(pw)
+		_, err = io.Copy(gz, f)
+		if err == nil {
+			err = gz.Close()
+		}
+		pw.CloseWithError(err)
+	}()
+	c := apiclient.New(a.Settings().Server.URL, tok, version.Version)
+	if err := c.UploadBackup(ctx, name, pr); err != nil {
+		a.Log.Error("subir la copia de la base", "err", err)
+		return
+	}
+	_ = os.WriteFile(path+".subido", []byte(time.Now().Format(time.RFC3339)), 0o644)
+	a.Log.Info("copia de la base subida al servidor", "archivo", name)
+}
+
+// lastBackup es cuándo se subió la última copia al servidor (nil = nunca).
+func (a *App) lastBackup() *time.Time {
+	matches, _ := filepath.Glob(filepath.Join(a.DataDir, "backups", "estudio-*.db.subido"))
+	var last *time.Time
+	for _, m := range matches {
+		b, err := os.ReadFile(m)
+		if err != nil {
+			continue
+		}
+		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(b))); err == nil && (last == nil || t.After(*last)) {
+			tt := t
+			last = &tt
+		}
+	}
+	return last
+}
+
+// QueueItem es un elemento de la playlist para el control remoto del panel.
+type QueueItem struct {
+	ID      int64     `json:"id"`
+	At      time.Time `json:"at"`
+	Title   string    `json:"title"`
+	Artist  string    `json:"artist"`
+	Kind    string    `json:"kind"`
+	Hard    bool      `json:"hard"`
+	Playing bool      `json:"playing"`
+}
+
+func queueItem(it domain.LogItem, playing bool) QueueItem {
+	return QueueItem{ID: it.ID, At: it.At, Title: it.Title, Artist: it.Artist, Kind: string(it.Kind), Hard: it.Hard, Playing: playing}
+}
+
+// remoteCommand ejecuta una orden del control remoto del panel web.
+func (a *App) remoteCommand(kind, arg string) (string, error) {
+	ctx := context.Background()
+	switch kind {
+	case "next":
+		return "pasó a lo siguiente", a.OnAir.Next()
+	case "start":
+		return "automatización iniciada", a.OnAir.Start()
+	case "stop":
+		return "automatización detenida", a.OnAir.Stop()
+	case "mode":
+		m := domain.StudioMode(arg)
+		if !m.Valid() {
+			return "", fmt.Errorf("modo desconocido: %s", arg)
+		}
+		return "modo " + arg, a.OnAir.SetMode(m)
+	case "move":
+		f := strings.Fields(arg)
+		if len(f) != 2 {
+			return "", errors.New("movimiento inválido")
+		}
+		id, err1 := strconv.ParseInt(f[0], 10, 64)
+		delta, err2 := strconv.Atoi(f[1])
+		if err1 != nil || err2 != nil {
+			return "", errors.New("movimiento inválido")
+		}
+		return "elemento movido", a.Scheduler.Move(ctx, id, delta)
+	case "remove":
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return "", errors.New("elemento inválido")
+		}
+		return "elemento quitado", a.Scheduler.Remove(ctx, id)
+	case "tv":
+		s := a.Settings()
+		s.TV.Enabled = arg == "on"
+		if err := a.SaveSettings(s); err != nil {
+			return "", err
+		}
+		a.ApplyTV()
+		if s.TV.Enabled {
+			return "TV al aire", nil
+		}
+		return "TV apagada", nil
+	}
+	return "", fmt.Errorf("orden desconocida: %s", kind)
 }

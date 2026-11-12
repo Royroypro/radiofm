@@ -1,0 +1,82 @@
+{{/* Control remoto de la PC del estudio.
+     .Data: Freqs []domain.Frequency (con PC), Freq, State *domain.StudioState, Report domain.StudioReport,
+            Online bool, Alarms []domain.Alarm, Commands []domain.StudioCommand */}}
+{{define "content"}}
+{{$d := .Data}}
+{{if not $d.Freqs}}
+<p class="muted">Ninguna frecuencia tiene una PC del estudio conectada. Un administrador la configura en «Estudio (PC)».</p>
+{{else}}
+<meta http-equiv="refresh" content="15">
+{{if gt (len $d.Freqs) 1}}
+<p>{{range $d.Freqs}}<a class="btn btn-sm {{if ne .ID $d.Freq.ID}}btn-ghost{{end}}" href="/admin/control/{{.ID}}">{{.Label}} · {{.City}}</a> {{end}}</p>
+{{end}}
+{{$r := $d.Report}}{{$fid := $d.Freq.ID}}
+<section class="box">
+  <h2>{{$d.Freq.Label}} · {{$d.Freq.City}}
+    {{if $d.Online}}<span class="pill live">PC conectada</span>{{else}}<span class="pill">PC sin conexión</span>{{end}}
+    {{if $r.Running}}<span class="pill live">en marcha</span>{{else}}<span class="pill">detenida</span>{{end}}
+    <span class="pill">{{$d.State.Mode.Label}}</span></h2>
+  {{range $d.Alarms}}<div class="alert {{if eq .Level "critical"}}alert-error{{else}}alert-warn{{end}}">{{.Text}}</div>{{end}}
+  <p>Sonando: <strong>{{with $r.Now}}{{.}}{{else}}—{{end}}</strong>
+    {{with $r.NextBreak}}<span class="muted small"> · próxima tanda {{datetime .}}</span>{{end}}
+    {{with $d.State.LastSeen}}<span class="muted small"> · actualizado {{datetime .}}</span>{{end}}</p>
+
+  <div class="form-actions">
+    {{template "cmd" (dict "Fid" $fid "Kind" "next" "Arg" "" "Label" "⏭ Siguiente" "Class" "btn" "Root" $)}}
+    {{if $r.Running}}
+      {{template "cmd" (dict "Fid" $fid "Kind" "stop" "Arg" "" "Label" "■ Detener" "Class" "btn btn-danger" "Root" $ "Confirm" "¿Detener la automatización? La radio queda en silencio.")}}
+    {{else}}
+      {{template "cmd" (dict "Fid" $fid "Kind" "start" "Arg" "" "Label" "▶ Iniciar" "Class" "btn" "Root" $)}}
+    {{end}}
+    {{template "cmd" (dict "Fid" $fid "Kind" "mode" "Arg" "auto" "Label" "Automático" "Class" "btn btn-ghost" "Root" $)}}
+    {{template "cmd" (dict "Fid" $fid "Kind" "mode" "Arg" "assisted" "Label" "Asistido" "Class" "btn btn-ghost" "Root" $)}}
+    {{if $r.TV.Enabled}}
+      {{template "cmd" (dict "Fid" $fid "Kind" "tv" "Arg" "off" "Label" "Apagar TV" "Class" "btn btn-ghost" "Root" $)}}
+    {{else}}
+      {{template "cmd" (dict "Fid" $fid "Kind" "tv" "Arg" "on" "Label" "TV al aire" "Class" "btn btn-ghost" "Root" $)}}
+    {{end}}
+  </div>
+</section>
+
+<section class="box">
+  <h2>Lo que viene</h2>
+  {{if $r.Queue}}
+  <table>
+    <thead><tr><th>Hora</th><th>Título</th><th>Tipo</th><th></th></tr></thead>
+    <tbody>
+    {{range $r.Queue}}
+      <tr>
+        <td>{{timeHM .At}}{{if .Hard}} <span class="pill" title="Evento duro: entra a su hora">duro</span>{{end}}</td>
+        <td>{{if .Playing}}<span class="pill live">▶ sonando</span> {{end}}<strong>{{.Title}}</strong>{{with .Artist}}<div class="small muted">{{.}}</div>{{end}}</td>
+        <td class="small">{{.Kind}}</td>
+        <td class="actions">{{if not .Playing}}
+          {{template "cmd" (dict "Fid" $fid "Kind" "move" "Arg" (printf "%d -1" .ID) "Label" "↑" "Class" "btn btn-sm btn-ghost" "Root" $)}}
+          {{template "cmd" (dict "Fid" $fid "Kind" "move" "Arg" (printf "%d 1" .ID) "Label" "↓" "Class" "btn btn-sm btn-ghost" "Root" $)}}
+          {{template "cmd" (dict "Fid" $fid "Kind" "remove" "Arg" (printf "%d" .ID) "Label" "✕" "Class" "btn btn-sm btn-danger" "Root" $ "Confirm" (printf "¿Quitar «%s» de la playlist?" .Title))}}
+        {{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="muted">La PC todavía no informó su playlist (necesita Club25 Estudio 1.10 o posterior).</p>{{end}}
+</section>
+
+{{with $d.Commands}}
+<section class="box">
+  <h2>Últimas órdenes</h2>
+  <table class="small">
+    <thead><tr><th>Enviada</th><th>Orden</th><th>Por</th><th>Resultado</th></tr></thead>
+    <tbody>{{range .}}<tr><td>{{datetime .CreatedAt}}</td><td>{{.Label}}</td><td>{{.CreatedBy}}</td>
+      <td>{{if .DoneAt}}{{if .OK}}✔ {{.Result}}{{else}}<span class="error">✖ {{.Result}}</span>{{end}}
+          {{else if .TakenAt}}<span class="muted">vencida o en curso</span>{{else}}<span class="muted">esperando a la PC…</span>{{end}}</td></tr>{{end}}</tbody>
+  </table>
+</section>
+{{end}}
+<p class="small muted">La página se actualiza sola cada 15 s. Las órdenes que la PC no recibe en 2 minutos se descartan
+  (por ejemplo, si estaba sin internet), para que no se ejecuten tarde.</p>
+{{end}}
+{{end}}
+
+{{define "cmd"}}<form method="post" action="/admin/control/{{.Fid}}" class="inline" {{with .Confirm}}data-confirm="{{.}}"{{end}}>
+  {{template "csrf" .Root}}<input type="hidden" name="kind" value="{{.Kind}}"><input type="hidden" name="arg" value="{{.Arg}}">
+  <button class="{{.Class}}" type="submit">{{.Label}}</button></form>{{end}}

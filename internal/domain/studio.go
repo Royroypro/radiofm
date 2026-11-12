@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -179,8 +180,149 @@ type StudioState struct {
 	Version        string
 	Mode           StudioMode
 	EncoderJSON    string
+	StatusJSON     string // estado completo de la PC (StudioReport en JSON)
 	NowPlaying     *NowPlaying
 	NowPlayingAt   *time.Time
+}
+
+// StudioReport es el estado que envía la PC en cada heartbeat (ver Club25
+// Estudio, app.StudioStatus). Todos los campos son opcionales.
+type StudioReport struct {
+	Queue      []QueueItem `json:"queue"` // lo que suena y lo que viene (hasta 15)
+	Running    bool        `json:"running"`
+	Waiting    bool        `json:"waiting"`
+	Now        string      `json:"now"`
+	NextBreak  *time.Time  `json:"next_break"`
+	LeftToday  int         `json:"left_today_s"`
+	SilenceFor int         `json:"silence_for_s"`
+	AudioError string      `json:"audio_error"`
+	Warnings   []string    `json:"warnings"`
+	Web        struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"web"`
+	TV struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"tv"`
+	Logger struct {
+		Enabled   bool   `json:"enabled"`
+		Recording bool   `json:"recording"`
+		Error     string `json:"error"`
+	} `json:"logger"`
+	RDS struct {
+		Enabled   bool   `json:"enabled"`
+		Connected bool   `json:"connected"`
+		Error     string `json:"error"`
+	} `json:"rds"`
+	Update struct {
+		Latest    string `json:"latest"`
+		Available bool   `json:"available"`
+	} `json:"update"`
+	BackupAt *time.Time `json:"backup_at"`
+}
+
+// QueueItem es un elemento de la playlist de la PC (para el control remoto).
+type QueueItem struct {
+	ID      int64     `json:"id"`
+	At      time.Time `json:"at"`
+	Title   string    `json:"title"`
+	Artist  string    `json:"artist"`
+	Kind    string    `json:"kind"`
+	Hard    bool      `json:"hard"`
+	Playing bool      `json:"playing"`
+}
+
+// Report devuelve el estado completo de la PC (vacío si nunca lo envió).
+func (s StudioState) Report() StudioReport {
+	var r StudioReport
+	if s.StatusJSON != "" {
+		_ = json.Unmarshal([]byte(s.StatusJSON), &r)
+	}
+	return r
+}
+
+// AlarmLevel es la gravedad de una alarma.
+type AlarmLevel string
+
+const (
+	AlarmCritical AlarmLevel = "critical" // el aire está en riesgo
+	AlarmWarning  AlarmLevel = "warning"  // algo no anda, pero el aire sigue
+)
+
+// Alarm es un problema de la PC del estudio para el panel.
+type Alarm struct {
+	Level AlarmLevel
+	Text  string
+}
+
+// Alarms arma las alarmas de la PC a partir de su última señal. online es el
+// máximo sin señal para considerarla conectada. hasPC = la frecuencia tiene token.
+func (s StudioState) Alarms(now time.Time, online time.Duration) []Alarm {
+	if !s.HasToken() {
+		return nil
+	}
+	var out []Alarm
+	add := func(l AlarmLevel, t string) { out = append(out, Alarm{l, t}) }
+	if s.LastSeen == nil {
+		return []Alarm{{AlarmWarning, "La PC todavía no se conectó"}}
+	}
+	if !s.Online(now, online) {
+		add(AlarmCritical, "Sin señal de la PC desde "+s.LastSeen.Local().Format("02/01 15:04")+
+			" (apagada, sin internet o el programa cerrado)")
+		return out
+	}
+	r := s.Report()
+	if s.StatusJSON == "" || s.StatusJSON == "{}" {
+		return out // PC con versión anterior: solo se sabe si está conectada
+	}
+	if !r.Running && s.Mode != StudioLive {
+		add(AlarmCritical, "La automatización está detenida")
+	}
+	if r.SilenceFor >= 20 {
+		add(AlarmCritical, "Silencio al aire hace "+humanSecs(r.SilenceFor))
+	}
+	if r.AudioError != "" {
+		add(AlarmCritical, "Audio: "+r.AudioError)
+	}
+	if r.Running && r.LeftToday < 30*60 {
+		add(AlarmWarning, "Queda poca playlist hoy ("+humanSecs(r.LeftToday)+"): revise la parrilla")
+	}
+	if r.Web.Enabled && !r.Web.Connected {
+		add(AlarmWarning, "La radio no llega a la web"+suffix(r.Web.Error))
+	}
+	if r.TV.Enabled && !r.TV.Connected {
+		add(AlarmWarning, "La TV no llega a la web"+suffix(r.TV.Error))
+	}
+	if r.Logger.Enabled && !r.Logger.Recording {
+		add(AlarmWarning, "El grabador de la emisión no está grabando"+suffix(r.Logger.Error))
+	}
+	if r.RDS.Enabled && !r.RDS.Connected {
+		add(AlarmWarning, "RDS sin conexión"+suffix(r.RDS.Error))
+	}
+	if r.BackupAt == nil || now.Sub(*r.BackupAt) > 48*time.Hour {
+		add(AlarmWarning, "Sin respaldo de la base del Estudio en el servidor hace más de 2 días")
+	}
+	return out
+}
+
+func suffix(s string) string {
+	if s == "" {
+		return ""
+	}
+	return ": " + s
+}
+
+func humanSecs(n int) string {
+	switch {
+	case n < 120:
+		return fmt.Sprintf("%d s", n)
+	case n < 2*3600:
+		return fmt.Sprintf("%d min", n/60)
+	}
+	return fmt.Sprintf("%d h %02d min", n/3600, n%3600/60)
 }
 
 // HasToken indica si hay un token generado.
@@ -199,8 +341,64 @@ type StudioRepository interface {
 	// FindToken devuelve la frecuencia del token con ese hash (ErrNotFound si no hay).
 	FindToken(ctx context.Context, hash string) (int64, error)
 	SetToken(ctx context.Context, frequencyID int64, hash string, at time.Time) error // hash "" revoca
-	Heartbeat(ctx context.Context, frequencyID int64, at time.Time, version string, mode StudioMode, encoderJSON string) error
+	Heartbeat(ctx context.Context, frequencyID int64, at time.Time, version string, mode StudioMode, encoderJSON, statusJSON string) error
 	SetNowPlaying(ctx context.Context, frequencyID int64, np NowPlaying, at time.Time) error
+
+	// Control remoto (órdenes del panel a la PC).
+	AddCommand(ctx context.Context, c *StudioCommand) error
+	// TakeCommands devuelve las órdenes sin tomar creadas desde since y las marca tomadas.
+	TakeCommands(ctx context.Context, frequencyID int64, since, at time.Time) ([]StudioCommand, error)
+	FinishCommand(ctx context.Context, frequencyID, id int64, ok bool, result string, at time.Time) error
+	RecentCommands(ctx context.Context, frequencyID int64, limit int) ([]StudioCommand, error)
+}
+
+// Órdenes de control remoto que entiende la PC del estudio.
+const (
+	CmdNext   = "next"   // pasar a lo siguiente
+	CmdStart  = "start"  // iniciar la automatización
+	CmdStop   = "stop"   // detenerla
+	CmdMode   = "mode"   // Arg: auto | assisted | live
+	CmdMove   = "move"   // Arg: "<id del elemento> <-1|1>"
+	CmdRemove = "remove" // Arg: id del elemento
+	CmdTV     = "tv"     // Arg: on | off
+)
+
+// StudioCommand es una orden del panel a la PC del estudio.
+type StudioCommand struct {
+	ID          int64      `json:"id"`
+	FrequencyID int64      `json:"-"`
+	Kind        string     `json:"kind"`
+	Arg         string     `json:"arg"`
+	CreatedAt   time.Time  `json:"created_at"`
+	CreatedBy   string     `json:"-"`
+	TakenAt     *time.Time `json:"-"`
+	DoneAt      *time.Time `json:"-"`
+	OK          bool       `json:"-"`
+	Result      string     `json:"-"`
+}
+
+// Label describe la orden para el panel.
+func (c StudioCommand) Label() string {
+	switch c.Kind {
+	case CmdNext:
+		return "Siguiente"
+	case CmdStart:
+		return "Iniciar"
+	case CmdStop:
+		return "Detener"
+	case CmdMode:
+		return "Modo " + StudioMode(c.Arg).Label()
+	case CmdMove:
+		return "Mover elemento"
+	case CmdRemove:
+		return "Quitar elemento"
+	case CmdTV:
+		if c.Arg == "on" {
+			return "TV al aire"
+		}
+		return "Apagar TV"
+	}
+	return c.Kind
 }
 
 // ---------- Tráfico: anunciantes y campañas ----------

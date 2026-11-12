@@ -132,6 +132,9 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/heartbeat", stu.Heartbeat)
 		r.Post("/nowplaying", stu.NowPlaying)
 		r.Post("/airplays", stu.Airplays)
+		r.Post("/backup", stu.Backup)
+		r.Get("/commands", stu.Commands)
+		r.Post("/commands/{id}/done", stu.CommandDone)
 	})
 
 	// --- Panel admin (editor o superior) ---
@@ -182,6 +185,10 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/programs/{id}", adm.ProgramEdit)
 		r.Post("/programs/{id}", adm.ProgramSave)
 		r.Post("/programs/{id}/delete", adm.ProgramDelete)
+
+		r.Get("/control", adm.ControlPage)
+		r.Get("/control/{fid}", adm.ControlPage)
+		r.Post("/control/{fid}", adm.ControlCommand)
 
 		// Solo admin o superadmin
 		r.Group(func(r chi.Router) {

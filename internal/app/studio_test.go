@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -174,6 +175,65 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	}
 	if _, list := e.get("/admin/studio"); !strings.Contains(list, "PC conectada") || !strings.Contains(list, "Motor y motivo") {
 		t.Fatal("el panel debe mostrar la PC conectada y lo que suena")
+	}
+
+	// estado completo con un problema: alarmas en la página del estudio, el resumen y el control remoto
+	if code, body, _ := e.studioReq(http.MethodPost, "/api/studio/heartbeat", token,
+		`{"version":"1.10.0","mode":"auto","encoder":{},"status":{"running":true,"silence_for_s":60,"left_today_s":40000,`+
+			`"queue":[{"id":41,"at":"2026-11-11T15:00:00Z","title":"Motor y motivo","artist":"Grupo 5","kind":"category","playing":true},`+
+			`{"id":42,"at":"2026-11-11T15:03:30Z","title":"Tanda de cuñas","kind":"spots","hard":true}]}}`); code != http.StatusOK {
+		t.Fatalf("heartbeat con estado = %d %s", code, body)
+	}
+	for _, p := range []string{"/admin/studio", "/admin", "/admin/control"} {
+		if code, page := e.get(p); code != http.StatusOK || !strings.Contains(page, "Silencio al aire hace 60 s") {
+			t.Fatalf("%s debe mostrar la alarma de silencio (%d)", p, code)
+		}
+	}
+	if _, page := e.get("/admin/control/1"); !strings.Contains(page, "Tanda de cuñas") || !strings.Contains(page, "▶ sonando") {
+		t.Fatal("el control remoto debe mostrar lo que viene")
+	}
+	// orden del panel → la PC la toma una vez y responde
+	if code, _ := e.post("/admin/control/1", url.Values{"kind": {"remove"}, "arg": {"42"}}); code != http.StatusSeeOther {
+		t.Fatalf("enviar orden = %d", code)
+	}
+	if code, _ := e.post("/admin/control/1", url.Values{"kind": {"borrar-todo"}}); code != http.StatusSeeOther {
+		t.Fatalf("orden inválida debe volver con error = %d", code)
+	}
+	code, body, _ = e.studioReq(http.MethodGet, "/api/studio/commands", token, "")
+	var cmds struct {
+		Commands []struct {
+			ID   int64  `json:"id"`
+			Kind string `json:"kind"`
+			Arg  string `json:"arg"`
+		} `json:"commands"`
+	}
+	if code != http.StatusOK || json.Unmarshal([]byte(body), &cmds) != nil || len(cmds.Commands) != 1 ||
+		cmds.Commands[0].Kind != "remove" || cmds.Commands[0].Arg != "42" {
+		t.Fatalf("órdenes = %d %s", code, body)
+	}
+	if _, body, _ := e.studioReq(http.MethodGet, "/api/studio/commands", token, ""); strings.Contains(body, `"remove"`) {
+		t.Fatal("una orden se entrega una sola vez")
+	}
+	if code, _, _ := e.studioReq(http.MethodPost, "/api/studio/commands/"+strconv.FormatInt(cmds.Commands[0].ID, 10)+"/done", token,
+		`{"ok":true,"result":"elemento quitado"}`); code != http.StatusNoContent {
+		t.Fatalf("respuesta de la orden = %d", code)
+	}
+	if _, page := e.get("/admin/control/1"); !strings.Contains(page, "elemento quitado") {
+		t.Fatal("el panel debe mostrar el resultado de la orden")
+	}
+	// respaldo de la base de la PC
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	_, _ = zw.Write([]byte(strings.Repeat("SQLite format 3 ", 100)))
+	_ = zw.Close()
+	breq, _ := http.NewRequest(http.MethodPost, e.srv.URL+"/api/studio/backup", bytes.NewReader(gz.Bytes()))
+	breq.Header.Set("Authorization", "Bearer "+token)
+	breq.Header.Set("X-Backup-Name", "estudio-20261111.db")
+	if res, err := http.DefaultClient.Do(breq); err != nil || res.StatusCode != http.StatusNoContent {
+		t.Fatalf("respaldo = %v %v", res, err)
+	}
+	if _, page := e.get("/admin/studio"); !strings.Contains(page, "estudio-20261111.db.gz") {
+		t.Fatal("el panel debe listar las copias guardadas")
 	}
 
 	// bloqueo total: la API responde 503
