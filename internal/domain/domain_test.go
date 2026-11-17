@@ -97,6 +97,7 @@ func TestProgramIsOnAir(t *testing.T) {
 func TestSiteSettingsRoundTrip(t *testing.T) {
 	s := DefaultSiteSettings()
 	s.SiteName, s.TVEnabled, s.PrerollIntervalMin, s.Phone = "Otra Radio", false, 15, "+51 1 234"
+	s.AppNotice, s.AppMinVersion, s.AppPrivacyURL = "Aviso", 7, "https://radio.pe/privacidad"
 	got := SiteSettingsFromMap(s.ToMap())
 	if got != s {
 		t.Fatalf("la conversión ida y vuelta cambió los ajustes:\n%+v\n%+v", got, s)

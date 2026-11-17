@@ -43,6 +43,7 @@ web/static/              css/site.css (web), css/panel.css (paneles), js/site.js
 deploy/                  mediamtx.yml, icecast.xml, nginx/
 docs/                    documentación (ver README)
 estudio/                 programa de Windows "Club25 Estudio" (módulo Go aparte; ver estudio/AGENTS.md)
+android/                 app Android (Kotlin + Media3); lee /api/app/config y /api/status (ver android/README.md)
 ```
 
 ## Integración con la PC del estudio

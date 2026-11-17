@@ -53,6 +53,13 @@ type SiteSettings struct {
 
 	// Publicidad
 	PrerollIntervalMin int // minutos mínimos entre dos pre-roll/cuñas para el mismo oyente
+
+	// App Android (los lee /api/app/config al abrir la app)
+	AppNotice       string // aviso que la app muestra arriba (vacío = ninguno)
+	AppNoticeURL    string // enlace opcional del aviso
+	AppMinVersion   int    // versionCode mínimo; las versiones anteriores piden actualizar (0 = sin mínimo)
+	AppPlayStoreURL string // ficha de la app en Google Play (para «Actualizar» y «Compartir»)
+	AppPrivacyURL   string // política de privacidad (la pide Google Play)
 }
 
 // settingKeys enumera las claves en el orden en que se guardan.
@@ -63,6 +70,7 @@ var settingKeys = []string{
 	"facebook", "instagram", "tiktok", "youtube", "x",
 	"radio_enabled", "tv_enabled", "radio_stream_url", "tv_stream_url", "tv_publish_user", "tv_publish_pass",
 	"preroll_interval_min",
+	"app_notice", "app_notice_url", "app_min_version", "app_play_store_url", "app_privacy_url",
 }
 
 // DefaultSiteSettings devuelve los valores iniciales (marca provisional Radio Club 25).
@@ -102,6 +110,9 @@ func (s SiteSettings) ToMap() map[string]string {
 		"radio_stream_url": s.RadioStreamURL, "tv_stream_url": s.TVStreamURL,
 		"tv_publish_user": s.TVPublishUser, "tv_publish_pass": s.TVPublishPass,
 		"preroll_interval_min": strconv.Itoa(s.PrerollIntervalMin),
+		"app_notice":           s.AppNotice, "app_notice_url": s.AppNoticeURL,
+		"app_min_version":    strconv.Itoa(s.AppMinVersion),
+		"app_play_store_url": s.AppPlayStoreURL, "app_privacy_url": s.AppPrivacyURL,
 	}
 }
 
@@ -155,6 +166,15 @@ func SiteSettingsFromMap(m map[string]string) SiteSettings {
 			s.PrerollIntervalMin = n
 		}
 	}
+	str("app_notice", &s.AppNotice)
+	str("app_notice_url", &s.AppNoticeURL)
+	if v, ok := m["app_min_version"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			s.AppMinVersion = n
+		}
+	}
+	str("app_play_store_url", &s.AppPlayStoreURL)
+	str("app_privacy_url", &s.AppPrivacyURL)
 	return s
 }
 

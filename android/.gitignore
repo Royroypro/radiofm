@@ -1,0 +1,18 @@
+# Compilación y estado local de Gradle / Android Studio
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Firma de release: NUNCA al repositorio
+keystore.properties
+*.jks
+*.keystore
+
+# El .gitignore raíz ignora data/ (datos del servidor); aquí es un paquete de código.
+!app/src/**/data/

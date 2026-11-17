@@ -93,6 +93,30 @@
       {{with .FieldError "preroll_interval_min"}}<span class="err">{{.}}</span>{{end}}</label>
   </fieldset>
 
+  <fieldset class="box">
+    <legend>App Android</legend>
+    <p class="hint small">La app toma de aquí y de <a href="/admin/frequencies">Frecuencias</a> y
+      <a href="/admin/streams">Streams</a> su nombre, logo, colores, radios y TV cada vez que se abre:
+      no hace falta publicar una versión nueva. Consulta: <code>/api/app/config</code>.</p>
+    <label class="{{if .FieldError "app_notice"}}has-error{{end}}">Aviso en la app <span class="hint">opcional; se muestra arriba (vacío = ninguno)</span>
+      <input type="text" name="app_notice" value="{{$s.AppNotice}}" maxlength="300" placeholder="¡Escucha la transmisión especial del sábado!">
+      {{with .FieldError "app_notice"}}<span class="err">{{.}}</span>{{end}}</label>
+    <div class="grid grid-2">
+      <label class="{{if .FieldError "app_notice_url"}}has-error{{end}}">Enlace del aviso <span class="hint">opcional</span>
+        <input type="url" name="app_notice_url" value="{{$s.AppNoticeURL}}" placeholder="https://...">
+        {{with .FieldError "app_notice_url"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_min_version"}}has-error{{end}}">Versión mínima <span class="hint">número de versión (versionCode); 0 = sin mínimo</span>
+        <input type="number" name="app_min_version" min="0" value="{{$s.AppMinVersion}}" style="max-width:160px">
+        {{with .FieldError "app_min_version"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_play_store_url"}}has-error{{end}}">Enlace en Google Play
+        <input type="url" name="app_play_store_url" value="{{$s.AppPlayStoreURL}}" placeholder="https://play.google.com/store/apps/details?id=...">
+        {{with .FieldError "app_play_store_url"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_privacy_url"}}has-error{{end}}">Política de privacidad <span class="hint">la pide Google Play</span>
+        <input type="url" name="app_privacy_url" value="{{$s.AppPrivacyURL}}" placeholder="https://.../privacidad">
+        {{with .FieldError "app_privacy_url"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
+  </fieldset>
+
   <div class="form-actions"><button class="btn" type="submit">Guardar ajustes</button></div>
 </form>
 {{end}}

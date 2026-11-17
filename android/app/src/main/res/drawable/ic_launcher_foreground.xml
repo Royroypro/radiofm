@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Isotipo provisional de Club 25 (basado en web/static/img/brand/isotipo.svg). Zona segura: 66 de 108. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="24" android:translateY="24" android:scaleX="0.5" android:scaleY="0.5">
+        <path android:fillColor="#FF1E1E"
+            android:pathData="M62,14 C88,16 108,40 106,66 C104,92 82,106 62,104 C42,102 30,86 31,64 C32,40 40,13 62,14 Z" />
+        <group android:pivotX="60" android:pivotY="60" android:rotation="-24">
+            <path android:strokeColor="#FF1E1E" android:strokeWidth="4" android:fillColor="#00000000"
+                android:pathData="M8,60 A52,10 0 1,0 112,60 A52,10 0 1,0 8,60 Z" />
+        </group>
+        <!-- "2" -->
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="9" android:fillColor="#00000000"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M26,52 C28,40 50,38 52,50 C54,60 40,68 24,86 L54,86" />
+        <!-- "5" -->
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="9" android:fillColor="#00000000"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M94,42 L72,42 L68,62 C80,56 96,60 95,73 C94,88 74,90 66,82" />
+    </group>
+</vector>

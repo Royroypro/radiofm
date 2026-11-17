@@ -11,7 +11,7 @@ Todas se registran en `internal/transport/httpserver/router.go`.
 | GET | `/contacto` | datos de contacto y mapa |
 | GET | `/ad/click/{id}` | registra clic y redirige al anunciante |
 
-## API JSON (usada por `web/static/js/site.js`, sin CSRF)
+## API JSON (usada por `web/static/js/site.js` y la app Android de `android/`, sin CSRF)
 
 ### `GET /api/status`
 ```json
@@ -45,6 +45,38 @@ suena hace menos de 2 minutos, su `title` es ese título (ver API del estudio).
 Cuerpo JSON (acepta `text/plain` para `navigator.sendBeacon`):
 `{"ad_id": 3, "type": "impression" | "complete" | "skip"}` → `204`.
 Los clics se registran solo en `/ad/click/{id}`.
+
+### `GET /api/app/config`
+Configuración de la app Android (`android/`). Pública y de solo lectura; la app la pide cada vez
+que se abre, así un cambio en el panel se ve sin publicar una versión nueva. Sale de Admin →
+Marca y contacto (incluida la sección «App Android»), Admin → Streams y Admin → Frecuencias.
+Handler: `public.APIAppConfig`.
+```json
+{
+  "name": "Radio Club 25", "slogan": "La música que va contigo", "about": "…",
+  "categories": ["Música", "Noticias"],
+  "logo_url": "/static/img/brand/logo.svg", "icon_url": "/static/img/brand/isotipo.svg",
+  "colors": {"navy": "#0A1A6B", "royal": "#223CB8", "red": "#FF1E1E", "orange": "#FF961E"},
+  "radio_enabled": true,
+  "stations": [
+    {"id": 1, "label": "93.3 FM", "city": "Huacho", "listen_url": "/radio", "external": false},
+    {"id": 3, "label": "105.4 FM", "city": "Huaral", "listen_url": "https://stream.ejemplo.pe/huaral", "external": true}
+  ],
+  "tv": {"enabled": true, "hls_url": "/hls/tv/index.m3u8"},
+  "contact": {"phone": "", "whatsapp": "", "email": "", "address": "", "office_hours": ""},
+  "social": {"facebook": "", "instagram": "", "tiktok": "", "youtube": "", "x": ""},
+  "app": {"notice": "", "notice_url": "", "min_version": 0, "play_store_url": "", "privacy_url": ""},
+  "status_url": "/api/status"
+}
+```
+- Las URL relativas se resuelven contra la URL base con la que se compiló la app; las externas
+  vienen completas.
+- `stations`: frecuencias activas en orden (la primera es la principal); vacía si la radio está
+  apagada en Streams. El `id` coincide con el de `stations` en `/api/status`.
+- `tv.enabled` es falso si la TV está apagada en Streams o el plan no incluye TV.
+- `app.min_version`: `versionCode` mínimo; una app más antigua pide actualizar (0 = sin mínimo).
+- El estado en vivo (al aire, oyentes, lo que suena) no va aquí: está en `/api/status`.
+- Cabecera `Cache-Control: no-cache`. Con bloqueo total responde `503 {"error":"suspended"}`.
 
 ## API del estudio (`/api/studio/*`, la usa la PC con Club25 Estudio)
 

@@ -110,7 +110,8 @@ func RandomKey() string {
 func validate(v *domain.SiteSettings) error {
 	trim := func(p *string) { *p = strings.TrimSpace(*p) }
 	for _, p := range []*string{&v.SiteName, &v.Frequency, &v.Slogan, &v.Email, &v.Phone, &v.WhatsApp,
-		&v.ColorNavy, &v.ColorRoyal, &v.ColorRed, &v.ColorOrange, &v.TVPublishUser, &v.TVPublishPass} {
+		&v.ColorNavy, &v.ColorRoyal, &v.ColorRed, &v.ColorOrange, &v.TVPublishUser, &v.TVPublishPass,
+		&v.AppNotice, &v.AppNoticeURL, &v.AppPlayStoreURL, &v.AppPrivacyURL} {
 		trim(p)
 	}
 	if v.SiteName == "" {
@@ -128,7 +129,8 @@ func validate(v *domain.SiteSettings) error {
 		}
 	}
 	for field, u := range map[string]string{"facebook": v.Facebook, "instagram": v.Instagram, "tiktok": v.TikTok,
-		"youtube": v.YouTube, "x": v.X, "map_url": v.MapURL} {
+		"youtube": v.YouTube, "x": v.X, "map_url": v.MapURL, "app_notice_url": v.AppNoticeURL,
+		"app_play_store_url": v.AppPlayStoreURL, "app_privacy_url": v.AppPrivacyURL} {
 		if u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
 			return domain.Invalid(field, "El enlace debe empezar con https://")
 		}
@@ -141,6 +143,12 @@ func validate(v *domain.SiteSettings) error {
 	}
 	if v.PrerollIntervalMin < 0 || v.PrerollIntervalMin > 1440 {
 		return domain.Invalid("preroll_interval_min", "Debe estar entre 0 y 1440 minutos")
+	}
+	if len([]rune(v.AppNotice)) > 300 {
+		return domain.Invalid("app_notice", "El aviso de la app admite hasta 300 caracteres")
+	}
+	if v.AppMinVersion < 0 || v.AppMinVersion > 2100000000 {
+		return domain.Invalid("app_min_version", "Versión mínima inválida (número de versión de la app, 0 = sin mínimo)")
 	}
 	return nil
 }

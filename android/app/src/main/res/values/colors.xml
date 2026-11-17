@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores de arranque; luego la app usa los de Admin → Marca y contacto. -->
+    <color name="brand_navy">#0A1A6B</color>
+    <color name="brand_royal">#223CB8</color>
+</resources>

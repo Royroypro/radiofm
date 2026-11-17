@@ -118,6 +118,7 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/programacion", pub.Schedule)
 		r.Get("/contacto", pub.Contact)
 		r.Get("/api/status", pub.APIStatus)
+		r.Get("/api/app/config", pub.APIAppConfig)
 		r.Get("/api/ads/preroll", pub.APIPreroll)
 		r.Post("/api/ads/event", pub.APIEvent)
 		r.Get("/ad/click/{id}", pub.AdClick)

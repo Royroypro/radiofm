@@ -59,6 +59,11 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	s.YouTube = form.String(r, "youtube")
 	s.X = form.String(r, "x")
 	s.PrerollIntervalMin = form.Int(r, "preroll_interval_min")
+	s.AppNotice = form.String(r, "app_notice")
+	s.AppNoticeURL = form.String(r, "app_notice_url")
+	s.AppMinVersion = form.Int(r, "app_min_version")
+	s.AppPlayStoreURL = form.String(r, "app_play_store_url")
+	s.AppPrivacyURL = form.String(r, "app_privacy_url")
 
 	for field, dst := range map[string]*string{"logo_file": &s.LogoURL, "favicon_file": &s.FaviconURL, "hero_file": &s.HeroImageURL} {
 		url, err := h.upload(r, field, storage.KindImage, "brand")

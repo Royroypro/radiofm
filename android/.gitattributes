@@ -1,0 +1,3 @@
+# gradlew.bat necesita CRLF en Windows
+gradlew.bat text eol=crlf
+*.jar binary
