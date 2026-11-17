@@ -136,6 +136,9 @@ firmar (sirve para comprobar que compila, no para subirlo).
 
 ## Publicar en Google Play
 
+Guía detallada para el dueño de la app: **[GOOGLE-PLAY.md](GOOGLE-PLAY.md)**. Resumen:
+
+
 1. **Cuenta de desarrollador** en <https://play.google.com/console> (pago único). Las cuentas
    personales nuevas deben hacer una **prueba cerrada con al menos 12 testers durante 14 días**
    antes de poder pasar a producción; las cuentas de organización no (requieren número D-U-N-S).
@@ -180,15 +183,16 @@ Antes de la primera publicación (lo decide o hace el dueño de la app):
 - [x] `applicationId` confirmado: `pe.club25peru.radio`.
 - [x] Dominio de release confirmado: `https://radioclub25peru.com`.
 - [ ] **Generar la clave de subida** y `keystore.properties` (sección «Release», paso 1). No se generó.
-- [x] Política de privacidad publicada en `/privacidad` (la app la usa si el panel no indica otra).
-- [ ] **Desplegar el servidor** con `GET /api/app/config` (la app no carga sin ese endpoint).
-- [ ] Cuenta de Google Play, ficha, capturas, video del servicio en primer plano y prueba cerrada
-  (sección «Publicar en Google Play»).
+- [x] Servidor desplegado con `GET /api/app/config` y `/privacidad` (2026-11-17).
+- [ ] Cuenta de Google Play, ficha, formularios de contenido, video del servicio en primer plano,
+  prueba cerrada y producción: paso a paso en **[GOOGLE-PLAY.md](GOOGLE-PLAY.md)**. Ícono, gráfico
+  y capturas provisionales en [`play/`](play/).
 
 Ideas y faltas conocidas:
 
-- La TV solo se probó en estado «Fuera del aire» (en local no hay MediaMTX); pruébela con la señal
-  real (`make up` + `make simulate`) antes de publicar.
+- La TV y la radio solo se probaron «Fuera del aire» contra producción (2026-11-17). Pruébelas
+  mientras se transmite: `./gradlew assembleDebug -Pclub25.serverUrl.debug=https://radioclub25peru.com`
+  e instale el APK en un teléfono.
 - Ícono: el de la app es una versión vectorial del isotipo provisional
   (`app/src/main/res/drawable/ic_launcher_foreground.xml`); reemplácelo por el definitivo.
 - Android Auto, Chromecast y programación semanal en la app no están incluidos.
