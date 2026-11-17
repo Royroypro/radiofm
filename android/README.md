@@ -4,6 +4,11 @@ App de la radio para Android: reproductor de cada frecuencia activa (audio en se
 controles en la notificación y en la pantalla de bloqueo), TV en vivo (HLS) a pantalla completa,
 estado «En vivo / Fuera del aire» y la marca de la radio (logo, colores, aviso).
 
+**Espectro de audio** como el de la web (`site.js` §8): detrás del logo y en la tarjeta de la
+frecuencia que suena. En reposo se simula; con la radio sonando usa el audio real, tomado del
+propio reproductor (`TeeAudioProcessor` + FFT), así que funciona también con frecuencias externas
+y **no pide permiso de micrófono**. Si el teléfono tiene las animaciones desactivadas, se queda quieto.
+
 **Se configura desde el panel admin de la web, sin publicar versiones nuevas.** Cada vez que se
 abre (o vuelve a primer plano) la app pide `GET /api/app/config` al servidor radiofm y, mientras
 está visible, `GET /api/status` cada 15 s. Contrato de ambos en [`docs/api.md`](../docs/api.md).
@@ -43,10 +48,12 @@ android/
     data/Models.kt              lectura de /api/app/config y /api/status
     data/ServerApi.kt           HTTP + caché de la configuración
     playback/PlaybackService.kt reproductor de radio en segundo plano (MediaSessionService)
+    playback/Spectrum.kt        análisis del audio que suena (FFT) para el espectro
     ui/MainActivity.kt          pantalla principal; controla el servicio con MediaController
     ui/HomeScreen.kt            interfaz (Compose)
     ui/HomeViewModel.kt         pide configuración y estado
     ui/TvActivity.kt            TV en vivo a pantalla completa
+    ui/SpectrumView.kt          espectro de audio animado, como el de la web
   app/src/test/                 tests de JVM (lectura del JSON)
   app/src/debug/                permite http (solo depuración) y otro nombre: «Club25 (dev)»
 ```

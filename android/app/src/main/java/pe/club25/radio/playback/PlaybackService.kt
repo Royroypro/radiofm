@@ -1,10 +1,17 @@
 package pe.club25.radio.playback
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import pe.club25.radio.ui.MainActivity
@@ -13,14 +20,23 @@ import pe.club25.radio.ui.MainActivity
  * Servicio de reproducción de la radio. Media3 lo pone en primer plano
  * (tipo mediaPlayback) mientras suena y muestra la notificación con controles,
  * que también aparecen en la pantalla de bloqueo y en dispositivos Bluetooth.
- * La pantalla principal lo controla con un MediaController.
+ * La pantalla principal lo controla con un MediaController. El audio pasa por
+ * [SpectrumAnalyzer] para dibujar el espectro en la pantalla.
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
+        // Salida de audio con el analizador del espectro (deja pasar el sonido sin cambios).
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink =
+                DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf<AudioProcessor>(TeeAudioProcessor(SpectrumAnalyzer())))
+                    .build()
+        }
+        val player = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
                 /* handleAudioFocus = */ true, // se pausa si otra app (o la TV) toma el audio

@@ -57,6 +57,10 @@ android {
         }
     }
 
+    testOptions {
+        // Los tests de JVM usan clases de Android solo de paso (SystemClock): devuelven 0.
+        unitTests.isReturnDefaultValues = true
+    }
     buildFeatures {
         compose = true
         buildConfig = true

@@ -97,7 +97,7 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { Header(cfg) }
+            item { Header(cfg, playing = player.playing && !player.error) }
             if (ui.error != null && ui.fromCache) {
                 item { Text("Sin conexión: se muestran los últimos datos guardados.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f)) }
             }
@@ -144,8 +144,22 @@ private fun NoConfig(ui: HomeUi, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun Header(cfg: AppConfig) {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+private fun Header(cfg: AppConfig, playing: Boolean) {
+    // Detrás del logo, el espectro de audio como en la portada de la web.
+    Box(Modifier.fillMaxWidth()) {
+        AudioSpectrum(
+            playing = playing,
+            red = MaterialTheme.colorScheme.primary,
+            orange = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.matchParentSize(),
+        )
+        HeaderContent(cfg)
+    }
+}
+
+@Composable
+private fun HeaderContent(cfg: AppConfig) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (cfg.logoUrl.isNotBlank()) {
             AsyncImage(
                 model = cfg.logoUrl,
@@ -210,40 +224,53 @@ private fun StationCard(st: Station, status: LiveStatus?, player: PlayerUi, onTo
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                LiveBadge(online)
-                Spacer(Modifier.height(4.dp))
-                Text(st.label, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
-                if (st.city.isNotBlank()) Text(st.city, color = Color.White.copy(alpha = .8f))
-                val line = when {
-                    s?.title?.isNotBlank() == true -> "♪ " + s.title
-                    s?.program?.isNotBlank() == true -> s.program
-                    else -> ""
-                }
-                if (line.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(line, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                }
-                s?.listeners?.takeIf { it > 0 }?.let {
-                    Text(if (it == 1) "1 oyente" else "$it oyentes", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f))
-                }
-                if (current && player.error) {
-                    Text("No se pudo reproducir. Toque para reintentar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                }
+        Box {
+            // Mientras suena esta frecuencia, su espectro al fondo de la tarjeta.
+            if (playing) {
+                AudioSpectrum(
+                    playing = true,
+                    red = MaterialTheme.colorScheme.primary,
+                    orange = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.matchParentSize(),
+                    barWidth = 16.dp,
+                    alpha = 0.45f,
+                )
             }
-            Spacer(Modifier.width(12.dp))
-            Box(contentAlignment = Alignment.Center) {
-                FilledIconButton(
-                    onClick = { onToggle(st) },
-                    modifier = Modifier.size(64.dp).semantics { contentDescription = (if (playing) "Pausar " else "Escuchar ") + st.label },
-                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
-                ) {
-                    Icon(painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play), contentDescription = null,
-                        modifier = Modifier.size(34.dp), tint = Color.White)
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    LiveBadge(online)
+                    Spacer(Modifier.height(4.dp))
+                    Text(st.label, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
+                    if (st.city.isNotBlank()) Text(st.city, color = Color.White.copy(alpha = .8f))
+                    val line = when {
+                        s?.title?.isNotBlank() == true -> "♪ " + s.title
+                        s?.program?.isNotBlank() == true -> s.program
+                        else -> ""
+                    }
+                    if (line.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(line, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    }
+                    s?.listeners?.takeIf { it > 0 }?.let {
+                        Text(if (it == 1) "1 oyente" else "$it oyentes", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f))
+                    }
+                    if (current && player.error) {
+                        Text("No se pudo reproducir. Toque para reintentar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    }
                 }
-                if (current && player.buffering) {
-                    CircularProgressIndicator(Modifier.size(72.dp), color = Color.White, strokeWidth = 3.dp)
+                Spacer(Modifier.width(12.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    FilledIconButton(
+                        onClick = { onToggle(st) },
+                        modifier = Modifier.size(64.dp).semantics { contentDescription = (if (playing) "Pausar " else "Escuchar ") + st.label },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    ) {
+                        Icon(painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play), contentDescription = null,
+                            modifier = Modifier.size(34.dp), tint = Color.White)
+                    }
+                    if (current && player.buffering) {
+                        CircularProgressIndicator(Modifier.size(72.dp), color = Color.White, strokeWidth = 3.dp)
+                    }
                 }
             }
         }
