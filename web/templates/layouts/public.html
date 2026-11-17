@@ -48,7 +48,10 @@
         {{if gt (len .Frequencies) 1}}<span class="footer-freqs">{{range $i, $f := .Frequencies}}{{if $i}} · {{end}}{{$f.Label}} {{$f.City}}{{end}}</span><br>{{end}}
         {{.Site.Slogan}}
       </div>
-      {{template "socials" .Site}}
+      <div class="footer-mid">
+        {{template "socials" .Site}}
+        {{template "appdownload" .Site}}
+      </div>
       <div>© {{.Now.Year}} {{.Site.SiteName}} · <a href="/privacidad">Privacidad</a></div>
     </div>
   </footer>

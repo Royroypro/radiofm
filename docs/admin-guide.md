@@ -80,6 +80,12 @@ Nombre, frecuencia, eslogan, categorías, texto "quiénes somos", **logo**, **is
 imagen de fondo, **colores** (con enlace para volver al original), teléfono, WhatsApp, email,
 dirección, mapa de Google, horario y redes sociales. Los cambios se ven al instante en la web.
 
+**App Android** (en la misma página): aviso que muestra la app, versión mínima, enlace de Google
+Play y política de privacidad. En **Descarga en la web** se sube el archivo **.apk** (o se pega
+un enlace) y su versión: el pie de todas las páginas muestra «Descarga la app» con el botón de
+Google Play y/o el de descarga directa del APK. Sin ninguno de los dos no se muestra nada; para
+quitar el botón del APK, borre su enlace y guarde. Suba siempre el APK **de release firmado**.
+
 ## Streams y emisión (administrador)
 Datos para configurar la PC emisora (ver `docs/streaming.md`), estado de las señales,
 activar/desactivar radio o TV en la web y generar una clave nueva para OBS.

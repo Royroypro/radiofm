@@ -24,7 +24,7 @@ class ModelsTest {
              "tv":{"enabled":true,"hls_url":"/hls/tv/index.m3u8"},
              "contact":{"phone":"01 234 5678","whatsapp":"+51 999 888 777","email":"","address":"","office_hours":""},
              "social":{"facebook":"https://facebook.com/club25","instagram":"","tiktok":"","youtube":"","x":""},
-             "app":{"notice":"Aviso","notice_url":"","min_version":3,"play_store_url":"","privacy_url":""},
+             "app":{"notice":"Aviso","notice_url":"","min_version":3,"play_store_url":"","privacy_url":"","apk_url":"/uploads/app/club25.apk","apk_version":"1.0.0"},
              "status_url":"/api/status"}
         """.trimIndent()
         val c = AppConfig.parse(json, ::resolve)
@@ -42,6 +42,7 @@ class ModelsTest {
         assertEquals(listOf("WhatsApp", "Llamar", "Facebook"), c.links.map { it.label })
         assertEquals("https://wa.me/51999888777", c.links[0].url)
         assertEquals(3, c.minVersion)
+        assertEquals("$base/uploads/app/club25.apk", c.apkUrl)
         assertEquals("$base/api/status", c.statusUrl)
     }
 

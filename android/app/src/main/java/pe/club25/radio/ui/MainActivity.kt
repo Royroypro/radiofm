@@ -148,14 +148,18 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Abre la ficha en Google Play (la del panel o la de este paquete). */
+    /** «Actualizar»: Google Play si hay enlace; si no, el APK de descarga directa. */
     private fun openStore() {
-        val url = vm.ui.value.config?.playStoreUrl?.takeIf { it.isNotBlank() }
+        val cfg = vm.ui.value.config
+        val url = cfg?.playStoreUrl?.takeIf { it.isNotBlank() }
+            ?: cfg?.apkUrl?.takeIf { it.isNotBlank() }
             ?: "https://play.google.com/store/apps/details?id=$packageName"
         openUrl(url)
     }
 
     private fun share() {
         val cfg = vm.ui.value.config
+        // Google Play o, si no hay, la web (donde está el botón de descarga del APK).
         val link = cfg?.playStoreUrl?.takeIf { it.isNotBlank() } ?: BuildConfig.SERVER_URL
         val text = "Escucha ${cfg?.name ?: "Club25"} en vivo: $link"
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Compartir"))

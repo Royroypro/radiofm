@@ -31,6 +31,7 @@ const (
 	KindVideo    Kind = "video"
 	KindAudio    Kind = "audio"
 	KindDocument Kind = "document" // PDF o imagen (contratos, comprobantes)
+	KindAPK      Kind = "apk"      // app Android para descarga directa
 )
 
 // allowed asocia cada tipo MIME detectado con su extensión.
@@ -39,9 +40,13 @@ var allowed = map[Kind]map[string]string{
 	KindVideo:    {"video/mp4": ".mp4", "video/webm": ".webm"},
 	KindAudio:    {"audio/mpeg": ".mp3", "audio/aac": ".aac", "audio/ogg": ".ogg", "audio/wave": ".wav", "audio/wav": ".wav", "audio/mp4": ".m4a"},
 	KindDocument: {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"},
+	KindAPK:      {APKMime: ".apk"},
 }
 
 // ErrFileType indica que el archivo no es de un tipo permitido.
+// APKMime es el tipo de un APK de Android; con él el teléfono ofrece instalarlo.
+const APKMime = "application/vnd.android.package-archive"
+
 var ErrFileType = errors.New("tipo de archivo no permitido")
 
 // ErrFileTooLarge indica que el archivo supera el tamaño permitido.
@@ -138,6 +143,8 @@ func detect(head []byte, filename string) string {
 		return "audio/mp4"
 	case mime == "audio/mpeg" || (mime == "application/octet-stream" && strings.HasSuffix(lower, ".mp3")):
 		return "audio/mpeg"
+	case mime == "application/zip" && strings.HasSuffix(lower, ".apk"): // un APK es un ZIP
+		return APKMime
 	}
 	return mime
 }

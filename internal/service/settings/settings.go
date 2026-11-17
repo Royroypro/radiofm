@@ -111,7 +111,7 @@ func validate(v *domain.SiteSettings) error {
 	trim := func(p *string) { *p = strings.TrimSpace(*p) }
 	for _, p := range []*string{&v.SiteName, &v.Frequency, &v.Slogan, &v.Email, &v.Phone, &v.WhatsApp,
 		&v.ColorNavy, &v.ColorRoyal, &v.ColorRed, &v.ColorOrange, &v.TVPublishUser, &v.TVPublishPass,
-		&v.AppNotice, &v.AppNoticeURL, &v.AppPlayStoreURL, &v.AppPrivacyURL} {
+		&v.AppNotice, &v.AppNoticeURL, &v.AppPlayStoreURL, &v.AppPrivacyURL, &v.AppAPKURL, &v.AppAPKVersion} {
 		trim(p)
 	}
 	if v.SiteName == "" {
@@ -146,6 +146,14 @@ func validate(v *domain.SiteSettings) error {
 	}
 	if len([]rune(v.AppNotice)) > 300 {
 		return domain.Invalid("app_notice", "El aviso de la app admite hasta 300 caracteres")
+	}
+	// El APK puede ser el subido al panel (/uploads/…) o un enlace externo.
+	if u := v.AppAPKURL; u != "" && !strings.HasPrefix(u, "/uploads/") &&
+		!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return domain.Invalid("app_apk_url", "Suba el archivo .apk o ponga un enlace que empiece con https://")
+	}
+	if len([]rune(v.AppAPKVersion)) > 20 {
+		return domain.Invalid("app_apk_version", "La versión admite hasta 20 caracteres (p. ej. 1.0.0)")
 	}
 	if v.AppMinVersion < 0 || v.AppMinVersion > 2100000000 {
 		return domain.Invalid("app_min_version", "Versión mínima inválida (número de versión de la app, 0 = sin mínimo)")

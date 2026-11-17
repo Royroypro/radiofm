@@ -103,7 +103,7 @@ func NewRouter(d Deps) http.Handler {
 	// --- Sin restricciones de licencia ---
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(d.StaticFS))))
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", cacheStatic(noDirListing(http.FileServer(http.Dir(d.Store.Root()))))))
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", cacheStatic(apkDownload(noDirListing(http.FileServer(http.Dir(d.Store.Root())))))))
 	r.Post("/internal/mediamtx/auth", pub.MediaMTXAuth)
 	r.Post("/internal/icecast/source", pub.IcecastSourceAuth)
 	r.Get("/internal/gate/radio", pub.RadioGate)
@@ -249,6 +249,18 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/audit", sup.AuditLog)
 	})
 	return r
+}
+
+// apkDownload sirve los .apk con su tipo propio y como descarga: si salieran como
+// ZIP, algunos navegadores los guardan con otra extensión y el teléfono no los instala.
+func apkDownload(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".apk") {
+			w.Header().Set("Content-Type", storage.APKMime)
+			w.Header().Set("Content-Disposition", "attachment")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // cacheStatic añade caché de navegador a los archivos estáticos y subidos.

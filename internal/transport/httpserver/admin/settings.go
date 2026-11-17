@@ -64,6 +64,8 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	s.AppMinVersion = form.Int(r, "app_min_version")
 	s.AppPlayStoreURL = form.String(r, "app_play_store_url")
 	s.AppPrivacyURL = form.String(r, "app_privacy_url")
+	s.AppAPKURL = form.String(r, "app_apk_url")
+	s.AppAPKVersion = form.String(r, "app_apk_version")
 
 	for field, dst := range map[string]*string{"logo_file": &s.LogoURL, "favicon_file": &s.FaviconURL, "hero_file": &s.HeroImageURL} {
 		url, err := h.upload(r, field, storage.KindImage, "brand")
@@ -74,6 +76,14 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		if url != "" {
 			*dst = url
 		}
+	}
+	apk, err := h.upload(r, "app_apk_file", storage.KindAPK, "app")
+	if err != nil {
+		h.formError(w, r, "admin/settings", "Marca y contacto", h.settingsData(s), err)
+		return
+	}
+	if apk != "" {
+		s.AppAPKURL = apk
 	}
 	if err := h.Settings.Update(ctx, middleware.ActorFrom(r), s); err != nil {
 		h.formError(w, r, "admin/settings", "Marca y contacto", h.settingsData(s), err)

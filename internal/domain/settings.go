@@ -60,6 +60,8 @@ type SiteSettings struct {
 	AppMinVersion   int    // versionCode mínimo; las versiones anteriores piden actualizar (0 = sin mínimo)
 	AppPlayStoreURL string // ficha de la app en Google Play (para «Actualizar» y «Compartir»)
 	AppPrivacyURL   string // política de privacidad (la pide Google Play)
+	AppAPKURL       string // APK para descarga directa: subida al panel (/uploads/app/…) o enlace https
+	AppAPKVersion   string // versión del APK que se muestra en la web ("1.0.0"), opcional
 }
 
 // settingKeys enumera las claves en el orden en que se guardan.
@@ -71,6 +73,7 @@ var settingKeys = []string{
 	"radio_enabled", "tv_enabled", "radio_stream_url", "tv_stream_url", "tv_publish_user", "tv_publish_pass",
 	"preroll_interval_min",
 	"app_notice", "app_notice_url", "app_min_version", "app_play_store_url", "app_privacy_url",
+	"app_apk_url", "app_apk_version",
 }
 
 // DefaultSiteSettings devuelve los valores iniciales (marca provisional Radio Club 25).
@@ -113,6 +116,7 @@ func (s SiteSettings) ToMap() map[string]string {
 		"app_notice":           s.AppNotice, "app_notice_url": s.AppNoticeURL,
 		"app_min_version":    strconv.Itoa(s.AppMinVersion),
 		"app_play_store_url": s.AppPlayStoreURL, "app_privacy_url": s.AppPrivacyURL,
+		"app_apk_url": s.AppAPKURL, "app_apk_version": s.AppAPKVersion,
 	}
 }
 
@@ -175,6 +179,8 @@ func SiteSettingsFromMap(m map[string]string) SiteSettings {
 	}
 	str("app_play_store_url", &s.AppPlayStoreURL)
 	str("app_privacy_url", &s.AppPrivacyURL)
+	str("app_apk_url", &s.AppAPKURL)
+	str("app_apk_version", &s.AppAPKVersion)
 	return s
 }
 

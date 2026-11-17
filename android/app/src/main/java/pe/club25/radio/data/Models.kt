@@ -43,6 +43,7 @@ data class AppConfig(
     val noticeUrl: String,
     val minVersion: Int,
     val playStoreUrl: String,
+    val apkUrl: String,        // APK para descarga directa (si la app no está en Play o como alternativa)
     val privacyUrl: String,
     val statusUrl: String,
 ) {
@@ -103,6 +104,7 @@ data class AppConfig(
                 noticeUrl = url(app?.optString("notice_url")),
                 minVersion = app?.optInt("min_version") ?: 0,
                 playStoreUrl = text(app, "play_store_url"),
+                apkUrl = url(app?.optString("apk_url")),
                 privacyUrl = url(app?.optString("privacy_url")),
                 statusUrl = url(o.optString("status_url")).ifEmpty { resolve("/api/status") },
             )

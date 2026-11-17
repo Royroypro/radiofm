@@ -51,6 +51,25 @@
 </div>
 {{end}}
 
+{{/* "appdownload": botones «Descarga la app» (Google Play y/o APK directo). Recibe
+     domain.SiteSettings; se configuran en Admin → Marca y contacto → «App Android».
+     Sin ninguno de los dos enlaces no se muestra nada. */}}
+{{define "appdownload"}}
+{{if or .AppPlayStoreURL .AppAPKURL}}
+<div class="app-download">
+  <span class="app-download-title">Descarga la app</span>
+  <div class="app-download-btns">
+    {{with .AppPlayStoreURL}}<a class="app-btn" href="{{.}}" target="_blank" rel="noopener">
+      <svg class="icon" aria-hidden="true"><use href="#i-googleplay"/></svg>
+      <span><small>Disponible en</small>Google Play</span></a>{{end}}
+    {{with .AppAPKURL}}<a class="app-btn" href="{{.}}" download="{{$.SiteName}}.apk">
+      <svg class="icon" aria-hidden="true"><use href="#i-android"/></svg>
+      <span><small>Descarga directa{{with $.AppAPKVersion}} · v{{.}}{{end}}</small>APK para Android</span></a>{{end}}
+  </div>
+</div>
+{{end}}
+{{end}}
+
 {{/* "circles": decoración de círculos de la marca (CSS en site.css). */}}
 {{define "circles"}}
 <div class="circles" aria-hidden="true">

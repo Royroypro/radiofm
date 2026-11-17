@@ -163,7 +163,9 @@ interna** (hasta 100 testers, sin revisión larga) para probar en teléfonos rea
 
 1. En la web: **Admin → Marca y contacto → «App Android» → Enlace en Google Play**:
    `https://play.google.com/store/apps/details?id=pe.club25peru.radio`.
-   **Para qué:** lo usan el botón «Compartir app» y el aviso «Actualice la app».
+   **Para qué:** lo usan el botón «Compartir app», el aviso «Actualice la app» y el botón
+   «Disponible en Google Play» del pie de la web. Si además deja subido el APK, la web muestra los
+   dos botones; si prefiere solo Play, borre el enlace del APK.
 2. **Cada actualización:** suba `versionCode` (2, 3, …) y `versionName` (1.0.1, …), compile con
    la misma clave, súbala en Producción. Si una versión vieja deja de funcionar con el servidor,
    ponga en el panel «Versión mínima» = el nuevo `versionCode` y las apps viejas pedirán

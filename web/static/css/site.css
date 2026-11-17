@@ -378,3 +378,22 @@ button { font: inherit; cursor: pointer; }
 .legal li { margin-bottom: 8px; }
 .legal a { color: inherit; text-decoration: underline; }
 .site-footer a { color: inherit; }
+
+/* ---------- Descarga de la app (pie; Admin → Marca y contacto → App Android) ---------- */
+.footer-mid { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; max-width: 100%; }
+.app-download { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.app-download-title { font-weight: 800; letter-spacing: .14em; text-transform: uppercase; font-size: .7rem; color: var(--orange); }
+.app-download-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.site-footer a.app-btn {
+  display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 12px;
+  background: #000; color: #fff; border: 1px solid rgba(255,255,255,.25); text-decoration: none; line-height: 1.1;
+  transition: background .2s ease, border-color .2s ease;
+}
+.site-footer a.app-btn:hover { background: var(--red); border-color: var(--red); }
+.app-btn .icon { width: 26px; height: 26px; fill: currentColor; }
+.app-btn span { display: flex; flex-direction: column; font-weight: 800; font-size: 1rem; }
+.app-btn small { font-weight: 500; font-size: .68rem; opacity: .85; }
+@media (max-width: 520px) {
+  .footer-mid { width: 100%; }
+  .app-download-btns { flex-direction: column; align-items: stretch; width: 100%; max-width: 280px; }
+}

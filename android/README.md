@@ -17,6 +17,7 @@ está visible, `GET /api/status` cada 15 s. Contrato de ambos en [`docs/api.md`]
 |---|---|
 | Nombre, eslogan, logo, isotipo, colores, WhatsApp, teléfono, email, redes | Admin → Marca y contacto |
 | Aviso en la app (y su enlace), versión mínima, enlace de Google Play, política de privacidad | Admin → Marca y contacto → «App Android» |
+| Botones «Descarga la app» en la web (Google Play y/o APK subido) | Admin → Marca y contacto → «App Android» → Descarga en la web |
 | Frecuencias (etiqueta, ciudad, montaje o URL externa, orden, activa) | Admin → Frecuencias |
 | Radio y TV activadas | Admin → Streams |
 

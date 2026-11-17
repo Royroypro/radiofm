@@ -59,7 +59,8 @@ func (h *Handler) APIAppConfig(w http.ResponseWriter, r *http.Request) {
 		"social": map[string]string{"facebook": s.Facebook, "instagram": s.Instagram, "tiktok": s.TikTok,
 			"youtube": s.YouTube, "x": s.X},
 		"app": map[string]any{"notice": s.AppNotice, "notice_url": s.AppNoticeURL, "min_version": s.AppMinVersion,
-			"play_store_url": s.AppPlayStoreURL, "privacy_url": privacy},
+			"play_store_url": s.AppPlayStoreURL, "privacy_url": privacy,
+			"apk_url": s.AppAPKURL, "apk_version": s.AppAPKVersion},
 		"status_url": "/api/status",
 	})
 }

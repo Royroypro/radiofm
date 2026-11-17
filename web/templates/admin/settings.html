@@ -115,6 +115,22 @@
         <input type="url" name="app_privacy_url" value="{{$s.AppPrivacyURL}}" placeholder="https://.../privacidad">
         {{with .FieldError "app_privacy_url"}}<span class="err">{{.}}</span>{{end}}</label>
     </div>
+    <h3>Descarga en la web</h3>
+    <p class="hint small">La web muestra «Descarga la app» con el botón de Google Play (si hay enlace arriba)
+      y/o el de descarga directa del APK. Sin ninguno de los dos, no se muestra nada.</p>
+    <div class="grid grid-2">
+      <div class="field {{if or (.FieldError "app_apk_url") (.FieldError "app_apk_file")}}has-error{{end}}">
+        <span>APK para descarga directa <span class="hint">suba el archivo .apk o pegue un enlace</span></span>
+        <input type="file" name="app_apk_file" accept=".apk,application/vnd.android.package-archive">
+        <input type="text" name="app_apk_url" value="{{$s.AppAPKURL}}" placeholder="/uploads/app/… o https://..." aria-label="Enlace del APK">
+        <span class="hint">Use el APK firmado de release (ver android/README.md). Borre el enlace para quitar el botón. Máximo {{.Data.MaxUploadMB}} MB.</span>
+        {{with .FieldError "app_apk_file"}}<span class="err">{{.}}</span>{{end}}
+        {{with .FieldError "app_apk_url"}}<span class="err">{{.}}</span>{{end}}
+      </div>
+      <label class="{{if .FieldError "app_apk_version"}}has-error{{end}}">Versión del APK <span class="hint">opcional; se muestra en el botón</span>
+        <input type="text" name="app_apk_version" value="{{$s.AppAPKVersion}}" maxlength="20" placeholder="1.0.0" style="max-width:160px">
+        {{with .FieldError "app_apk_version"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
   </fieldset>
 
   <div class="form-actions"><button class="btn" type="submit">Guardar ajustes</button></div>
