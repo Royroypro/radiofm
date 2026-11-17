@@ -42,6 +42,10 @@ func (h *Handler) APIAppConfig(w http.ResponseWriter, r *http.Request) {
 			categories = append(categories, c)
 		}
 	}
+	privacy := s.AppPrivacyURL
+	if privacy == "" {
+		privacy = "/privacidad" // la página propia, si el panel no indica otra
+	}
 	w.Header().Set("Cache-Control", "no-cache")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name": s.SiteName, "slogan": s.Slogan, "about": s.About, "categories": categories,
@@ -55,7 +59,7 @@ func (h *Handler) APIAppConfig(w http.ResponseWriter, r *http.Request) {
 		"social": map[string]string{"facebook": s.Facebook, "instagram": s.Instagram, "tiktok": s.TikTok,
 			"youtube": s.YouTube, "x": s.X},
 		"app": map[string]any{"notice": s.AppNotice, "notice_url": s.AppNoticeURL, "min_version": s.AppMinVersion,
-			"play_store_url": s.AppPlayStoreURL, "privacy_url": s.AppPrivacyURL},
+			"play_store_url": s.AppPlayStoreURL, "privacy_url": privacy},
 		"status_url": "/api/status",
 	})
 }

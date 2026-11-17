@@ -23,7 +23,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "pe.club25.radio"
+        applicationId = "pe.club25peru.radio"
         minSdk = 26
         targetSdk = 36
         // Suba versionCode en cada publicación en Play (o pase -Pclub25.versionCode=N).

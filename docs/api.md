@@ -9,6 +9,7 @@ Todas se registran en `internal/transport/httpserver/router.go`.
 | GET | `/` | portada: reproductores de radio y TV, programación de hoy, banners |
 | GET | `/programacion` | programación semanal |
 | GET | `/contacto` | datos de contacto y mapa |
+| GET | `/privacidad` | política de privacidad de la web y la app Android (la exige Google Play) |
 | GET | `/ad/click/{id}` | registra clic y redirige al anunciante |
 
 ## API JSON (usada por `web/static/js/site.js` y la app Android de `android/`, sin CSRF)
@@ -65,7 +66,7 @@ Handler: `public.APIAppConfig`.
   "tv": {"enabled": true, "hls_url": "/hls/tv/index.m3u8"},
   "contact": {"phone": "", "whatsapp": "", "email": "", "address": "", "office_hours": ""},
   "social": {"facebook": "", "instagram": "", "tiktok": "", "youtube": "", "x": ""},
-  "app": {"notice": "", "notice_url": "", "min_version": 0, "play_store_url": "", "privacy_url": ""},
+  "app": {"notice": "", "notice_url": "", "min_version": 0, "play_store_url": "", "privacy_url": "/privacidad"},
   "status_url": "/api/status"
 }
 ```
@@ -74,6 +75,7 @@ Handler: `public.APIAppConfig`.
 - `stations`: frecuencias activas en orden (la primera es la principal); vacía si la radio está
   apagada en Streams. El `id` coincide con el de `stations` en `/api/status`.
 - `tv.enabled` es falso si la TV está apagada en Streams o el plan no incluye TV.
+- `app.privacy_url`: la del panel o, si está vacía, `/privacidad` (página propia de la web).
 - `app.min_version`: `versionCode` mínimo; una app más antigua pide actualizar (0 = sin mínimo).
 - El estado en vivo (al aire, oyentes, lo que suena) no va aquí: está en `/api/status`.
 - Cabecera `Cache-Control: no-cache`. Con bloqueo total responde `503 {"error":"suspended"}`.

@@ -51,8 +51,9 @@ android/
   app/src/debug/                permite http (solo depuración) y otro nombre: «Club25 (dev)»
 ```
 
-- `applicationId`: `pe.club25.radio` (la de depuración es `pe.club25.radio.debug`, se instala al lado).
-  **Elíjalo bien antes de publicar: en Play no se puede cambiar nunca.**
+- `applicationId`: `pe.club25peru.radio` (la de depuración es `pe.club25peru.radio.debug`, se instala
+  al lado). **No lo cambie: en Play es la identidad de la app para siempre.** El paquete del código
+  Kotlin (`namespace`) sigue siendo `pe.club25.radio`; es interno y no hace falta que coincida.
 - `minSdk 26` (Android 8.0), `targetSdk 36` / `compileSdk 36` (Android 16).
 
 ## Requisitos para compilar
@@ -145,11 +146,9 @@ firmar (sirve para comprobar que compila, no para subirlo).
      (se sacan del emulador: `adb exec-out screencap -p > captura.png`).
    - Categoría: **Música y audio**. Email de contacto.
 4. **Contenido de la app** (Política → Contenido de la app):
-   - **Política de privacidad**: URL pública obligatoria. Publique una página en la web (p. ej.
-     `/privacidad`) y póngala también en Admin → Marca y contacto → «Política de privacidad» para
-     que salga en la app. Debe decir que la app no pide cuenta ni datos personales, que el servidor
-     registra la IP en sus registros técnicos, y cómo
-     contactar a la radio.
+   - **Política de privacidad**: URL pública obligatoria: `https://radioclub25peru.com/privacidad`
+     (plantilla `web/templates/public/privacy.html`; la app la enlaza sola). Si cambia lo que se
+     guarda de los oyentes, actualice ese texto y su fecha.
    - **Seguridad de los datos**: la app no recopila datos personales en el teléfono ni los comparte;
      declare lo que guarde el servidor (IP en registros técnicos). Tráfico cifrado (HTTPS): sí.
    - **Anuncios**: «No» (la app no muestra los anuncios de la web). Si en el futuro los muestra, cambie la respuesta.
@@ -162,7 +161,7 @@ firmar (sirve para comprobar que compila, no para subirlo).
 5. **Versión**: Prueba interna → Prueba cerrada → Producción. Suba `app-release.aab`, acepte Play App
    Signing, escriba las notas de la versión en español.
 6. Tras la aprobación, copie el enlace de la ficha
-   (`https://play.google.com/store/apps/details?id=pe.club25.radio`) en Admin → Marca y contacto →
+   (`https://play.google.com/store/apps/details?id=pe.club25peru.radio`) en Admin → Marca y contacto →
    «Enlace en Google Play»: lo usan «Compartir app» y el aviso de actualización.
 
 ### Nivel de API objetivo
@@ -178,12 +177,10 @@ en `gradle/libs.versions.toml`, compile, pruebe en el emulador y publique.
 
 Antes de la primera publicación (lo decide o hace el dueño de la app):
 
-- [ ] **Confirmar el `applicationId`** `pe.club25.radio` (no se puede cambiar después de publicar).
-- [ ] **Confirmar el dominio de release** `https://radioclub25peru.com` (`club25.serverUrl` en
-  `gradle.properties`; se tomó de `.env.example`).
+- [x] `applicationId` confirmado: `pe.club25peru.radio`.
+- [x] Dominio de release confirmado: `https://radioclub25peru.com`.
 - [ ] **Generar la clave de subida** y `keystore.properties` (sección «Release», paso 1). No se generó.
-- [ ] **Publicar la política de privacidad** en la web y poner su URL en Admin → Marca y contacto →
-  «App Android».
+- [x] Política de privacidad publicada en `/privacidad` (la app la usa si el panel no indica otra).
 - [ ] **Desplegar el servidor** con `GET /api/app/config` (la app no carga sin ese endpoint).
 - [ ] Cuenta de Google Play, ficha, capturas, video del servicio en primer plano y prueba cerrada
   (sección «Publicar en Google Play»).

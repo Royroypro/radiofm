@@ -140,6 +140,12 @@ func (h *Handler) Contact(w http.ResponseWriter, r *http.Request) {
 	h.Views.RenderPage(w, r, http.StatusOK, "public/contact", h.page(r, "Contacto", nil))
 }
 
+// Privacy es la política de privacidad de la web y de la app Android: GET /privacidad.
+// Google Play exige una URL pública; si el panel no indica otra, la app usa esta.
+func (h *Handler) Privacy(w http.ResponseWriter, r *http.Request) {
+	h.Views.RenderPage(w, r, http.StatusOK, "public/privacy", h.page(r, "Política de privacidad", nil))
+}
+
 // Suspended es la página que se muestra con bloqueo total de licencia.
 func (h *Handler) Suspended(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") {

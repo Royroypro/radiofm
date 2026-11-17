@@ -370,3 +370,11 @@ button { font: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Páginas de texto (política de privacidad) ---------- */
+.legal { max-width: 760px; line-height: 1.65; }
+.legal h2 { font-size: 1.15rem; margin: 28px 0 8px; color: var(--orange); }
+.legal ul { padding-left: 20px; }
+.legal li { margin-bottom: 8px; }
+.legal a { color: inherit; text-decoration: underline; }
+.site-footer a { color: inherit; }

@@ -30,6 +30,7 @@ type appConfig struct {
 		Notice       string `json:"notice"`
 		MinVersion   int    `json:"min_version"`
 		PlayStoreURL string `json:"play_store_url"`
+		PrivacyURL   string `json:"privacy_url"`
 	} `json:"app"`
 	StatusURL string `json:"status_url"`
 }
@@ -65,6 +66,9 @@ func TestAppConfig(t *testing.T) {
 	if !c.TV.Enabled || c.TV.HLSURL != "/hls/tv/index.m3u8" {
 		t.Errorf("TV inesperada: %+v", c.TV)
 	}
+	if c.App.PrivacyURL != "/privacidad" { // sin URL en el panel: la página propia
+		t.Errorf("privacy_url por defecto = %q", c.App.PrivacyURL)
+	}
 
 	// una frecuencia externa y los ajustes de la app editados desde el panel
 	e.login("super@test.pe", "supersecreta")
@@ -75,7 +79,7 @@ func TestAppConfig(t *testing.T) {
 	set := url.Values{"site_name": {"Club25"}, "slogan": {"Huacho en tu bolsillo"}, "color_navy": {"#000000"},
 		"color_royal": {"#111111"}, "color_red": {"#FF0000"}, "color_orange": {"#FF9900"},
 		"app_notice": {"Transmisión especial"}, "app_min_version": {"3"},
-		"app_play_store_url": {"https://play.google.com/store/apps/details?id=pe.club25.radio"}}
+		"app_play_store_url": {"https://play.google.com/store/apps/details?id=pe.club25peru.radio"}}
 	if code, body := e.post("/admin/settings", set); code != http.StatusSeeOther {
 		t.Fatalf("guardar ajustes = %d %s", code, body)
 	}
@@ -83,7 +87,7 @@ func TestAppConfig(t *testing.T) {
 	if c.Name != "Club25" || c.Slogan != "Huacho en tu bolsillo" || c.Colors["red"] != "#FF0000" {
 		t.Errorf("la marca no se actualizó: %+v", c)
 	}
-	if c.App.Notice != "Transmisión especial" || c.App.MinVersion != 3 || !strings.Contains(c.App.PlayStoreURL, "pe.club25.radio") {
+	if c.App.Notice != "Transmisión especial" || c.App.MinVersion != 3 || !strings.Contains(c.App.PlayStoreURL, "pe.club25peru.radio") {
 		t.Errorf("ajustes de la app no se actualizaron: %+v", c.App)
 	}
 	if len(c.Stations) != 2 || !c.Stations[1].External || c.Stations[1].ListenURL != "https://stream.ejemplo.pe/huaral" ||

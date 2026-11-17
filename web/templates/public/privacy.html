@@ -1,0 +1,78 @@
+{{/* Política de privacidad de la web y de la app Android (Google Play exige una URL pública).
+     Los datos de contacto salen de Admin → Marca y contacto. Si cambia lo que se guarda de los
+     visitantes, actualice este texto y la fecha. */}}
+{{define "content"}}
+<section class="page-head">
+  {{template "circles"}}
+  <div class="container">
+    <p class="section-kicker">{{.Site.SiteName}}</p>
+    <h1 class="section-title">Política de privacidad</h1>
+    <p class="muted">Última actualización: 17 de noviembre de 2026</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container legal">
+    <p>Esta política explica qué datos se tratan cuando usted escucha la radio o ve la TV en este
+      sitio web o en la app <strong>{{.Site.SiteName}}</strong> para Android, y para qué. Se aplica
+      la Ley N.° 29733, Ley de Protección de Datos Personales del Perú.</p>
+
+    <h2>Resumen</h2>
+    <ul>
+      <li>Para escuchar o ver no hace falta crear una cuenta ni dar su nombre, correo o teléfono.</li>
+      <li>La app no pide acceso a su ubicación, contactos, fotos, micrófono ni cámara.</li>
+      <li>No vendemos ni compartimos datos personales con terceros para publicidad.</li>
+    </ul>
+
+    <h2>Qué datos se tratan</h2>
+    <ul>
+      <li><strong>Datos técnicos de conexión.</strong> Como cualquier servidor web, el nuestro recibe
+        la dirección IP, la fecha y hora, la página o transmisión pedida y el tipo de navegador o
+        app. Se usan solo para entregar el audio y el video, medir cuántas personas escuchan en un
+        momento dado, detectar fallos y proteger el servicio. Se guardan en los registros técnicos
+        del servidor el tiempo necesario para esos fines.</li>
+      <li><strong>Anuncios.</strong> Cuando el sitio muestra un anuncio de un auspiciador, se cuenta
+        cuántas veces se vio y se pulsó. Para no contar dos veces a la misma persona se guarda un
+        código cifrado de la IP que cambia cada día; con él no se puede saber quién es usted.
+        La app no muestra anuncios.</li>
+      <li><strong>Datos guardados en su dispositivo.</strong> El sitio guarda en su navegador el
+        volumen elegido y cuándo se mostró el último anuncio. La app guarda la última configuración
+        de la radio (nombre, colores, frecuencias) para poder abrirse sin conexión. Esos datos no
+        salen de su dispositivo y se borran al borrar los datos del navegador o de la app.</li>
+      <li><strong>Cookies.</strong> El sitio no usa cookies de seguimiento ni de publicidad. Solo el
+        personal de la radio que entra al panel de administración recibe cookies de sesión.</li>
+      <li><strong>Si nos escribe</strong> por WhatsApp, teléfono, correo o redes sociales, usamos sus
+        datos solo para responderle.</li>
+    </ul>
+
+    <h2>Servicios de terceros</h2>
+    <p>Algunas frecuencias pueden transmitirse desde el servidor de otra emisora, y los botones de
+      redes sociales, WhatsApp o el mapa abren servicios de terceros (Meta, TikTok, YouTube, X,
+      Google). Al usarlos se aplica la política de privacidad de cada uno.</p>
+
+    <h2>Seguridad</h2>
+    <p>La app y el sitio se comunican con nuestro servidor por conexiones cifradas (HTTPS).</p>
+
+    <h2>Menores de edad</h2>
+    <p>El servicio es para público general y no está dirigido a niños. No recopilamos a sabiendas
+      datos personales de menores de 14 años.</p>
+
+    <h2>Sus derechos</h2>
+    <p>Puede pedir acceso, rectificación, cancelación u oposición sobre sus datos personales
+      escribiéndonos por los medios de contacto de abajo. Si no queda conforme con la respuesta,
+      puede acudir a la Autoridad Nacional de Protección de Datos Personales del Ministerio de
+      Justicia y Derechos Humanos.</p>
+
+    <h2>Cambios</h2>
+    <p>Si cambiamos esta política, publicaremos la nueva versión en esta página con su fecha.</p>
+
+    <h2>Contacto</h2>
+    <ul class="contact-list">
+      <li><strong>{{.Site.SiteName}}</strong>{{with .Site.Address}} · {{.}}{{end}}</li>
+      {{with .Site.Email}}<li><a href="mailto:{{.}}"><svg class="icon"><use href="#i-mail"/></svg>{{.}}</a></li>{{end}}
+      {{with .Site.WhatsApp}}<li><a href="{{whatsappURL .}}" target="_blank" rel="noopener"><svg class="icon"><use href="#i-whatsapp"/></svg>WhatsApp {{.}}</a></li>{{end}}
+      {{with .Site.Phone}}<li><a href="{{telURL .}}"><svg class="icon"><use href="#i-phone"/></svg>{{.}}</a></li>{{end}}
+    </ul>
+    <p class="muted"><a href="/contacto">Más formas de contacto</a></p>
+  </div>
+</section>
+{{end}}

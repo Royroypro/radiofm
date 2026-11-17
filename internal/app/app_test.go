@@ -90,7 +90,7 @@ func (e *env) login(email, pass string) {
 
 func TestPublicPages(t *testing.T) {
 	e := newEnv(t)
-	for _, p := range []string{"/", "/programacion", "/contacto", "/login", "/healthz", "/static/css/site.css", "/static/js/site.js"} {
+	for _, p := range []string{"/", "/programacion", "/contacto", "/privacidad", "/login", "/healthz", "/static/css/site.css", "/static/js/site.js"} {
 		if code, _ := e.get(p); code != http.StatusOK {
 			t.Errorf("GET %s = %d", p, code)
 		}
