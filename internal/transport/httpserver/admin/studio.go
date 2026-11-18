@@ -34,6 +34,11 @@ type StudioStation struct {
 	Report  domain.StudioReport
 	Alarms  []domain.Alarm
 	Backups []string // copias de la base de la PC guardadas en el servidor
+
+	// Club25 Emisor (mismo token): si da señal y qué emite.
+	EmisorOnline bool
+	Emisor       domain.EmisorReport
+	Sources      []string // programas que dan señal ahora: Club25 Estudio, Club25 Emisor
 }
 
 // StudioAlarms es la lista de alarmas de una frecuencia (para el inicio del panel).
@@ -94,7 +99,8 @@ func (h *Handler) studioStations(r *http.Request) ([]StudioStation, error) {
 			st = &domain.StudioState{FrequencyID: f.ID, EncoderJSON: "{}"}
 		}
 		s := StudioStation{Freq: f, State: st, Online: st.Online(now, studioOnline), Report: st.Report(),
-			Alarms: st.Alarms(now, studioOnline), Backups: studio.Backups(h.Cfg.StudioBackupsDir(), f.ID)}
+			Alarms: st.Alarms(now, studioOnline), Backups: studio.Backups(h.Cfg.StudioBackupsDir(), f.ID),
+			EmisorOnline: st.EmisorOnline(now, studioOnline), Emisor: st.EmisorReport(), Sources: st.SignalSources(now, studioOnline)}
 		if !f.IsExternal() {
 			s.Ingest = fmt.Sprintf("%s:%d%s", h.Cfg.IngestHost, h.Cfg.IcecastPublicPt, f.Mount)
 		}

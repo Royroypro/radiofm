@@ -1,0 +1,73 @@
+{{/* Club25 Emisor. .Data: Provider, Default domain.ProviderInfo; Releases []domain.EmisorRelease; Configs; MaxMB */}}
+{{define "content"}}
+{{$d := .Data}}
+<div class="grid grid-2">
+  <form class="box form" method="post" action="/superadmin/emisor/provider">
+    {{template "csrf" .}}
+    <h2>Proveedor del servicio de radio</h2>
+    <p class="small muted">Club25 Emisor muestra estos datos cuando el programa no está autenticado o el cliente quiere
+      adquirir una licencia («contáctese con el proveedor»).</p>
+    <label class="{{if .FieldError "phone"}}has-error{{end}}">Número (WhatsApp / teléfono)
+      <input type="tel" name="phone" value="{{$d.Provider.Phone}}" maxlength="20" required placeholder="{{$d.Default.Phone}}">
+      {{with .FieldError "phone"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "url"}}has-error{{end}}">Dirección web
+      <input type="url" name="url" value="{{$d.Provider.URL}}" maxlength="200" required placeholder="{{$d.Default.URL}}">
+      {{with .FieldError "url"}}<span class="err">{{.}}</span>{{end}}</label>
+    <p class="small muted">De fábrica: {{$d.Default.Phone}} · {{$d.Default.URL}}</p>
+    <div class="form-actions"><button class="btn" type="submit">Guardar contacto</button></div>
+  </form>
+
+  <form class="box form" method="post" action="/superadmin/emisor/releases" enctype="multipart/form-data">
+    {{template "csrf" .}}
+    <h2>Publicar una actualización</h2>
+    <p class="small muted">Suba el <code>club25-emisor.exe</code> compilado (carpeta <code>emisor/build/bin</code> o el
+      paquete). Los emisores autenticados lo descargan y se actualizan cuando el operador abre sus opciones; la emisión
+      sigue y se reanuda sola tras reiniciar (corte de unos segundos).</p>
+    <label class="{{if .FieldError "version"}}has-error{{end}}">Versión
+      <input type="text" name="version" required maxlength="12" placeholder="1.5.0" pattern="v?\d+\.\d+\.\d+" style="max-width:160px">
+      {{with .FieldError "version"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label class="{{if .FieldError "file"}}has-error{{end}}">Archivo .exe (hasta {{$d.MaxMB}} MB)
+      <input type="file" name="file" accept=".exe" required>
+      {{with .FieldError "file"}}<span class="err">{{.}}</span>{{end}}</label>
+    <label>Novedades (las ve el operador)<textarea name="notes" maxlength="1000" placeholder="Ej.: menú ordenado, ecualizador con perfiles…"></textarea></label>
+    <div class="form-actions"><button class="btn" type="submit">Publicar versión</button></div>
+  </form>
+</div>
+
+<section class="box">
+  <h2>Versiones publicadas</h2>
+  {{if $d.Releases}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Versión</th><th>Publicada</th><th>Tamaño</th><th>SHA-256</th><th>Novedades</th><th></th></tr></thead>
+    <tbody>
+    {{range $i, $r := $d.Releases}}
+      <tr>
+        <td><strong>{{$r.Version}}</strong>{{if eq $i 0}} <span class="pill ok">vigente</span>{{end}}</td>
+        <td>{{datetime $r.CreatedAt}}<div class="small muted">{{$r.CreatedBy}}</div></td>
+        <td>{{$r.SizeMB}} MB</td>
+        <td><code class="small">{{$r.ShortSHA}}…</code></td>
+        <td class="small">{{$r.Notes}}</td>
+        <td>
+          <form method="post" action="/superadmin/emisor/releases/{{$r.ID}}/delete">{{template "csrf" $}}
+            <button class="btn btn-sm btn-ghost" data-confirm-click="¿Borrar la versión {{$r.Version}}?">Borrar</button></form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  <p class="small muted">Los emisores se actualizan a la versión más alta. Se guardan en disco los archivos de las 5 más nuevas.</p>
+  {{else}}
+  <p class="muted">Todavía no hay versiones publicadas: los emisores no reciben actualizaciones.</p>
+  {{end}}
+</section>
+
+<section class="box">
+  <h2>Copias de configuración de los emisores</h2>
+  <p class="small muted">Cada emisor autenticado guarda aquí una copia de su configuración (sin contraseñas) cada vez que
+    cambia algo. Desde el programa se restaura en Ajustes → Programa. Carpeta: <code>data/studio-backups/&lt;frecuencia&gt;/</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frecuencia</th><th>Copias guardadas</th></tr></thead>
+    <tbody>{{range $d.Configs}}<tr><td>{{.Label}}</td><td>{{if .Count}}{{.Count}}{{else}}<span class="muted">ninguna</span>{{end}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}

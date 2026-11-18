@@ -44,6 +44,7 @@ deploy/                  mediamtx.yml, icecast.xml, nginx/
 docs/                    documentación (ver README)
 estudio/                 programa de Windows "Club25 Estudio" (módulo Go aparte; ver estudio/AGENTS.md)
 android/                 app Android (Kotlin + Media3); lee /api/app/config y /api/status (ver android/README.md)
+emisor/                  programa de Windows "Club25 Emisor": emisor en vivo de radio y TV (módulo Go aparte; ver emisor/README.md)
 ```
 
 ## Integración con la PC del estudio
@@ -108,6 +109,16 @@ y, si la usa un contenedor, en `docker-compose.yml`.
   son los que permiten bloquear la emisión desde el superadmin.
 - El hash de tokens de sesión (`auth.hashToken`) y el patrón CSRF (`middleware.CSRF`).
 - `.env` (secretos de producción; nunca al repositorio).
+
+## Programa de Windows: `emisor/` (Club25 Emisor)
+
+`emisor/` es otro módulo Go (`radioclub25/emisor`, Wails v2 + ffmpeg + CGO para el audio de la PC): emite
+radio a Icecast y TV a MediaMTX. Usa el **mismo token** que Club25 Estudio. Su API está en `docs/api.md`
+→ «API de Club25 Emisor» (`/api/emisor/provider`, `/api/studio/emisor/*`); la página del superadmin es
+`/superadmin/emisor` (contacto del proveedor y versiones para la actualización automática). Si cambia
+un campo de esa API, actualice el handler (`studioapi/emisor.go`), el documento y `emisor/internal/license`
+en el mismo cambio. Los comandos `make …` no lo compilan y Docker lo ignora (`.dockerignore`); ver
+`emisor/README.md` para compilar, probar y empaquetar.
 
 ## Programa de Windows: `estudio/` (Club25 Estudio)
 

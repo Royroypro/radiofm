@@ -29,7 +29,8 @@ booleanos 0/1.
 | `fm_campaigns` | campañas: las reglas de emisión | veces/día, franja, `days_mask` (bit 0 domingo), `position` any/first/last, `priority` 1–3, `frequency_id` |
 | `fm_spots` | **versiones** (audios) de las campañas; las programa la PC del estudio | `campaign_id`, `weight`; las reglas son **copia** de su campaña (`SyncVersions` al guardarla); `sha256` del archivo |
 | `fm_spot_airplays` | emisiones reales de cuñas FM (comprobante) | `play_uuid` único (reenviar no duplica); copia anunciante y nombre |
-| `studio_stations` | PC del estudio de cada frecuencia (clave `frequency_id`) | SHA-256 del token, último heartbeat, modo, lo que suena. Reemplaza a `studio_state` (migración 0004) |
+| `studio_stations` | PC del estudio de cada frecuencia (clave `frequency_id`) | SHA-256 del token, último heartbeat, modo, lo que suena. Reemplaza a `studio_state` (migración 0004). Desde 0009 también el latido de Club25 Emisor (mismo token): `emisor_last_seen`, `emisor_version`, `emisor_status_json` |
+| `emisor_releases` | versiones publicadas de Club25 Emisor (migración 0008) | `version` única, `sha256`, `size`, `notes`; el `.exe` está en `DATA_DIR/emisor/<id>/` (no es público). Contacto del proveedor: claves `provider_phone` y `provider_url` de `settings` |
 
 ## Relaciones
 

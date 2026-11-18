@@ -1,5 +1,6 @@
 // Package superadmin contiene los handlers del panel del proveedor
-// (/superadmin): cliente, planes, contratos, pagos, licencia y auditoría.
+// (/superadmin): cliente, planes, contratos, pagos, licencia, auditoría y el
+// programa Club25 Emisor (contacto del proveedor y versiones).
 // Todas sus rutas exigen el rol superadmin (ver router.go).
 package superadmin
 
@@ -16,6 +17,8 @@ import (
 	"radioclub25/internal/platform/storage"
 	"radioclub25/internal/service/audit"
 	"radioclub25/internal/service/billing"
+	"radioclub25/internal/service/emisor"
+	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/license"
 	"radioclub25/internal/service/media"
 	"radioclub25/internal/transport/httpserver/admin"
@@ -31,9 +34,12 @@ type Handler struct {
 	License *license.Service
 	Audit   *audit.Service
 	Media   *media.Service
-	Store   *storage.Store
-	Cfg     config.Config
-	Log     *slog.Logger
+	Emisor  *emisor.Service
+	// Frequencies: para mostrar las copias de configuración del emisor por frecuencia.
+	Frequencies *frequencies.Service
+	Store       *storage.Store
+	Cfg         config.Config
+	Log         *slog.Logger
 }
 
 // Dashboard muestra el estado comercial y de la licencia: GET /superadmin

@@ -70,6 +70,10 @@ func (c Config) UploadsDir() string { return filepath.Join(c.DataDir, "uploads")
 // (dentro de data/: entran en el respaldo del servidor, no se publican).
 func (c Config) StudioBackupsDir() string { return filepath.Join(c.DataDir, "studio-backups") }
 
+// EmisorDir es donde se guardan las versiones del programa Club25 Emisor (.exe)
+// que suben el superadmin y descargan las PC autenticadas (no se publica).
+func (c Config) EmisorDir() string { return filepath.Join(c.DataDir, "emisor") }
+
 // Load lee la configuración del entorno.
 func Load() (Config, error) {
 	c := Config{

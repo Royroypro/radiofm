@@ -183,6 +183,12 @@ type StudioState struct {
 	StatusJSON     string // estado completo de la PC (StudioReport en JSON)
 	NowPlaying     *NowPlaying
 	NowPlayingAt   *time.Time
+
+	// Club25 Emisor (emisor/) usa el mismo token y envía su propio latido:
+	// así el panel sabe si la señal viene del Estudio, del Emisor o de ambos.
+	EmisorLastSeen   *time.Time
+	EmisorVersion    string
+	EmisorStatusJSON string // EmisorReport en JSON
 }
 
 // StudioReport es el estado que envía la PC en cada heartbeat (ver Club25
@@ -266,13 +272,20 @@ func (s StudioState) Alarms(now time.Time, online time.Duration) []Alarm {
 	}
 	var out []Alarm
 	add := func(l AlarmLevel, t string) { out = append(out, Alarm{l, t}) }
-	if s.LastSeen == nil {
+	if s.LastSeen == nil && s.EmisorLastSeen == nil {
 		return []Alarm{{AlarmWarning, "La PC todavía no se conectó"}}
 	}
-	if !s.Online(now, online) {
-		add(AlarmCritical, "Sin señal de la PC desde "+s.LastSeen.Local().Format("02/01 15:04")+
-			" (apagada, sin internet o el programa cerrado)")
+	studioOn, emisorOn := s.Online(now, online), s.EmisorOnline(now, online)
+	if !studioOn && !emisorOn {
+		add(AlarmCritical, "Sin señal de la PC desde "+s.LastSignal().Local().Format("02/01 15:04")+
+			" (apagada, sin internet o Club25 Estudio y Club25 Emisor cerrados)")
 		return out
+	}
+	if emisorOn {
+		out = append(out, s.emisorAlarms()...)
+	}
+	if !studioOn {
+		return out // solo da señal Club25 Emisor: no hay automatización que revisar
 	}
 	r := s.Report()
 	if s.StatusJSON == "" || s.StatusJSON == "{}" {
@@ -328,9 +341,20 @@ func humanSecs(n int) string {
 // HasToken indica si hay un token generado.
 func (s StudioState) HasToken() bool { return s.TokenHash != "" }
 
-// Online indica si la PC dio señales de vida en los últimos maxAge.
+// Online indica si Club25 Estudio dio señales de vida en los últimos maxAge
+// con el token vigente (ver signalValid).
 func (s StudioState) Online(now time.Time, maxAge time.Duration) bool {
-	return s.LastSeen != nil && now.Sub(*s.LastSeen) <= maxAge
+	return s.signalValid(s.LastSeen, now, maxAge)
+}
+
+// signalValid: una señal cuenta si es reciente y llegó con el token vigente. Si
+// el token se revocó, o se generó uno nuevo después de esa señal, el programa que
+// la envió ya no está autorizado: no se muestra como conectado.
+func (s StudioState) signalValid(seen *time.Time, now time.Time, maxAge time.Duration) bool {
+	if seen == nil || !s.HasToken() || now.Sub(*seen) > maxAge {
+		return false
+	}
+	return s.TokenCreatedAt == nil || !seen.Before(*s.TokenCreatedAt)
 }
 
 // StudioRepository persiste el estado de la PC del estudio de cada frecuencia.
@@ -342,6 +366,8 @@ type StudioRepository interface {
 	FindToken(ctx context.Context, hash string) (int64, error)
 	SetToken(ctx context.Context, frequencyID int64, hash string, at time.Time) error // hash "" revoca
 	Heartbeat(ctx context.Context, frequencyID int64, at time.Time, version string, mode StudioMode, encoderJSON, statusJSON string) error
+	// EmisorHeartbeat registra la señal de Club25 Emisor (mismo token, estado aparte).
+	EmisorHeartbeat(ctx context.Context, frequencyID int64, at time.Time, version, statusJSON string) error
 	SetNowPlaying(ctx context.Context, frequencyID int64, np NowPlaying, at time.Time) error
 
 	// Control remoto (órdenes del panel a la PC).

@@ -2,19 +2,23 @@
      .Data: Stations []admin.StudioStation */}}
 {{define "content"}}
 {{$d := .Data}}
-<p class="muted page-intro">Estado de la PC con Club25 Estudio de cada frecuencia: conexión, lo que suena, automatización,
-  emisión a la web, grabador y respaldos. Para dar órdenes use <a href="/admin/control">Control remoto</a>.</p>
+<p class="muted page-intro">Estado de la PC de cada frecuencia: qué programa está dando señal (Club25 Estudio, Club25 Emisor
+  o ambos, con el mismo token), lo que suena, automatización, emisión a la web, grabador y respaldos. Para dar órdenes a
+  Club25 Estudio use <a href="/admin/control">Control remoto</a>.</p>
 
 {{range $d.Stations}}{{$st := .State}}
 <section class="box">
   <h2>{{.Freq.Label}} · {{.Freq.City}}
-    {{if .Online}}<span class="pill live">PC conectada</span>{{else}}<span class="pill">PC sin conexión</span>{{end}}
+    {{if .Sources}}{{range .Sources}}<span class="pill live">{{.}} conectado</span> {{end}}{{else}}<span class="pill">PC sin conexión</span>{{end}}
     {{if not .Freq.Active}}<span class="pill">Oculta en la web</span>{{end}}</h2>
 
   {{range .Alarms}}<div class="alert {{if eq .Level "critical"}}alert-error{{else}}alert-warn{{end}}">{{.Text}}</div>{{end}}
 
 
   <div class="grid grid-2">
+    <div>
+    <h3 class="small muted" style="margin:0 0 6px">Club25 Estudio (automatización)
+      {{if .Online}}<span class="pill live">conectado</span>{{else if $st.LastSeen}}<span class="pill">sin señal</span>{{else}}<span class="pill">no usado</span>{{end}}</h3>
     <table>
       <tbody>
         <tr><th>Última conexión</th><td>{{with $st.LastSeen}}{{datetime .}}{{else}}<span class="muted">nunca</span>{{end}}</td></tr>
@@ -38,6 +42,27 @@
         {{with $r.Warnings}}<tr><th>Problemas recientes</th><td class="small">{{range .}}<div>{{.}}</div>{{end}}</td></tr>{{end}}
       </tbody>
     </table>
+    </div>
+    <div>
+    <h3 class="small muted" style="margin:0 0 6px">Club25 Emisor (transmisión en vivo)
+      {{if .EmisorOnline}}<span class="pill live">conectado</span>{{else if $st.EmisorLastSeen}}<span class="pill">sin señal</span>{{else}}<span class="pill">no usado</span>{{end}}</h3>
+    {{$e := .Emisor}}
+    <table>
+      <tbody>
+        <tr><th>Última conexión</th><td>{{with $st.EmisorLastSeen}}{{datetime .}}{{else}}<span class="muted">nunca</span>{{end}}</td></tr>
+        <tr><th>Versión</th><td>{{with $st.EmisorVersion}}{{.}}{{else}}—{{end}}</td></tr>
+        {{if $st.EmisorLastSeen}}
+        <tr><th>Radio</th><td>{{if $e.Radio.Live}}<span class="pill live">al aire</span>{{else}}<span class="pill">{{$e.Radio.Label}}</span>{{end}}
+          {{if $e.Radio.Live}}<span class="small muted">{{printf "%.0f" $e.Radio.BitrateKbps}} kbps</span>{{end}}
+          {{with $e.Radio.Target}}<div class="small muted">{{.}}</div>{{end}}{{with $e.Radio.Message}}<div class="small">{{.}}</div>{{end}}</td></tr>
+        <tr><th>TV</th><td>{{if $e.TV.Live}}<span class="pill live">al aire</span>{{else}}<span class="pill">{{$e.TV.Label}}</span>{{end}}
+          {{if $e.TV.Live}}<span class="small muted">{{printf "%.0f" $e.TV.BitrateKbps}} kbps</span>{{end}}
+          {{with $e.TV.Target}}<div class="small muted">{{.}}</div>{{end}}{{with $e.TV.Message}}<div class="small">{{.}}</div>{{end}}</td></tr>
+        {{with $e.NowPlaying}}<tr><th>Sonando</th><td><strong>{{.}}</strong></td></tr>{{end}}
+        {{end}}
+      </tbody>
+    </table>
+    </div>
     <div>
       <p>Token: {{if $st.HasToken}}<span class="pill ok">activo</span>{{else}}<span class="pill warn">sin token</span>{{end}}
         {{if isAdmin $.User}}<a class="small" href="/admin/access">Gestionar en Tokens y claves</a>{{end}}</p>
@@ -50,5 +75,8 @@
 {{end}}
 <p class="small muted">Las copias de la base de cada PC (programación, biblioteca sin los audios, cuñas y ajustes) se guardan
   en el servidor en <code>data/studio-backups/</code>: las últimas {{14}} por frecuencia.</p>
-<p class="small muted">Cada PC envía una señal cada minuto. Sin señal en 3 minutos aparece «sin conexión»; la emisión FM no depende de internet.</p>
+<p class="small muted">Club25 Estudio y Club25 Emisor envían una señal cada minuto con el mismo token de la frecuencia.
+  Sin señal de ninguno en 3 minutos aparece «sin conexión»; la emisión FM no depende de internet. Al generar un token nuevo
+  o revocarlo, el anterior deja de servir al instante en los dos programas (el Emisor se bloquea y detiene la emisión en
+  menos de un minuto).</p>
 {{end}}

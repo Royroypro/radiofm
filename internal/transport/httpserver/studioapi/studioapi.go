@@ -27,6 +27,7 @@ import (
 
 	"radioclub25/internal/domain"
 	"radioclub25/internal/platform/config"
+	"radioclub25/internal/service/emisor"
 	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/programs"
 	"radioclub25/internal/service/settings"
@@ -40,6 +41,7 @@ type Handler struct {
 	Settings    *settings.Service
 	Programs    *programs.Service
 	Frequencies *frequencies.Service
+	Emisor      *emisor.Service
 	Cfg         config.Config
 	Log         *slog.Logger
 }

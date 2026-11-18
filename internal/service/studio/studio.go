@@ -158,6 +158,28 @@ func (s *Service) Heartbeat(ctx context.Context, fid int64, in HeartbeatInput) e
 	return s.state.Heartbeat(ctx, fid, s.now(), in.Version, in.Mode, enc, status)
 }
 
+// EmisorHeartbeatInput es lo que envía Club25 Emisor cada minuto.
+type EmisorHeartbeatInput struct {
+	Version string          `json:"version"`
+	Status  json.RawMessage `json:"status"` // domain.EmisorReport
+}
+
+// EmisorHeartbeat registra la señal de Club25 Emisor (mismo token que el Estudio).
+func (s *Service) EmisorHeartbeat(ctx context.Context, fid int64, in EmisorHeartbeatInput) error {
+	in.Version = strings.TrimSpace(in.Version)
+	if in.Version == "" || len(in.Version) > 40 {
+		return domain.Invalid("version", "Versión inválida")
+	}
+	status := "{}"
+	if len(in.Status) > 0 && string(in.Status) != "null" {
+		if len(in.Status) > 8<<10 || !json.Valid(in.Status) {
+			return domain.Invalid("status", "Estado del emisor inválido")
+		}
+		status = string(in.Status)
+	}
+	return s.state.EmisorHeartbeat(ctx, fid, s.now(), in.Version, status)
+}
+
 // SetNowPlaying guarda lo que suena en la PC.
 func (s *Service) SetNowPlaying(ctx context.Context, fid int64, np domain.NowPlaying) error {
 	np.Artist, np.Title, np.Kind = strings.TrimSpace(np.Artist), strings.TrimSpace(np.Title), strings.TrimSpace(np.Kind)

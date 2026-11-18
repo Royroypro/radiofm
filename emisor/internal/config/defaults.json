@@ -1,0 +1,58 @@
+{
+  "radio": {
+    "enabled": true,
+    "host": "radioclub25peru.com",
+    "port": 8010,
+    "mount": "/radio",
+    "user": "source",
+    "password": "",
+    "codec": "mp3",
+    "bitrate_kbps": 128,
+    "sample_rate": 44100,
+    "channels": 2,
+    "input": {"kind": "dshow", "name": ""},
+    "gain_db": 0,
+    "stream_name": "Radio Club 25",
+    "genre": "Variado",
+    "description": "En vivo desde Huacho",
+    "website": "https://radioclub25peru.com",
+    "eq": {"enabled": false, "preset": "Plano", "gains": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+    "titles": {
+      "source": "manual",
+      "file": "C:\\Jazler RadioStar 2\\Exports\\NowOnAir.xml",
+      "idle_text": "Radio Club 25",
+      "playlist": ""
+    }
+  },
+  "tv": {
+    "enabled": false,
+    "protocol": "rtmp",
+    "host": "radioclub25peru.com",
+    "rtmp_port": 1935,
+    "srt_port": 8890,
+    "path": "tv",
+    "user": "emisora",
+    "password": "",
+    "video": {"kind": "dshow", "name": ""},
+    "audio": {"kind": "dshow", "name": ""},
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "video_kbps": 2500,
+    "audio_kbps": 128,
+    "encoder": "libx264",
+    "keyframe_sec": 2,
+    "gain_db": 0,
+    "eq": {"enabled": false, "preset": "Plano", "gains": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+  },
+  "panel": {
+    "url": "https://radioclub25peru.com",
+    "token": ""
+  },
+  "startup": {
+    "with_windows": false,
+    "auto_broadcast": false,
+    "background": true
+  },
+  "ffmpeg_path": ""
+}

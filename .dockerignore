@@ -1,6 +1,8 @@
 # Contexto de Docker: solo el servidor.
 # El programa de Windows (estudio/) es otro módulo Go y no se compila en el contenedor.
 estudio/
+# El emisor de Windows (emisor/) también es un módulo aparte (Wails + CGO).
+emisor/
 # La app Android (android/) se compila aparte con Gradle.
 android/
 go.work

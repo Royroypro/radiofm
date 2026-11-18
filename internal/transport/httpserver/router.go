@@ -23,6 +23,7 @@ import (
 	"radioclub25/internal/service/audit"
 	"radioclub25/internal/service/auth"
 	"radioclub25/internal/service/billing"
+	"radioclub25/internal/service/emisor"
 	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/gate"
 	"radioclub25/internal/service/license"
@@ -57,6 +58,7 @@ type Deps struct {
 	Billing     *billing.Service
 	Audit       *audit.Service
 	Studio      *studio.Service
+	Emisor      *emisor.Service
 }
 
 // NewRouter devuelve el http.Handler con todas las rutas.
@@ -66,9 +68,10 @@ func NewRouter(d Deps) http.Handler {
 		License: d.License, Gate: d.Gate, Studio: d.Studio, Log: d.Log, InternalToken: d.Cfg.InternalToken}
 	adm := &admin.Handler{Views: d.Views, Auth: d.Auth, Settings: d.Settings, Programs: d.Programs, Ads: d.Ads,
 		Frequencies: d.Frequencies, Media: d.Media, License: d.License, Studio: d.Studio, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
-	stu := &studioapi.Handler{Studio: d.Studio, Settings: d.Settings, Frequencies: d.Frequencies, Programs: d.Programs, Cfg: d.Cfg, Log: d.Log}
+	stu := &studioapi.Handler{Studio: d.Studio, Settings: d.Settings, Frequencies: d.Frequencies, Programs: d.Programs,
+		Emisor: d.Emisor, Cfg: d.Cfg, Log: d.Log}
 	sup := &superadmin.Handler{Views: d.Views, Billing: d.Billing, License: d.License, Audit: d.Audit, Media: d.Media,
-		Store: d.Store, Cfg: d.Cfg, Log: d.Log}
+		Emisor: d.Emisor, Frequencies: d.Frequencies, Store: d.Store, Cfg: d.Cfg, Log: d.Log}
 
 	// Datos comunes de todas las páginas.
 	d.Views.SetCommon(func(w http.ResponseWriter, r *http.Request, p *views.Page) {
@@ -110,6 +113,9 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/login", adm.LoginForm)
 	r.Post("/login", adm.Login)
 	r.Post("/logout", adm.Logout)
+	// Contacto del proveedor para el aviso de licencia de Club25 Emisor: público y sin
+	// bloqueo de licencia (un cliente suspendido también debe poder ver cómo contactarse).
+	r.Get("/api/emisor/provider", stu.EmisorProvider)
 
 	// --- Web pública: con bloqueo total muestra "servicio suspendido" ---
 	r.Group(func(r chi.Router) {
@@ -137,6 +143,12 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/backup", stu.Backup)
 		r.Get("/commands", stu.Commands)
 		r.Post("/commands/{id}/done", stu.CommandDone)
+		// Club25 Emisor (emisor/): autenticación, actualización y copia de la configuración.
+		r.Get("/emisor", stu.EmisorInfo)
+		r.Post("/emisor/heartbeat", stu.EmisorHeartbeat)
+		r.Get("/emisor/download", stu.EmisorDownload)
+		r.Get("/emisor/config", stu.EmisorConfigGet)
+		r.Put("/emisor/config", stu.EmisorConfigPut)
 	})
 
 	// --- Panel admin (editor o superior) ---
@@ -256,6 +268,11 @@ func NewRouter(d Deps) http.Handler {
 		r.Post("/license/refresh", sup.LicenseRefresh)
 
 		r.Get("/audit", sup.AuditLog)
+
+		r.Get("/emisor", sup.EmisorPage)
+		r.Post("/emisor/provider", sup.EmisorProviderSave)
+		r.Post("/emisor/releases", sup.EmisorReleaseUpload)
+		r.Post("/emisor/releases/{id}/delete", sup.EmisorReleaseDelete)
 	})
 	return r
 }

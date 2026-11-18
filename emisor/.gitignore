@@ -1,0 +1,7 @@
+# Compilados y paquetes (wails build / scripts/empaquetar.ps1)
+build/bin/
+build/dist/
+# Bindings que genera Wails: el frontend usa window.go.ui.App directamente
+frontend/wailsjs/
+# ffmpeg no se versiona: se copia al empaquetar
+ffmpeg.exe

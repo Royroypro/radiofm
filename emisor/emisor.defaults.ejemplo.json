@@ -1,0 +1,18 @@
+{
+  "radio": {
+    "host": "radioclub25peru.com",
+    "port": 8010,
+    "mount": "/radio-barranca",
+    "stream_name": "Radio Club 25 Barranca"
+  },
+  "tv": {
+    "host": "radioclub25peru.com",
+    "rtmp_port": 1935,
+    "srt_port": 8890,
+    "path": "tv",
+    "user": "emisora"
+  },
+  "panel": {
+    "url": "https://radioclub25peru.com"
+  }
+}

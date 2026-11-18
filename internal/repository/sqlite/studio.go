@@ -18,17 +18,18 @@ type StudioRepo struct{ db *sql.DB }
 func NewStudioRepo(db *sql.DB) *StudioRepo { return &StudioRepo{db: db} }
 
 const studioCols = `frequency_id, token_hash, token_created_at, last_seen, version, mode, encoder_json,
-	now_playing_json, now_playing_at, status_json`
+	now_playing_json, now_playing_at, status_json, emisor_last_seen, emisor_version, emisor_status_json`
 
 func scanStudio(r rowScanner) (*domain.StudioState, error) {
 	var s domain.StudioState
-	var tokenAt, lastSeen, npAt sql.NullString
+	var tokenAt, lastSeen, npAt, emisorSeen sql.NullString
 	var mode, np string
 	if err := r.Scan(&s.FrequencyID, &s.TokenHash, &tokenAt, &lastSeen, &s.Version, &mode, &s.EncoderJSON, &np,
-		&npAt, &s.StatusJSON); err != nil {
+		&npAt, &s.StatusJSON, &emisorSeen, &s.EmisorVersion, &s.EmisorStatusJSON); err != nil {
 		return nil, err
 	}
 	s.TokenCreatedAt, s.LastSeen, s.NowPlayingAt = parseTimePtr(tokenAt), parseTimePtr(lastSeen), parseTimePtr(npAt)
+	s.EmisorLastSeen = parseTimePtr(emisorSeen)
 	s.Mode = domain.StudioMode(mode)
 	if np != "" {
 		var n domain.NowPlaying
@@ -108,6 +109,19 @@ func (r *StudioRepo) Heartbeat(ctx context.Context, frequencyID int64, at time.T
 	}
 	_, err := r.db.ExecContext(ctx, `UPDATE studio_stations SET last_seen = ?, version = ?, mode = ?, encoder_json = ?,
 		status_json = ? WHERE frequency_id = ?`, formatTime(at), version, string(mode), encoderJSON, statusJSON, frequencyID)
+	return err
+}
+
+// EmisorHeartbeat registra la señal de Club25 Emisor (no toca la del Estudio).
+func (r *StudioRepo) EmisorHeartbeat(ctx context.Context, frequencyID int64, at time.Time, version, statusJSON string) error {
+	if err := r.ensure(ctx, frequencyID); err != nil {
+		return err
+	}
+	if statusJSON == "" {
+		statusJSON = "{}"
+	}
+	_, err := r.db.ExecContext(ctx, `UPDATE studio_stations SET emisor_last_seen = ?, emisor_version = ?, emisor_status_json = ?
+		WHERE frequency_id = ?`, formatTime(at), version, statusJSON, frequencyID)
 	return err
 }
 

@@ -173,8 +173,24 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	if !strings.Contains(csv, "Ferretería El Sol;Verano 20 s;20.0;Sí;5f0c2b9e") {
 		t.Fatalf("CSV del comprobante inesperado:\n%s", csv)
 	}
-	if _, list := e.get("/admin/studio"); !strings.Contains(list, "PC conectada") || !strings.Contains(list, "Motor y motivo") {
+	if _, list := e.get("/admin/studio"); !strings.Contains(list, "Club25 Estudio conectado") || !strings.Contains(list, "Motor y motivo") {
 		t.Fatal("el panel debe mostrar la PC conectada y lo que suena")
+	}
+
+	// Club25 Emisor usa el mismo token: su señal se ve aparte en el panel.
+	if code, body, _ := e.studioReq(http.MethodGet, "/api/studio/emisor", token, ""); code != http.StatusOK || !strings.Contains(body, `"ok":true`) {
+		t.Fatalf("emisor con el token del estudio = %d %s", code, body)
+	}
+	hb := `{"version":"1.5.0","status":{"radio":{"state":"en_vivo","bitrate_kbps":128,"target":"x:8010/radio"},"tv":{"state":"detenido"},"now_playing":"Grupo 5 - Motor y motivo"}}`
+	if code, body, _ := e.studioReq(http.MethodPost, "/api/studio/emisor/heartbeat", token, hb); code != http.StatusOK || !strings.Contains(body, `"latest":""`) {
+		t.Fatalf("latido del emisor = %d %s", code, body)
+	}
+	if code, _, _ := e.studioReq(http.MethodPost, "/api/studio/emisor/heartbeat", token, `{"version":""}`); code != http.StatusBadRequest {
+		t.Fatalf("latido sin versión = %d", code)
+	}
+	if _, list := e.get("/admin/studio"); !strings.Contains(list, "Club25 Emisor conectado") || !strings.Contains(list, "Club25 Estudio conectado") ||
+		!strings.Contains(list, "1.5.0") {
+		t.Fatal("el panel debe mostrar que dan señal el Estudio y el Emisor")
 	}
 
 	// estado completo con un problema: alarmas en la página del estudio, el resumen y el control remoto
@@ -254,6 +270,26 @@ func TestStudioPanelAndAPI(t *testing.T) {
 	}
 	if code, _, _ := e.studioReq(http.MethodGet, "/api/studio/spots", token, ""); code != http.StatusUnauthorized {
 		t.Fatalf("token revocado = %d", code)
+	}
+	for _, path := range []string{"/api/studio/emisor", "/api/studio/emisor/config", "/api/studio/emisor/download"} {
+		if code, _, _ := e.studioReq(http.MethodGet, path, token, ""); code != http.StatusUnauthorized {
+			t.Fatalf("token revocado en %s = %d", path, code)
+		}
+	}
+	// Generar uno nuevo: el nuevo vale para los dos programas y el anterior no.
+	code, page = e.post("/admin/studio/1/token", url.Values{})
+	i = strings.Index(page, "c25s_")
+	if code != http.StatusOK || i < 0 {
+		t.Fatalf("token nuevo = %d", code)
+	}
+	token2 := page[i : i+len("c25s_")+64]
+	for _, path := range []string{"/api/studio/config", "/api/studio/emisor"} {
+		if code, _, _ := e.studioReq(http.MethodGet, path, token2, ""); code != http.StatusOK {
+			t.Fatalf("token nuevo en %s = %d", path, code)
+		}
+		if code, _, _ := e.studioReq(http.MethodGet, path, token, ""); code != http.StatusUnauthorized {
+			t.Fatalf("token anterior en %s = %d", path, code)
+		}
 	}
 	st, _ := e.app.Studio.State(context.Background(), 1)
 	if st.Mode != domain.StudioAuto {

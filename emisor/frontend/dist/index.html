@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Club25 Emisor</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="logo.svg">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img class="logo" src="logo.svg" alt="">
+      <strong>Club25 Emisor</strong>
+      <span class="muted" id="version"></span>
+    </div>
+    <div class="top-actions">
+      <span id="ffmpeg-status" class="muted small"></span>
+      <button class="btn big go" id="start-all" title="Inicia las salidas marcadas con «Emitir»">▶ Iniciar</button>
+      <button class="btn big stop" id="stop-all">■ Detener todo</button>
+    </div>
+  </header>
+
+  <div id="lockbar" class="lockbar hidden">
+    <span id="lockbar-text"></span>
+    <button class="btn mini go open-auth" id="lockbar-auth" type="button">Autenticar</button>
+    <button class="btn mini open-contact" id="lockbar-contact" type="button">Adquirir licencia</button>
+    <button class="btn mini go open-update" id="lockbar-update" type="button">⬆ Actualizar</button>
+  </div>
+
+  <div id="alert" class="alert hidden"></div>
+
+  <!-- Las dos salidas: radio (solo audio) y TV (video + audio). Ninguna es obligatoria. -->
+  <section class="outputs">
+    <article class="out" id="out-radio">
+      <div class="out-head">
+        <label class="check"><input type="checkbox" data-k="radio.enabled"> Emitir</label>
+        <h2>Radio <span class="muted">audio → Icecast</span></h2>
+        <span class="pill" data-state="detenido">Detenido</span>
+      </div>
+      <div class="meters" data-meter="radio"></div>
+      <div class="out-info">
+        <span data-info="time">00:00:00</span>
+        <span data-info="rate">—</span>
+        <span data-info="target" class="muted"></span>
+      </div>
+      <div class="out-msg muted" data-info="msg"></div>
+      <div class="out-actions">
+        <button class="btn go" data-start="radio">▶ Iniciar radio</button>
+        <button class="btn stop" data-stop="radio">■ Detener</button>
+        <button class="btn enh" data-enhance="radio" title="MEJORA: procesador de sonido. Amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos). Se enciende y apaga al aire, sin cortar.">✦ MEJORA</button>
+        <button class="btn apply" data-apply="radio" title="Aplica los cambios de configuración: la conexión se reinicia sola en un instante.">⟳ Aplicar</button>
+      </div>
+    </article>
+
+    <article class="out" id="out-tv">
+      <div class="out-head">
+        <label class="check"><input type="checkbox" data-k="tv.enabled"> Emitir</label>
+        <h2>TV <span class="muted">video → MediaMTX</span></h2>
+        <span class="pill" data-state="detenido">Detenido</span>
+      </div>
+      <div class="meters" data-meter="tv"></div>
+      <div class="out-info">
+        <span data-info="time">00:00:00</span>
+        <span data-info="rate">—</span>
+        <span data-info="target" class="muted"></span>
+      </div>
+      <div class="out-msg muted" data-info="msg"></div>
+      <div class="out-actions">
+        <button class="btn go" data-start="tv">▶ Iniciar TV</button>
+        <button class="btn stop" data-stop="tv">■ Detener</button>
+        <button class="btn enh" data-enhance="tv" title="MEJORA: procesador de sonido. Amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos). Se enciende y apaga al aire, sin cortar.">✦ MEJORA</button>
+        <button class="btn apply" data-apply="tv" title="Aplica los cambios de configuración: la conexión se reinicia sola en un instante.">⟳ Aplicar</button>
+      </div>
+    </article>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="radio">📻 Radio (audio)</button>
+    <button class="tab" data-tab="tv">📺 TV (video)</button>
+    <button class="tab" data-tab="ajustes">⚙ Ajustes</button>
+    <button class="tab" data-tab="registro">Registro</button>
+  </nav>
+
+  <main>
+    <!-- ===== Radio: Resumen · Entrada · Stream · Mejoras · Canciones ===== -->
+    <section class="panel active" id="tab-radio">
+      <nav class="subtabs">
+        <button class="subtab active" data-sub="resumen">Resumen</button>
+        <button class="subtab" data-sub="entrada">Entrada</button>
+        <button class="subtab" data-sub="stream">Stream</button>
+        <button class="subtab" data-sub="mejoras">Mejoras</button>
+        <button class="subtab" data-sub="canciones">Canciones</button>
+      </nav>
+      <div class="applybar" data-applybar="radio">
+        <span class="ab-msg"></span>
+        <button class="btn apply" data-apply="radio">⟳ Aplicar cambios a la radio</button>
+      </div>
+      <div class="subpanel active" data-sub="resumen">
+        <div class="summary" data-summary="radio"></div>
+      </div>
+      <div class="subpanel" data-sub="entrada">
+      <fieldset>
+        <legend>Entrada</legend>
+        <div class="grid">
+          <div class="src" data-src="radio.input" data-role="audio"></div>
+          <label class="btn-cell"><button class="btn ghost" data-refresh>↻ Actualizar dispositivos</button></label>
+        </div>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="stream">
+      <fieldset>
+        <legend>Formato</legend>
+        <div class="grid">
+          <label>Formato de audio <select data-k="radio.codec" id="codec"></select></label>
+          <label>Bitrate <select data-k="radio.bitrate_kbps" id="bitrate" data-num></select></label>
+          <label>Muestreo
+            <select data-k="radio.sample_rate" data-num>
+              <option value="44100">44 100 Hz</option><option value="48000">48 000 Hz</option>
+            </select>
+          </label>
+          <label>Canales
+            <select data-k="radio.channels" data-num>
+              <option value="2">Estéreo</option><option value="1">Mono</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint" id="codec-hint"></p>
+      </fieldset>
+      <fieldset>
+        <legend>Servidor Icecast</legend>
+        <div class="grid">
+          <label class="wide">Servidor <input data-k="radio.host" spellcheck="false"></label>
+          <label>Puerto <input type="number" data-k="radio.port" data-num></label>
+          <label>Montaje <input data-k="radio.mount" spellcheck="false"></label>
+          <label>Usuario <input data-k="radio.user" spellcheck="false"></label>
+          <label class="wide">Contraseña de fuente
+            <span class="pass"><input type="password" data-k="radio.password" autocomplete="off" spellcheck="false"><button class="eye" type="button">👁</button></span>
+          </label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Datos del stream</legend>
+        <div class="grid">
+          <label>Nombre <input data-k="radio.stream_name"></label>
+          <label>Género <input data-k="radio.genre"></label>
+          <label class="wide">Descripción <input data-k="radio.description"></label>
+          <label class="wide">Web <input data-k="radio.website" spellcheck="false"></label>
+        </div>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="mejoras">
+      <fieldset class="mejoras">
+        <legend>Mejoras</legend>
+        <p class="hint mej-intro">Todo lo de este bloque se aplica al aire, sin cortar la emisión.</p>
+        <div class="mej-row">
+          <label class="mej-gain">Ganancia (dB)
+            <span class="gain-ctl">
+              <input type="range" min="-30" max="30" step="0.5" class="gain-range" data-gain="radio">
+              <input type="number" step="0.5" min="-30" max="30" data-k="radio.gain_db" data-num class="gain-num">
+            </span>
+          </label>
+          <div class="mej-enh">
+            <button class="btn enh" data-enhance="radio" type="button" title="Procesador de sonido: amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos).">✦ MEJORA</button>
+            <span class="muted small">Procesador de sonido: amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos).</span>
+          </div>
+        </div>
+        <div class="eqbox" data-eq="radio"></div>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="canciones">
+      <fieldset>
+        <legend>Nombre de la canción (se ve en la web y en los reproductores)</legend>
+        <div class="grid">
+          <label class="wide">De dónde sale el nombre
+            <select data-k="radio.titles.source">
+              <option value="manual">A mano o desde una lista de canciones</option>
+              <option value="jazler">Jazler RadioStar 2 (automático)</option>
+              <option value="file">Archivo de texto de otro programa (automático)</option>
+            </select>
+          </label>
+          <label class="wide">Texto en cuñas, jingles y pausas
+            <input data-k="radio.titles.idle_text" placeholder="Radio Club 25 (vacío = dejar el último título)">
+          </label>
+          <label class="wide title-file">Archivo que se vigila
+            <input data-k="radio.titles.file" spellcheck="false" placeholder="C:\Jazler RadioStar 2\Exports\NowOnAir.xml">
+          </label>
+          <label class="btn-cell title-file"><button class="btn ghost" id="detect-jazler" type="button">🔍 Buscar Jazler</button></label>
+        </div>
+        <div class="nowplaying"><span class="muted">Sonando ahora:</span> <b id="np-title">—</b> <span id="np-status" class="muted"></span></div>
+        <div class="row title-manual">
+          <input id="song" placeholder="Título a mano (artista — canción) y Enter">
+          <button class="btn" id="send-song" type="button">Enviar título</button>
+        </div>
+        <div class="playlist title-manual">
+          <div class="pl-head">
+            <button class="btn" id="pl-load" type="button">📂 Cargar lista de canciones…</button>
+            <span id="pl-name" class="muted"></span>
+            <button class="btn" id="pl-next" type="button">⏭ Enviar la siguiente</button>
+          </div>
+          <ol id="pl-list"></ol>
+        </div>
+        <p class="hint" id="titles-hint"></p>
+      </fieldset>
+      </div>
+    </section>
+
+    <!-- ===== TV: Resumen · Entradas · Stream · Mejoras ===== -->
+    <section class="panel" id="tab-tv">
+      <nav class="subtabs">
+        <button class="subtab active" data-sub="resumen">Resumen</button>
+        <button class="subtab" data-sub="entradas">Entradas</button>
+        <button class="subtab" data-sub="stream">Stream</button>
+        <button class="subtab" data-sub="mejoras">Mejoras del audio</button>
+      </nav>
+      <div class="applybar" data-applybar="tv">
+        <span class="ab-msg"></span>
+        <button class="btn apply" data-apply="tv">⟳ Aplicar cambios a la TV</button>
+      </div>
+      <div class="subpanel active" data-sub="resumen">
+        <div class="summary" data-summary="tv"></div>
+      </div>
+      <div class="subpanel" data-sub="entradas">
+      <fieldset>
+        <legend>Entradas</legend>
+        <div class="grid">
+          <div class="src" data-src="tv.video" data-role="video"></div>
+          <div class="src" data-src="tv.audio" data-role="tvaudio"></div>
+          <label class="btn-cell"><button class="btn ghost" data-refresh>↻ Actualizar dispositivos</button></label>
+        </div>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="stream">
+      <fieldset>
+        <legend>Calidad (H.264 + AAC)</legend>
+        <div class="grid">
+          <label>Resolución
+            <select id="resolution">
+              <option value="1920x1080">1920×1080 (1080p)</option>
+              <option value="1280x720">1280×720 (720p)</option>
+              <option value="854x480">854×480 (480p)</option>
+              <option value="640x360">640×360 (360p)</option>
+            </select>
+          </label>
+          <label>Cuadros/s
+            <select data-k="tv.fps" data-num>
+              <option>24</option><option>25</option><option>30</option><option>50</option><option>60</option>
+            </select>
+          </label>
+          <label>Bitrate de video (kbps)
+            <input type="number" min="300" step="100" data-k="tv.video_kbps" data-num id="vkbps">
+          </label>
+          <label>Bitrate de audio <select data-k="tv.audio_kbps" data-num id="tv-akbps"></select></label>
+          <label>Codificador <select data-k="tv.encoder" id="encoder"></select></label>
+          <label>Fotograma clave (s)
+            <input type="number" min="1" max="10" data-k="tv.keyframe_sec" data-num>
+          </label>
+        </div>
+        <input type="range" min="300" step="100" id="vkbps-range" class="range">
+        <p class="hint">Recomendado: 720p a 2500 kbps (internet de subida de al menos 4 Mbps). Máximo <span id="max-video"></span> kbps.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Servidor MediaMTX</legend>
+        <div class="grid">
+          <label>Protocolo
+            <select data-k="tv.protocol">
+              <option value="rtmp">RTMP</option><option value="srt">SRT (conexiones inestables)</option>
+            </select>
+          </label>
+          <label class="wide">Servidor <input data-k="tv.host" spellcheck="false"></label>
+          <label>Puerto RTMP <input type="number" data-k="tv.rtmp_port" data-num></label>
+          <label>Puerto SRT <input type="number" data-k="tv.srt_port" data-num></label>
+          <label>Ruta <input data-k="tv.path" spellcheck="false"></label>
+          <label>Usuario <input data-k="tv.user" spellcheck="false"></label>
+          <label class="wide">Clave de la TV
+            <span class="pass"><input type="password" data-k="tv.password" autocomplete="off" spellcheck="false"><button class="eye" type="button">👁</button></span>
+          </label>
+        </div>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="mejoras">
+      <fieldset class="mejoras">
+        <legend>Mejoras</legend>
+        <p class="hint mej-intro">Todo lo de este bloque se aplica al aire, sin cortar la emisión.</p>
+        <div class="mej-row">
+          <label class="mej-gain">Ganancia (dB)
+            <span class="gain-ctl">
+              <input type="range" min="-30" max="30" step="0.5" class="gain-range" data-gain="tv">
+              <input type="number" step="0.5" min="-30" max="30" data-k="tv.gain_db" data-num class="gain-num">
+            </span>
+          </label>
+          <div class="mej-enh">
+            <button class="btn enh" data-enhance="tv" type="button" title="Procesador de sonido: amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos).">✦ MEJORA</button>
+            <span class="muted small">Procesador de sonido: amplifica y empareja el volumen (compresor + limitador, nunca satura) y da cuerpo y brillo (graves y agudos).</span>
+          </div>
+        </div>
+        <div class="eqbox" data-eq="tv"></div>
+      </fieldset>
+      </div>
+    </section>
+
+    <!-- ===== Ajustes: Datos del panel · Arranque · Programa ===== -->
+    <section class="panel" id="tab-ajustes">
+      <nav class="subtabs">
+        <button class="subtab active" data-sub="panel">Datos del panel</button>
+        <button class="subtab" data-sub="arranque">Arranque</button>
+        <button class="subtab" data-sub="programa">Programa</button>
+      </nav>
+      <div class="subpanel active" data-sub="panel">
+      <fieldset>
+        <legend>Traer los datos desde la web</legend>
+        <p class="hint">Use el token de <b>Admin → Estudio (PC)</b> (el mismo de Club25 Estudio). Se cargan servidor,
+          puertos, montaje, ruta, usuario y clave de la TV. La contraseña de fuente de Icecast no viaja por la web:
+          escríbala una vez en Radio → Stream.</p>
+        <div class="grid">
+          <label class="wide">Dirección de la web <input data-k="panel.url" spellcheck="false"></label>
+          <label class="wide">Token del estudio
+            <span class="pass"><input type="password" data-k="panel.token" autocomplete="off" spellcheck="false"><button class="eye" type="button">👁</button></span>
+          </label>
+        </div>
+        <button class="btn go" id="panel-auth" type="button">🔐 Autenticar el programa</button>
+        <button class="btn" id="import">Traer datos del panel</button>
+      </fieldset>
+      <fieldset>
+        <legend>O pegue los datos de Admin → Streams y emisión</legend>
+        <textarea id="paste" rows="4" spellcheck="false"
+          placeholder="rtmp://servidor:1935/tv?user=emisora&pass=CLAVE&#10;srt://servidor:8890?streamid=publish:tv:emisora:CLAVE&pkt_size=1316&#10;icecast://source:CONTRASEÑA@servidor:8010/radio"></textarea>
+        <button class="btn" id="apply-paste">Aplicar datos pegados</button>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="arranque">
+      <fieldset>
+        <legend>Al encender la PC</legend>
+        <label class="opt"><input type="checkbox" data-k="startup.with_windows">
+          <span><b>Iniciar con Windows</b><br><span class="muted">El programa se abre solo al iniciar sesión, oculto junto al reloj
+          (ícono <img src="logo.svg" alt="" class="inline-logo">). Solo para este usuario de Windows; no pide permisos de administrador.</span></span></label>
+        <label class="opt"><input type="checkbox" data-k="startup.auto_broadcast">
+          <span><b>Empezar a emitir al abrir</b><br><span class="muted">Unos segundos después de abrirse, inicia la radio y/o la TV marcadas
+          con «Emitir». Si todavía no hay internet, la reconexión automática sigue intentando hasta lograrlo.</span></span></label>
+        <p class="hint">Con las dos opciones, la PC transmite sola después de un corte de luz o un reinicio, apenas alguien inicia
+          sesión en Windows (o si Windows inicia sesión automáticamente).</p>
+      </fieldset>
+      <fieldset>
+        <legend>Al cerrar la ventana</legend>
+        <label class="opt"><input type="checkbox" data-k="startup.background">
+          <span><b>Seguir en segundo plano</b><br><span class="muted">La X oculta la ventana y la emisión continúa. Para volver: clic en el
+          ícono junto al reloj o abrir el programa otra vez. Para cerrarlo del todo: clic derecho en el ícono → «Salir».</span></span></label>
+      </fieldset>
+      </div>
+      <div class="subpanel" data-sub="programa">
+      <fieldset>
+        <legend>Licencia y actualizaciones</legend>
+        <p id="lic-status"></p>
+        <p class="small muted" id="upd-status"></p>
+        <button class="btn" id="lic-check" type="button">↻ Verificar licencia y buscar actualización</button>
+        <button class="btn ghost open-contact" type="button">Contacto del proveedor</button>
+      </fieldset>
+      <fieldset>
+        <legend>Copia de la configuración en el servidor</legend>
+        <p class="small muted">Con el programa autenticado, cada cambio se guarda solo en el servidor de la radio
+          (sin contraseñas ni token). Sirve para recuperar la configuración si se cambia o reinstala la PC.</p>
+        <button class="btn" id="cfg-restore" type="button">⤓ Restaurar la configuración desde el servidor</button>
+      </fieldset>
+      <fieldset>
+        <legend>Programa</legend>
+        <p class="small muted">Configuración: <code id="cfg-path"></code><br>ffmpeg: <code id="ff-path"></code></p>
+        <button class="btn ghost" id="reset">Restablecer valores por defecto (conserva claves y dispositivos)</button>
+      </fieldset>
+      </div>
+    </section>
+
+    <!-- ===== Registro ===== -->
+    <section class="panel" id="tab-registro">
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+
+  <!-- ===== Avisos (modales): autenticar, licencia y contacto, actualización ===== -->
+  <div class="modal-bg hidden" id="m-auth"><div class="modal" role="dialog" aria-modal="true">
+    <h2>🔐 Autenticar Club25 Emisor</h2>
+    <p>Escriba el <b>dominio</b> de la web de su radio y el <b>token</b> de <b>Admin → Estudio (PC)</b>.</p>
+    <label>Dominio<input id="auth-url" spellcheck="false" placeholder="radioclub25peru.com"></label>
+    <label>Token
+      <span class="pass"><input id="auth-token" type="password" autocomplete="off" spellcheck="false"><button class="eye" type="button">👁</button></span>
+    </label>
+    <p class="modal-err" id="auth-err"></p>
+    <div class="modal-actions">
+      <button class="link open-contact" type="button">No tengo token: adquirir licencia</button>
+      <span class="sp"></span>
+      <button class="btn ghost" type="button" data-close>Ahora no</button>
+      <button class="btn go primary" type="button" id="auth-go">Autenticar</button>
+    </div>
+  </div></div>
+
+  <div class="modal-bg hidden" id="m-license"><div class="modal" role="dialog" aria-modal="true">
+    <h2>🔒 Licencia requerida</h2>
+    <p>Club25 Emisor solo funciona <b>autenticado</b> con el dominio y el token de su radio. Puede ver todas las
+      opciones, pero para emitir y cambiarlas debe autenticar el programa o contactarse con el proveedor para
+      <b>adquirir una licencia</b>.</p>
+    <div class="provider">
+      <div class="muted small">Proveedor del servicio de radio</div>
+      <div class="prov-line"><span class="prov-icon">📞</span><b class="prov-phone"></b>
+        <button class="btn mini prov-wa" type="button">WhatsApp</button>
+        <button class="btn mini ghost prov-copy" type="button">Copiar</button></div>
+      <div class="prov-line"><span class="prov-icon">🌐</span><span class="prov-url"></span>
+        <button class="btn mini prov-web" type="button">Abrir web</button></div>
+    </div>
+    <div class="modal-actions">
+      <span class="sp"></span>
+      <button class="btn ghost" type="button" data-close>Cerrar</button>
+      <button class="btn go primary open-auth" type="button">Autenticar</button>
+    </div>
+  </div></div>
+
+  <div class="modal-bg hidden" id="m-update"><div class="modal" role="dialog" aria-modal="true">
+    <h2>⬆ Actualización obligatoria</h2>
+    <p>Hay una versión nueva de Club25 Emisor: <b id="upd-version"></b> (esta PC tiene <span id="upd-current"></span>).
+      Para seguir usando las opciones debe actualizar.</p>
+    <p class="upd-notes" id="upd-notes"></p>
+    <p class="hint">La emisión <b>sigue al aire</b> mientras tanto. Al actualizar, el programa se reinicia y vuelve a
+      emitir solo (corte de unos segundos). «Detener» sigue funcionando.</p>
+    <div class="upd-progress hidden" id="upd-progress"><div class="upd-track"><div class="upd-bar" id="upd-bar"></div></div>
+      <span id="upd-stage" class="small muted"></span></div>
+    <p class="modal-err" id="upd-err"></p>
+    <div class="modal-actions">
+      <span class="sp"></span>
+      <button class="btn go primary" type="button" id="upd-go">⬆ Actualizar ahora</button>
+    </div>
+  </div></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

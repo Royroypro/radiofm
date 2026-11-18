@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Club25 Emisor: punto «al aire» con ondas de transmisión. Mismo dibujo que build/appicon.png (scripts/logo.py). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f3a6e"/>
+      <stop offset="1" stop-color="#0b1222"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset="1" stop-color="#d7263d"/>
+    </radialGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <path d="M181.75 181.75 A105 105 0 0 0 181.75 330.25" stroke-width="30"/>
+    <path d="M330.25 181.75 A105 105 0 0 1 330.25 330.25" stroke-width="30"/>
+    <path d="M132.3 132.3 A175 175 0 0 0 132.3 379.7" stroke-width="30" stroke-opacity="0.75"/>
+    <path d="M379.7 132.3 A175 175 0 0 1 379.7 379.7" stroke-width="30" stroke-opacity="0.75"/>
+  </g>
+  <circle cx="256" cy="256" r="52" fill="url(#dot)"/>
+</svg>

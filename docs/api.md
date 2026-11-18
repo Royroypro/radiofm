@@ -210,6 +210,50 @@ Respuesta:
   10 min en el futuro o de hace más de un año, duración fuera de 0–3 600 000). No deben reenviarse.
 - `complete`: lo decide la PC (sonó ≥ duración − 0,5 s).
 
+## API de Club25 Emisor (`emisor/`)
+
+Club25 Emisor usa el **mismo token** que Club25 Estudio (Admin → Estudio (PC), uno por frecuencia),
+con las mismas reglas: `Authorization: Bearer <token>`; sin token válido → `401 {"error":"unauthorized"}`;
+con bloqueo total de licencia → `503 {"error":"suspended"}`. Al **generar un token nuevo** o
+**revocarlo**, el anterior deja de valer al instante para los dos programas (se busca por su SHA-256
+en cada pedido, sin caché). El emisor lo nota en su siguiente latido (≤ 1 min): se bloquea y detiene
+la emisión.
+
+### `GET /api/emisor/provider` (público, sin token ni bloqueo de licencia)
+Contacto del proveedor que el emisor muestra cuando no está autenticado:
+`{"phone":"9488933154","url":"https://sehuacho.com/radio"}` (de fábrica; se cambia en Superadmin → Club25 Emisor).
+
+### `GET /api/studio/emisor`
+Autenticación del emisor y última versión publicada:
+```json
+{"ok": true,
+ "station": {"name": "Radio Club 25", "frequency": "93.3 FM", "frequency_id": 1, "city": "Huacho"},
+ "provider": {"phone": "9488933154", "url": "https://sehuacho.com/radio"},
+ "latest": {"version": "1.5.0", "sha256": "…", "size": 12944384, "notes": "…", "published_at": "2026-11-18T06:04:00Z"}}
+```
+`latest` es `null` si no hay versiones publicadas.
+
+### `GET /api/studio/emisor/download`
+El `.exe` de la última versión (cabeceras `X-Emisor-Version` y `X-Emisor-SHA256`). El emisor verifica
+tamaño y SHA-256 antes de instalarlo. 404 si no hay versiones.
+
+### `POST /api/studio/emisor/heartbeat`
+Latido del emisor (cada minuto y al cambiar el estado de una salida). Se guarda aparte del de Club25
+Estudio, así Admin → Monitoreo del estudio muestra qué programa da señal (Estudio, Emisor o ambos):
+```json
+{"version": "1.5.0",
+ "status": {"radio": {"state": "en_vivo", "bitrate_kbps": 128, "message": "", "target": "radio.pe:8010/radio"},
+            "tv": {"state": "detenido"}, "now_playing": "Grupo 5 - Motor y motivo"}}
+```
+`state`: `detenido`, `conectando`, `en_vivo` o `reconectando`. Respuesta `200 {"latest":"1.5.3"}` con la versión
+publicada más alta (`""` si no hay): el emisor se entera de una actualización en un minuto. `400` si falta la versión.
+Una señal anterior al token vigente (token regenerado o revocado después) no cuenta como conectada.
+
+### `PUT /api/studio/emisor/config` · `GET /api/studio/emisor/config`
+Copia de la configuración del emisor (JSON, hasta 256 KB). El servidor borra cualquier campo
+`password`, `token` o `pass` antes de guardarla en `data/studio-backups/<frecuencia>/emisor-config-*.json`
+(quedan las 30 últimas). `GET` devuelve la última, con la fecha en `X-Saved-At`; 404 si no hay.
+
 ## Internas (nginx devuelve 404 desde Internet)
 
 | Método | Ruta | Quién la llama | Respuesta |
@@ -227,7 +271,10 @@ Respuesta:
   `fm-spots/report` y `fm-spots/report.csv` (comprobante de emisión), `programs`, `password`;
   (admin+): `settings`, `streams`, `studio` (token y estado de la PC de cada frecuencia:
   `POST /admin/studio/{frecuencia}/token` y `/token/revoke`), `users`. Editor+: `frequencies`.
-- `/superadmin/…` (superadmin): `client`, `plans`, `contracts`, `payments`, `license`, `audit`.
+- `/superadmin/…` (superadmin): `client`, `plans`, `contracts`, `payments`, `license`, `audit`,
+  `emisor` (Club25 Emisor: contacto del proveedor `POST /superadmin/emisor/provider`; publicar una versión
+  `POST /superadmin/emisor/releases`, multipart con `version`, `notes` y `file` = el `.exe`; borrar
+  `POST /superadmin/emisor/releases/{id}/delete`).
 
 ## Archivos
 

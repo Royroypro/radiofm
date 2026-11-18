@@ -1,0 +1,17 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Club25 Emisor",
+  "outputfilename": "club25-emisor",
+  "frontend:install": "",
+  "frontend:build": "",
+  "author": {
+    "name": "Radio Club 25"
+  },
+  "info": {
+    "companyName": "Radio Club 25",
+    "productName": "Club25 Emisor",
+    "productVersion": "1.5.0",
+    "copyright": "Radio Club 25",
+    "comments": "Emisor en vivo de audio y video para Radio Club 25"
+  }
+}

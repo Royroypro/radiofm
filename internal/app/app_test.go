@@ -124,7 +124,7 @@ func TestPanelsRequireLoginAndRoles(t *testing.T) {
 		"/admin/settings/brand", "/admin/settings/contact", "/admin/settings/app", "/admin/settings/ads",
 		"/admin/streams", "/admin/studio", "/admin/access", "/admin/users", "/admin/users/new", "/admin/password",
 		"/superadmin", "/superadmin/client", "/superadmin/plans", "/superadmin/plans/new", "/superadmin/contracts",
-		"/superadmin/contracts/new", "/superadmin/payments", "/superadmin/payments/new", "/superadmin/license", "/superadmin/audit"}
+		"/superadmin/contracts/new", "/superadmin/payments", "/superadmin/payments/new", "/superadmin/license", "/superadmin/audit", "/superadmin/emisor"}
 	for _, p := range pages {
 		if code, body := e.get(p); code != http.StatusOK || strings.Contains(body, "ZgotmplZ") {
 			t.Errorf("GET %s = %d", p, code)

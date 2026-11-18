@@ -26,6 +26,7 @@ import (
 	"radioclub25/internal/service/audit"
 	"radioclub25/internal/service/auth"
 	"radioclub25/internal/service/billing"
+	"radioclub25/internal/service/emisor"
 	"radioclub25/internal/service/frequencies"
 	"radioclub25/internal/service/gate"
 	"radioclub25/internal/service/license"
@@ -51,6 +52,7 @@ type App struct {
 	Media       *media.Service
 	Studio      *studio.Service
 	Frequencies *frequencies.Service
+	Emisor      *emisor.Service
 	Router      http.Handler
 }
 
@@ -106,6 +108,7 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 	adsSvc := ads.New(adRepo, adEventRepo, licenseSvc, store, auditSvc, cfg.IPHashSalt)
 	studioSvc := studio.New(fmSpotRepo, airplayRepo, studioRepo, store, auditSvc, cfg.Location)
 	studioSvc.WithTraffic(sqlite.NewFMAdvertiserRepo(database), sqlite.NewFMCampaignRepo(database))
+	emisorSvc := emisor.New(settingsRepo, sqlite.NewEmisorReleaseRepo(database), auditSvc, cfg.EmisorDir(), cfg.StudioBackupsDir())
 	gateSvc := gate.New(licenseSvc, settingsSvc, cfg.MediaMTXPath, cfg.IcecastSourcePass)
 	gateSvc.SetMounts(frequenciesSvc)
 
@@ -127,9 +130,10 @@ func New(cfg config.Config, log *slog.Logger, database *sql.DB, opt Options) (*A
 		Cfg: cfg, Log: log, Views: renderer, StaticFS: staticFS, Store: store,
 		Auth: authSvc, Settings: settingsSvc, Programs: programsSvc, Ads: adsSvc, Media: mediaSvc,
 		Frequencies: frequenciesSvc, License: licenseSvc, Gate: gateSvc, Billing: billingSvc, Audit: auditSvc, Studio: studioSvc,
+		Emisor: emisorSvc,
 	})
 	return &App{Cfg: cfg, Log: log, DB: database, Auth: authSvc, Settings: settingsSvc, License: licenseSvc,
-		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Frequencies: frequenciesSvc, Router: router}, nil
+		Billing: billingSvc, Ads: adsSvc, Media: mediaSvc, Studio: studioSvc, Frequencies: frequenciesSvc, Emisor: emisorSvc, Router: router}, nil
 }
 
 // Prepare deja los datos iniciales listos: ajustes por defecto, clave de TV,

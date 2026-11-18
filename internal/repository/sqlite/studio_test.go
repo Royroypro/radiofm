@@ -128,3 +128,30 @@ func TestStudioState(t *testing.T) {
 		t.Fatal("revocar debe borrar el token")
 	}
 }
+
+func TestStudioEmisorHeartbeat(t *testing.T) {
+	ctx := context.Background()
+	d := testutil.DB(t)
+	repo := sqlite.NewStudioRepo(d)
+	f := &domain.Frequency{City: "Huacho", Frequency: "93.3", Band: "FM", Active: true, Source: domain.SourceLocal, Mount: "/radio"}
+	if err := sqlite.NewFrequencyRepo(d).Create(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)
+	if err := repo.Heartbeat(ctx, f.ID, at, "1.9.2", domain.StudioAuto, "{}", "{}"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.EmisorHeartbeat(ctx, f.ID, at.Add(time.Minute), "1.5.0", `{"radio":{"state":"en_vivo"}}`); err != nil {
+		t.Fatal(err)
+	}
+	st, err := repo.Get(ctx, f.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Version != "1.9.2" || st.LastSeen == nil || !st.LastSeen.Equal(at) {
+		t.Fatalf("el latido del emisor no debe tocar el del Estudio: %+v", st)
+	}
+	if st.EmisorVersion != "1.5.0" || st.EmisorLastSeen == nil || !st.EmisorLastSeen.Equal(at.Add(time.Minute)) || !st.EmisorReport().Radio.Live() {
+		t.Fatalf("emisor: %+v", st)
+	}
+}
