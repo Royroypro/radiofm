@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,11 +47,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -114,7 +120,7 @@ fun HomeScreen(
             }
             if (cfg.tvEnabled && cfg.tvHlsUrl.isNotBlank()) {
                 item { SectionTitle("TV en vivo") }
-                item { TvCard(cfg, ui.status, onOpenTv) }
+                item { TvCard(cfg, ui.status, player, onToggle, onOpenTv) }
             }
             if (!cfg.radioEnabled && !cfg.tvEnabled) {
                 item { Text("La transmisión no está disponible por ahora.", color = MaterialTheme.colorScheme.onBackground) }
@@ -281,35 +287,154 @@ private fun StationCard(st: Station, status: LiveStatus?, player: PlayerUi, onTo
     }
 }
 
+/**
+ * TV en vivo con un marco 16:9 como el de la web (home.html, «tv-frame»):
+ * - Con señal: botón grande «Toca para ver la señal en vivo» (abre la TV a pantalla completa).
+ * - Sin señal y con radio: la «radio visual»: la frecuencia principal con su espectro,
+ *   lo que suena y un botón para escucharla aquí mismo.
+ * - Sin señal ni radio: el aviso de fuera del aire.
+ */
 @Composable
-private fun TvCard(cfg: AppConfig, status: LiveStatus?, onOpenTv: (String) -> Unit) {
+private fun TvCard(cfg: AppConfig, status: LiveStatus?, player: PlayerUi, onToggle: (Station) -> Unit, onOpenTv: (String) -> Unit) {
     val online = status?.tvOnline ?: false
+    val station = if (cfg.radioEnabled) cfg.stations.firstOrNull() else null
+    val card = MaterialTheme.colorScheme.surfaceVariant
+    val deep = MaterialTheme.colorScheme.tertiary
+    val accent = MaterialTheme.colorScheme.secondary
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = card),
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
-            LiveBadge(online)
-            Spacer(Modifier.height(4.dp))
-            Text("${cfg.name} TV", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
-            Text(
-                if (online) "Mírenos en vivo a pantalla completa." else "La TV está fuera del aire. Vuelva más tarde.",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = .85f),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { LiveBadge(online) }
+                Text("${cfg.name} TV", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = .8f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .drawBehind {
+                        // Fondo como .tv-radio de la web: degradado radial y el círculo naranja de la marca.
+                        drawRect(Brush.radialGradient(
+                            listOf(card, deep),
+                            center = Offset(size.width * .25f, size.height * .2f),
+                            radius = size.maxDimension * .75f,
+                        ))
+                        val d = size.width * .46f
+                        val stroke = size.width * .045f
+                        drawCircle(
+                            accent.copy(alpha = .35f),
+                            radius = (d - stroke) / 2,
+                            center = Offset(size.width * 1.12f - d / 2, -size.height * .22f + d / 2),
+                            style = Stroke(stroke),
+                        )
+                    },
+            ) {
+                when {
+                    online -> TvLiveFrame { onOpenTv(cfg.tvHlsUrl) }
+                    station != null -> TvRadioFrame(cfg, station, status, player, onToggle)
+                    else -> TvOffFrame()
+                }
+            }
             if (online && (status?.tvViewers ?: 0) > 0) {
+                Spacer(Modifier.height(8.dp))
                 Text("${status!!.tvViewers} viendo ahora", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f))
             }
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = { onOpenTv(cfg.tvHlsUrl) },
-                enabled = online,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.fillMaxWidth(),
+        }
+    }
+}
+
+/** TV al aire: el aviso «Toca para ver» sobre el marco. */
+@Composable
+private fun BoxScope.TvLiveFrame(onOpen: () -> Unit) {
+    Column(
+        Modifier.matchParentSize().clickable(onClick = onOpen).padding(12.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        FilledIconButton(
+            onClick = onOpen,
+            modifier = Modifier.size(72.dp).semantics { contentDescription = "Ver la TV en vivo" },
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+        ) {
+            Icon(painterResource(R.drawable.ic_play), contentDescription = null, modifier = Modifier.size(36.dp), tint = PlayIconTint)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("Toca para ver la señal en vivo", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+    }
+}
+
+/** TV fuera del aire y radio apagada en el panel. */
+@Composable
+private fun BoxScope.TvOffFrame() {
+    Column(
+        Modifier.matchParentSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("La TV está fuera del aire", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+        Text("Vuelva pronto.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .75f), textAlign = TextAlign.Center)
+    }
+}
+
+/** Radio visual (como .tv-radio de la web): la frecuencia principal mientras la TV no transmite. */
+@Composable
+private fun BoxScope.TvRadioFrame(cfg: AppConfig, st: Station, status: LiveStatus?, player: PlayerUi, onToggle: (Station) -> Unit) {
+    val s = status?.stations?.get(st.id)
+    val current = player.stationId == st.id
+    val playing = current && player.playing && !player.error
+    val text = MaterialTheme.colorScheme.onBackground
+    AudioSpectrum(
+        playing = playing,
+        red = MaterialTheme.colorScheme.primary,
+        orange = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(.72f),
+        barWidth = 14.dp,
+        alpha = if (playing) .85f else .5f,
+    )
+    Row(
+        Modifier.matchParentSize().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (cfg.logoUrl.isNotBlank()) {
+            AsyncImage(
+                model = cfg.logoUrl,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = .3f)).padding(5.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text("AHORA SUENA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+            val title = when {
+                s?.title?.isNotBlank() == true -> s.title
+                s?.program?.isNotBlank() == true -> s.program
+                cfg.slogan.isNotBlank() -> cfg.slogan
+                else -> cfg.name
+            }
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic,
+                color = text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(listOf(cfg.name, st.label, st.city).filter { it.isNotBlank() }.joinToString(" "),
+                style = MaterialTheme.typography.bodySmall, color = text.copy(alpha = .75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.width(10.dp))
+        Box(contentAlignment = Alignment.Center) {
+            FilledIconButton(
+                onClick = { onToggle(st) },
+                modifier = Modifier.size(56.dp).semantics { contentDescription = (if (playing) "Pausar la radio " else "Escuchar la radio ") + st.label },
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
-                Icon(painterResource(R.drawable.ic_tv), contentDescription = null, tint = PlayIconTint)
-                Spacer(Modifier.width(8.dp))
-                Text("Ver TV en vivo")
+                Icon(painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play), contentDescription = null,
+                    modifier = Modifier.size(28.dp), tint = PlayIconTint)
+            }
+            if (current && player.buffering) {
+                CircularProgressIndicator(Modifier.size(64.dp), color = PlayIconTint, strokeWidth = 3.dp)
             }
         }
     }
