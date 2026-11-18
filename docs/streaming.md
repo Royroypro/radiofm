@@ -21,7 +21,9 @@ Settings → Main → Server → **ADD**:
 | Icecast mountpoint | `radio` (o `/radio`) |
 | Icecast user | `source` |
 
-Settings → Audio: códec **MP3**, 128 kbps, 44100 Hz, estéreo (o AAC 96 kbps).
+Settings → Audio: códec **MP3**, de 128 a **320 kbps**, 44100 Hz, estéreo (o AAC 96–320 kbps). El servidor
+acepta hasta 320 kbps: Icecast está ajustado para ese bitrate (`deploy/icecast.xml`: cola de 1 MB y
+ráfaga de 160 KB). A más bitrate, más consumo de datos para cada oyente (320 kbps ≈ 144 MB por hora).
 Settings → Stream → "Update song name" para enviar el título de la canción (aparece en la web).
 
 Pulse ▶ (Play). En el panel la radio pasa a **En vivo** en menos de 15 segundos.

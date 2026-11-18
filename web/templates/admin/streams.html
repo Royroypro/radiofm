@@ -12,7 +12,8 @@
         <tr><th>Punto de montaje</th><td><code>{{$i.IcecastMount}}</code></td></tr>
         <tr><th>Usuario</th><td><code>{{$i.IcecastUser}}</code></td></tr>
         <tr><th>Contraseña</th><td>{{if $i.IcecastPass}}<code data-secret>{{$i.IcecastPass}}</code>{{else}}<span class="muted">definida en el servidor (ICECAST_SOURCE_PASSWORD)</span>{{end}}</td></tr>
-        <tr><th>Formato</th><td>MP3 128 kbps (o AAC 64–96 kbps), 44.1 kHz, estéreo</td></tr>
+        <tr><th>Formato</th><td>MP3 de 128 a 320 kbps (o AAC 96–320 kbps, Opus), 44.1 kHz, estéreo. El servidor recibe hasta 320 kbps;
+          más bitrate = más calidad, pero también más consumo de datos para los oyentes.</td></tr>
       </tbody>
     </table>
     <p class="small">URL pública para oyentes: <code>{{$i.PublicRadioURL}}</code></p>

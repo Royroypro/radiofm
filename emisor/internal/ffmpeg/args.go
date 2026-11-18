@@ -45,7 +45,9 @@ func audioInput(s config.Source, sampleRate, channels int) []string {
 			"-i", "audio=" + s.Name}
 	case config.SourceLoopback:
 		// Lo que suena en los altavoces: PCM que sirve el propio emisor (internal/loopback).
-		return []string{"-thread_queue_size", "1024", "-f", "s16le", "-ar", strconv.Itoa(loopback.SampleRate),
+		// PCM crudo: no hay nada que analizar. Sin esto, ffmpeg lee 5 s antes de empezar
+		// (demora al conectar y retrasa los medidores).
+		return []string{"-thread_queue_size", "1024", "-probesize", "32", "-analyzeduration", "0", "-f", "s16le", "-ar", strconv.Itoa(loopback.SampleRate),
 			"-ac", strconv.Itoa(loopback.Channels), "-i", s.Addr}
 	case config.SourceTest:
 		// Tono de 1 kHz (sale a -18 dBFS; en estéreo, unos -21 dBFS por canal).

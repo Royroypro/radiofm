@@ -79,6 +79,24 @@ git pull
 docker compose up -d --build app      # las migraciones se aplican solas al arrancar
 ```
 
+### Cambios en `deploy/` sin cortar la emisión
+
+Recrear `icecast` o `edge` corta a los oyentes y a quien está transmitiendo. Para aplicar cambios de
+`deploy/icecast.xml` o `deploy/edge.nginx.conf` **sin cortar**:
+
+```bash
+make reload-streams QUE=icecast   # icecast | edge | mediamtx | todo
+```
+
+- **icecast**: copia `deploy/icecast.xml` dentro del contenedor (por la entrada estándar, porque un
+  archivo montado suelto queda apuntando a la versión vieja), aplica las claves y envía `HUP`: Icecast
+  relee la configuración con las conexiones abiertas. Ajustes como puertos o `<limits>` nuevos se
+  aplican; si un cambio no surte efecto, sí hace falta `docker compose up -d --force-recreate icecast`.
+- **edge**: comprueba que el archivo del contenedor sea el del repositorio, `nginx -t` y `nginx -s reload`
+  (las conexiones abiertas terminan con la configuración vieja). Si el archivo montado quedó viejo,
+  avisa que hace falta `--force-recreate`.
+- **mediamtx**: la imagen no tiene shell; MediaMTX vuelve a leer `mediamtx.yml` solo cuando cambia.
+
 ## Copias de seguridad
 
 ```bash

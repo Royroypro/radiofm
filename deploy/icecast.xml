@@ -18,15 +18,23 @@
     <location>Peru</location>
     <admin>admin@localhost</admin>
 
+    <!--
+      Pensado para recibir hasta 320 kbps (MP3/AAC/Opus) sin cortes:
+      - queue-size: cuánto puede atrasarse un oyente antes de que Icecast lo
+        desconecte. 1 MB ≈ 26 s a 320 kbps (≈ 65 s a 128 kbps).
+      - burst-size: audio que se manda de golpe al conectar, para que el
+        reproductor arranque sin esperar. 160 KB ≈ 4 s a 320 kbps.
+      Ancho de banda de salida ≈ bitrate × oyentes (320 kbps × 100 = 32 Mbps).
+    -->
     <limits>
         <clients>1000</clients>
         <sources>12</sources>
-        <queue-size>524288</queue-size>
+        <queue-size>1048576</queue-size>
         <client-timeout>30</client-timeout>
         <header-timeout>15</header-timeout>
         <source-timeout>15</source-timeout>
         <burst-on-connect>1</burst-on-connect>
-        <burst-size>65535</burst-size>
+        <burst-size>163840</burst-size>
     </limits>
 
     <authentication>

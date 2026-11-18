@@ -35,7 +35,8 @@ Si al iniciar falta un dato, el aviso lleva directo al apartado donde está.
 | Reconexión | automática, con espera creciente (1, 2, 4… hasta 30 s). Si una conexión se queda sin avanzar 20 s, se reinicia. Si el servidor rechaza la clave 3 veces seguidas, se detiene y lo explica (reintentar no lo arregla). |
 | Errores | los mensajes de ffmpeg se traducen a una explicación (clave rechazada, puerto cerrado, DNS, micrófono desconectado…) |
 | **MEJORA** | botón en cada tarjeta (radio y TV): procesador de sonido como el de una emisora FM. Amplifica y empareja el volumen (compresor 3:1 desde -18 dBFS con +8 dB de ganancia), da cuerpo y brillo (+4 dB de graves y +2,5 dB de agudos), quita retumbe (pasa-altos de 50 Hz) y nunca satura (limitador a -0,5 dBFS). **Se enciende y apaga al aire, sin cortar** (en alrededor de 1,5 s). Los medidores muestran el audio ya procesado. |
-| **Aplicar** | un botón en cada tarjeta y una barra arriba de las pestañas Radio y TV. Si cambia algo con la salida al aire (formato, bitrate, dispositivo, servidor…), avisa «Hay cambios sin aplicar» y, al pulsar Aplicar, esa conexión se reinicia sola en menos de un segundo con los cambios. La otra salida sigue al aire. Si la configuración nueva está incompleta, no corta y explica qué falta. |
+| **Cambio de entrada al aire** | (1.6.0) la **entrada de audio** de la radio y la del audio de la TV (micrófono, línea, audio de la PC, tono, silencio) se cambian **al aire, sin reconectar**: los oyentes no se cortan. El codificador lee siempre de un bus de audio interno (`internal/feed`) y lo que lo alimenta se intercambia. Si el micrófono elegido se desconecta, la emisión sigue con silencio y la captura se reabre sola cada 3 s. Solo pasar a o desde «el audio del video» (TV desde una dirección) reconecta, en seguida y sin pulsar nada. |
+| **Aplicar** | un botón en cada tarjeta y una barra arriba de las pestañas Radio y TV. Si cambia algo que **exige** reconectar con la salida al aire (formato, bitrate, servidor, clave, video…), avisa «Hay cambios sin aplicar» y, al pulsar Aplicar, esa conexión se reinicia sola en menos de un segundo con los cambios. La otra salida sigue al aire. Si la configuración nueva está incompleta, no corta y explica qué falta. |
 | **Arranque y segundo plano** | pestaña «Arranque»: **Iniciar con Windows** (se abre solo al iniciar sesión, oculto junto al reloj), **Empezar a emitir al abrir** (inicia solo lo marcado con «Emitir») y **Seguir en segundo plano** (la X oculta la ventana y la emisión sigue). Ícono junto al reloj: muestra el estado al pasar el mouse; clic = abrir la ventana; clic derecho = Mostrar / Iniciar / Detener todo / Salir. Abrir el programa otra vez trae la ventana que ya está corriendo (una sola copia). |
 | **Bloque «Mejoras»** | en las pestañas Radio y TV reúne la **ganancia** (deslizador de -30 a +30 dB), el botón **MEJORA** y el **ecualizador**. Todo se aplica al aire, sin cortar (la ganancia con el filtro `volume@ganancia`). |
 | **Ecualizador** | 10 bandas (32 Hz a 16 kHz, ±12 dB) para la radio y para el audio de la TV, con deslizadores. Se cambia **al aire, sin cortar**. Perfiles de fábrica: Plano, Radio FM, Modo fiesta, Voz / programa hablado, Reggaetón / urbano, Cumbia / salsa, Rock, Baladas, Música suave y Clásica / instrumental. Se pueden **guardar perfiles propios** con nombre (y borrarlos). Doble clic en una banda la deja en 0. Un limitador final (-0,3 dBFS) evita que se sature al subir bandas. |
@@ -108,8 +109,10 @@ Orden de carga de la configuración (cada capa pisa a la anterior):
    clave de la TV y token) se guardan **cifradas con DPAPI** del usuario de Windows, así que el archivo
    copiado a otra PC no sirve.
 
-Los cambios se guardan solos. Con la salida al aire se usan al pulsar **Aplicar**, que reconecta en
-seguida. MEJORA y la casilla «Emitir» no necesitan reiniciar.
+Los cambios se guardan solos. Con la salida al aire, la entrada de audio, MEJORA, el ecualizador, la
+ganancia y la casilla «Emitir» se aplican en el acto, **sin reconectar**. Lo que de verdad exige una
+conexión nueva (formato, bitrate, servidor, montaje, clave, fuente o tamaño del video) espera a
+**Aplicar**, que reconecta en menos de un segundo.
 
 ### Arranque con Windows y segundo plano
 
@@ -287,6 +290,9 @@ go test ./...
   - ecualizador al aire (+6 dB en 1 kHz con un tono de 1 kHz sube el nivel 6 dB, sin reconectar);
   - autenticación, latido, copia de la configuración y descarga verificada, contra un servidor falso
     (`internal/license`), y el cambio del `.exe` con relanzamiento (`internal/updater`);
+  - cambio de entrada al aire (tono → silencio → audio de la PC → tono) con Icecast recibiendo sin
+    pausa y la misma conexión (`TestInputSwitchLive`); el bus con capturas falsas, incluida una que se
+    corta y se reabre (`internal/feed`);
   - MEJORA al aire (el tono sube de -21 a -13 dB y vuelve, sin reconectar) y Aplicar (de MP3 a AAC en
     menos de un segundo);
   - TV desde una dirección: un MP4 por http y un HLS por https servidos en local, con el audio del video,

@@ -118,14 +118,14 @@ function renderSource(box) {
     const l = devicesFor(role, k);
     if (k === "dshow" && l && l.length) name = l[0][0];
     set(path, { kind: k, name });
-    markPending(path);
+    changeInput(path);
     // Si el video deja de ser por dirección, «el audio del video» ya no sirve.
     if (path === "tv.video" && k !== "url" && cfg.tv.audio.kind === "fromvideo") cfg.tv.audio = { kind: "none", name: "" };
     renderAllSources();
     $(".src-kind", box).focus(); // el cuadro se redibujó: se devuelve el foco (teclado)
     scheduleSave();
   });
-  devSel.addEventListener("change", () => { set(path, { kind: cur.kind, name: devSel.value }); markPending(path); scheduleSave(); });
+  devSel.addEventListener("change", () => { set(path, { kind: cur.kind, name: devSel.value }); changeInput(path); scheduleSave(); });
   url.addEventListener("change", () => {
     lastURL[path] = url.value.trim();
     set(path, { kind: "url", name: url.value.trim() });
@@ -522,7 +522,7 @@ function demoBackend() {
     CheckLicense: async () => ({ authenticated: false, reason: "Demostración", provider: { phone: "9488933154", url: "https://sehuacho.com/radio" } }),
     OpenURL: async () => {}, RestoreConfig: async () => { throw "Demostración."; }, ApplyUpdate: async () => { throw "Demostración."; }, SaveEQProfile: async () => [], DeleteEQProfile: async () => [],
     LoadPlaylist: async () => ({ path: "D:\\Listas\\Sabado.m3u", titles: ["Grupo 5 - Motor y motivo", "Agua Marina - Paloma ajena", "Corazón Serrano - Mía"] }),
-    LastPlaylist: async () => ({ path: "", titles: [] }), DetectJazler: async () => "C:\\Jazler RadioStar 2\\Exports\\NowOnAir.xml", Apply: async (w) => st[w].state !== "detenido", SetEnhance: async () => {}, ImportFromPanel: async () => { throw "Demostración: sin conexión."; },
+    LastPlaylist: async () => ({ path: "", titles: [] }), DetectJazler: async () => "C:\\Jazler RadioStar 2\\Exports\\NowOnAir.xml", Apply: async (w) => st[w].state !== "detenido", SetInput: async () => false, SetEnhance: async () => {}, ImportFromPanel: async () => { throw "Demostración: sin conexión."; },
     ParsePasted: async () => { throw "Demostración."; }, ResetDefaults: async () => c,
   };
 }
@@ -540,6 +540,23 @@ function markPending(path) {
   updateCards();
 }
 
+// Las entradas de audio se cambian al aire, sin reconectar: no esperan a «Aplicar».
+const LIVE_INPUTS = { "radio.input": "radio", "tv.audio": "tv" };
+
+function changeInput(path) {
+  const which = LIVE_INPUTS[path];
+  if (!which) { markPending(path); return; }
+  const src = which === "radio" ? cfg.radio.input : cfg.tv.audio;
+  if (src.kind === "dshow" && !src.name) return; // falta elegir el dispositivo
+  const st = (lastStatus[which] || {}).state;
+  if (!st || st === "detenido") return; // se guarda y se usa al iniciar
+  clearTimeout(saveTimer);
+  const label = which === "radio" ? "La radio" : "La TV";
+  api.SetInput(which, src).then((restarted) => {
+    showOk(restarted ? `${label} se está reconectando con la entrada nueva…` : `${label}: entrada cambiada al aire, sin cortar.`);
+  }).catch(showError);
+}
+
 function apply(which) {
   clearTimeout(saveTimer);
   hideAlert();
@@ -547,7 +564,9 @@ function apply(which) {
     pending[which] = false;
     updateCards();
     const label = which === "radio" ? "La radio" : "La TV";
-    showOk(restarted ? `${label} se está reconectando con los cambios…` : "Guardado: se usará al iniciar.");
+    const live = (lastStatus[which] || {}).state;
+    showOk(restarted ? `${label} se está reconectando con los cambios…`
+      : live && live !== "detenido" ? `${label}: cambios aplicados al aire, sin cortar.` : "Guardado: se usará al iniciar.");
   }).catch((e) => { showError(e); showSub(which, subForError(which, String(e))); });
 }
 

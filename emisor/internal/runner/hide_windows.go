@@ -31,3 +31,6 @@ func killTree(cmd *exec.Cmd) error {
 	}
 	return nil
 }
+
+// KillTree mata un proceso y sus hijos (para otros procesos auxiliares, como la captura de audio).
+func KillTree(cmd *exec.Cmd) error { return killTree(cmd) }

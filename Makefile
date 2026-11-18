@@ -9,7 +9,7 @@ BIN := bin/radioweb
 DEV_ENV := APP_ENV=development DATA_DIR=./data-dev WEB_DIR=./web HTTP_ADDR=127.0.0.1:8120 \
 	SUPERADMIN_EMAIL=admin@local.test SUPERADMIN_PASSWORD=cambiar123
 
-.PHONY: help dev build test lint fmt up down logs restart ps superadmin backup simulate
+.PHONY: help dev build test lint fmt up down logs restart ps superadmin backup simulate reload-streams
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  \033[1m%-12s\033[0m %s\n",$$1,$$2}'
@@ -59,3 +59,6 @@ backup: ## Copia la base de datos y los archivos subidos a backups/
 
 simulate: ## Simula la PC emisora con ffmpeg: make simulate TV_PASS=... [MODE=ambos] [SECS=60]
 	SIM_HOST=localhost TV_PASS="$(TV_PASS)" test/simulate-broadcast.sh $(or $(MODE),ambos) $(or $(SECS),60)
+
+reload-streams: ## Aplica cambios de deploy/ (Icecast, edge, MediaMTX) sin cortar la radio ni la TV
+	scripts/recargar-streams.sh $(QUE)

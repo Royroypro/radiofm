@@ -35,7 +35,7 @@ import (
 //
 // Es variable para poder fijarla al compilar:
 // -ldflags "-X radioclub25/emisor/internal/ui.Version=1.5.1"
-var Version = "1.5.0"
+var Version = "1.6.0"
 
 // App es el objeto que ve el frontend.
 type App struct {
@@ -51,7 +51,7 @@ type App struct {
 	devices  []ffmpeg.Device
 
 	radio, tv *runner.Runner
-	caps      captures // capturas de altavoces abiertas
+	fd        feeds // bus de audio de cada salida (la entrada se cambia al aire)
 	dirty     chan struct{}
 
 	logMu   sync.Mutex
@@ -146,7 +146,8 @@ func (a *App) Shutdown(context.Context) {
 	if a.tray.ready != nil {
 		systray.Quit()
 	}
-	a.caps.closeAll()
+	a.closeFeed("radio")
+	a.closeFeed("tv")
 	a.logMu.Lock()
 	if a.logFile != nil {
 		_ = a.logFile.Close()
@@ -426,11 +427,13 @@ func (a *App) Stop(which string) {
 		}
 	}
 	wg.Wait()
-	// Las capturas de altavoces que ya no usa ninguna salida se cierran.
-	a.mu.Lock()
-	c := a.cfg
-	a.mu.Unlock()
-	a.caps.keep(loopbackInUse(c, a.radio.Running(), a.tv.Running()))
+	// Sin salida al aire, se suelta la entrada (micrófono, captura de la PC).
+	if !a.radio.Running() {
+		a.closeFeed("radio")
+	}
+	if !a.tv.Running() {
+		a.closeFeed("tv")
+	}
 	a.markDirty()
 }
 
@@ -454,10 +457,11 @@ func (a *App) radioArgs() ([]string, error) {
 	if err := c.ValidateRadio(); err != nil {
 		return nil, err
 	}
-	a.caps.keep(loopbackInUse(c, true, a.tv.Running()))
-	if err := a.fillLoopback(&c.Radio.Input); err != nil {
+	in, err := a.busInput("radio", c.Radio.Input)
+	if err != nil {
 		return nil, err
 	}
+	c.Radio.Input = in
 	a.eq.set("radio", c.Radio.EQ.Effective())
 	return ffmpeg.RadioArgs(c.Radio), nil
 }
@@ -469,10 +473,11 @@ func (a *App) tvArgs() ([]string, error) {
 	if err := c.ValidateTV(); err != nil {
 		return nil, err
 	}
-	a.caps.keep(loopbackInUse(c, a.radio.Running(), true))
-	if err := a.fillLoopback(&c.TV.Audio); err != nil {
+	in, err := a.busInput("tv", c.TV.Audio)
+	if err != nil {
 		return nil, err
 	}
+	c.TV.Audio = in
 	a.eq.set("tv", c.TV.EQ.Effective())
 	return ffmpeg.TVArgs(c.TV), nil
 }

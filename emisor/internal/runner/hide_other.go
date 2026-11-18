@@ -16,3 +16,6 @@ func killTree(cmd *exec.Cmd) error {
 	}
 	return cmd.Process.Kill()
 }
+
+// KillTree mata el proceso (fuera de Windows, solo el directo).
+func KillTree(cmd *exec.Cmd) error { return killTree(cmd) }
