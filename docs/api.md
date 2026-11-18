@@ -66,6 +66,7 @@ Handler: `public.APIAppConfig`.
   "tv": {"enabled": true, "hls_url": "/hls/tv/index.m3u8"},
   "contact": {"phone": "", "whatsapp": "", "email": "", "address": "", "office_hours": ""},
   "social": {"facebook": "", "instagram": "", "tiktok": "", "youtube": "", "x": ""},
+  "app_colors": {"bg": "#3A0A4B", "bg2": "#1E0526", "card": "#6A1B9A", "accent": "#FF961E", "play": "#FF1E1E", "text": "#FFFFFF"},
   "app": {"notice": "", "notice_url": "", "min_version": 0, "play_store_url": "", "privacy_url": "/privacidad",
           "apk_url": "/uploads/app/….apk", "apk_version": "1.0.0"},
   "status_url": "/api/status"
@@ -76,6 +77,9 @@ Handler: `public.APIAppConfig`.
 - `stations`: frecuencias activas en orden (la primera es la principal); vacía si la radio está
   apagada en Streams. El `id` coincide con el de `stations` en `/api/status`.
 - `tv.enabled` es falso si la TV está apagada en Streams o el plan no incluye TV.
+- `app_colors`: colores propios de la app (fondo arriba/abajo del degradado, tarjetas, avisos,
+  botón de play, textos), aparte de `colors` (los de la web). Desde la versión con colores propios
+  la app usa solo `app_colors`.
 - `app.apk_url` / `app.apk_version`: APK de descarga directa (subido en el panel o enlace externo);
   la app lo usa para «Actualizar» si no hay enlace de Google Play.
 - `app.privacy_url`: la del panel o, si está vacía, `/privacidad` (página propia de la web).

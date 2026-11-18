@@ -99,6 +99,7 @@ func TestSiteSettingsRoundTrip(t *testing.T) {
 	s.SiteName, s.TVEnabled, s.PrerollIntervalMin, s.Phone = "Otra Radio", false, 15, "+51 1 234"
 	s.AppNotice, s.AppMinVersion, s.AppPrivacyURL = "Aviso", 7, "https://radio.pe/privacidad"
 	s.AppAPKURL, s.AppAPKVersion = "/uploads/app/x.apk", "1.0.0"
+	s.AppColorBg, s.AppColorPlay = "#101010", "#202020"
 	got := SiteSettingsFromMap(s.ToMap())
 	if got != s {
 		t.Fatalf("la conversión ida y vuelta cambió los ajustes:\n%+v\n%+v", got, s)

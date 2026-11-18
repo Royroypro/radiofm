@@ -8,12 +8,17 @@ import org.json.JSONObject
  * GET /api/status (estado en vivo). Las URL se guardan ya resueltas contra la URL base.
  */
 
-/** Colores de la marca (Admin → Marca y contacto), como ARGB. */
-data class BrandColors(
-    val navy: Long = 0xFF0A1A6B,
-    val royal: Long = 0xFF223CB8,
-    val red: Long = 0xFFFF1E1E,
-    val orange: Long = 0xFFFF961E,
+/**
+ * Colores de la app (Admin → Marca y contacto → App Android → «Colores de la app»), como ARGB.
+ * Son aparte de los de la web. Los valores por defecto son los mismos del panel.
+ */
+data class AppColors(
+    val bg: Long = 0xFF3A0A4B,     // fondo, arriba del degradado
+    val bg2: Long = 0xFF1E0526,    // fondo, abajo del degradado
+    val card: Long = 0xFF6A1B9A,   // tarjetas
+    val accent: Long = 0xFFFF961E, // avisos, «Señal externa»
+    val play: Long = 0xFFFF1E1E,   // botón de play
+    val text: Long = 0xFFFFFFFF,   // textos
 )
 
 /** Una frecuencia activa: un reproductor de radio en la app. */
@@ -33,7 +38,7 @@ data class AppConfig(
     val slogan: String,
     val logoUrl: String,
     val iconUrl: String,
-    val colors: BrandColors,
+    val colors: AppColors,
     val radioEnabled: Boolean,
     val stations: List<Station>,
     val tvEnabled: Boolean,
@@ -53,8 +58,8 @@ data class AppConfig(
         /** Lee el JSON de /api/app/config; [resolve] convierte URL relativas en completas. */
         fun parse(json: String, resolve: (String) -> String): AppConfig {
             val o = JSONObject(json)
-            val colors = o.optJSONObject("colors")
-            val def = BrandColors()
+            val colors = o.optJSONObject("app_colors") // los de la app, no los de la web ("colors")
+            val def = AppColors()
             fun color(key: String, fallback: Long): Long = parseColor(colors?.optString(key).orEmpty()) ?: fallback
             // Una URL mal escrita en el panel no debe impedir abrir la app: se ignora ese campo.
             fun url(v: String?): String = if (v.isNullOrBlank()) "" else runCatching { resolve(v) }.getOrDefault("")
@@ -94,7 +99,10 @@ data class AppConfig(
                 slogan = o.optString("slogan"),
                 logoUrl = url(o.optString("logo_url")),
                 iconUrl = url(o.optString("icon_url")),
-                colors = BrandColors(color("navy", def.navy), color("royal", def.royal), color("red", def.red), color("orange", def.orange)),
+                colors = AppColors(
+                    bg = color("bg", def.bg), bg2 = color("bg2", def.bg2), card = color("card", def.card),
+                    accent = color("accent", def.accent), play = color("play", def.play), text = color("text", def.text),
+                ),
                 radioEnabled = o.optBoolean("radio_enabled", true),
                 stations = stations,
                 tvEnabled = tv?.optBoolean("enabled") ?: false,

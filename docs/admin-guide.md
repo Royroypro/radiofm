@@ -81,7 +81,9 @@ imagen de fondo, **colores** (con enlace para volver al original), teléfono, Wh
 dirección, mapa de Google, horario y redes sociales. Los cambios se ven al instante en la web.
 
 **App Android** (en la misma página): aviso que muestra la app, versión mínima, enlace de Google
-Play y política de privacidad. En **Descarga en la web** se sube el archivo **.apk** (o se pega
+Play, política de privacidad y **colores de la app** (fondo con degradado, tarjetas, avisos,
+botón de play y textos), que son **aparte de los de la web**: cambiar unos no cambia los otros.
+La app los toma la próxima vez que se abre. En **Descarga en la web** se sube el archivo **.apk** (o se pega
 un enlace) y su versión: el pie de todas las páginas muestra «Descarga la app» con el botón de
 Google Play y/o el de descarga directa del APK. Sin ninguno de los dos no se muestra nada; para
 quitar el botón del APK, borre su enlace y guarde. Suba siempre el APK **de release firmado**.

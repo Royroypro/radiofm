@@ -17,7 +17,8 @@ class ModelsTest {
         val json = """
             {"name":"Radio Club 25","slogan":"La música que va contigo","logo_url":"/static/img/brand/logo.svg",
              "icon_url":"C:/ruta/mala.svg",
-             "colors":{"navy":"#0A1A6B","royal":"#223CB8","red":"#ff1e1e","orange":"naranja"},
+             "colors":{"navy":"#0A1A6B","royal":"#223CB8","red":"#ff1e1e","orange":"#FF961E"},
+             "app_colors":{"bg":"#3A0A4B","bg2":"#1E0526","card":"#6a1b9a","accent":"naranja","play":"#FF2A2A","text":"#FFFFFF"},
              "radio_enabled":true,
              "stations":[{"id":1,"label":"93.3 FM","city":"Huacho","listen_url":"/radio","external":false},
                          {"id":3,"label":"105.4 FM","city":"Huaral","listen_url":"https://stream.ejemplo.pe/huaral","external":true}],
@@ -31,8 +32,9 @@ class ModelsTest {
         assertEquals("Radio Club 25", c.name)
         assertEquals("$base/static/img/brand/logo.svg", c.logoUrl)
         assertEquals("", c.iconUrl) // URL inválida: se ignora sin romper la configuración
-        assertEquals(0xFFFF1E1E, c.colors.red)
-        assertEquals(BrandColors().orange, c.colors.orange) // color inválido → el de la marca
+        assertEquals(0xFF6A1B9A, c.colors.card) // colores de la app, no los de la web
+        assertEquals(0xFFFF2A2A, c.colors.play)
+        assertEquals(AppColors().accent, c.colors.accent) // color inválido → el de por defecto
         assertEquals(2, c.stations.size)
         assertEquals("$base/radio", c.stations[0].listenUrl)
         assertTrue(c.stations[1].external)

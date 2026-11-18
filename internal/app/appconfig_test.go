@@ -14,6 +14,7 @@ type appConfig struct {
 	Slogan       string            `json:"slogan"`
 	LogoURL      string            `json:"logo_url"`
 	Colors       map[string]string `json:"colors"`
+	AppColors    map[string]string `json:"app_colors"`
 	RadioEnabled bool              `json:"radio_enabled"`
 	Stations     []struct {
 		ID        int64  `json:"id"`
@@ -66,6 +67,9 @@ func TestAppConfig(t *testing.T) {
 	if !c.TV.Enabled || c.TV.HLSURL != "/hls/tv/index.m3u8" {
 		t.Errorf("TV inesperada: %+v", c.TV)
 	}
+	if c.AppColors["bg"] != "#3A0A4B" || c.AppColors["card"] != "#6A1B9A" || c.AppColors["play"] != "#FF1E1E" {
+		t.Errorf("colores de la app por defecto: %v", c.AppColors)
+	}
 	if c.App.PrivacyURL != "/privacidad" { // sin URL en el panel: la página propia
 		t.Errorf("privacy_url por defecto = %q", c.App.PrivacyURL)
 	}
@@ -87,6 +91,22 @@ func TestAppConfig(t *testing.T) {
 	if c.Name != "Club25" || c.Slogan != "Huacho en tu bolsillo" || c.Colors["red"] != "#FF0000" {
 		t.Errorf("la marca no se actualizó: %+v", c)
 	}
+	// los colores de la web no cambian los de la app (el formulario no los envió: quedan por defecto)
+	if c.AppColors["bg"] != "#3A0A4B" || c.AppColors["play"] != "#FF1E1E" {
+		t.Errorf("los colores de la app cambiaron con los de la web: %v", c.AppColors)
+	}
+	set.Set("app_color_play", "#00FF00")
+	if code, body := e.post("/admin/settings", set); code != http.StatusSeeOther {
+		t.Fatalf("guardar color de la app = %d %s", code, body)
+	}
+	if c = e.appConfig(); c.AppColors["play"] != "#00FF00" || c.Colors["red"] != "#FF0000" {
+		t.Errorf("color de la app: app=%v web=%v", c.AppColors, c.Colors)
+	}
+	set.Set("app_color_card", "morado")
+	if code, body := e.post("/admin/settings", set); code == http.StatusSeeOther || !strings.Contains(body, "#RRGGBB") {
+		t.Errorf("color de la app inválido aceptado: %d", code)
+	}
+	set.Del("app_color_card")
 	if c.App.Notice != "Transmisión especial" || c.App.MinVersion != 3 || !strings.Contains(c.App.PlayStoreURL, "pe.club25peru.radio") {
 		t.Errorf("ajustes de la app no se actualizaron: %+v", c.App)
 	}

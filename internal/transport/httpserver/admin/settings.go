@@ -66,6 +66,12 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	s.AppPrivacyURL = form.String(r, "app_privacy_url")
 	s.AppAPKURL = form.String(r, "app_apk_url")
 	s.AppAPKVersion = form.String(r, "app_apk_version")
+	s.AppColorBg = form.String(r, "app_color_bg")
+	s.AppColorBg2 = form.String(r, "app_color_bg2")
+	s.AppColorCard = form.String(r, "app_color_card")
+	s.AppColorAccent = form.String(r, "app_color_accent")
+	s.AppColorPlay = form.String(r, "app_color_play")
+	s.AppColorText = form.String(r, "app_color_text")
 
 	for field, dst := range map[string]*string{"logo_file": &s.LogoURL, "favicon_file": &s.FaviconURL, "hero_file": &s.HeroImageURL} {
 		url, err := h.upload(r, field, storage.KindImage, "brand")

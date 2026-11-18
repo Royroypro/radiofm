@@ -111,14 +111,29 @@ func validate(v *domain.SiteSettings) error {
 	trim := func(p *string) { *p = strings.TrimSpace(*p) }
 	for _, p := range []*string{&v.SiteName, &v.Frequency, &v.Slogan, &v.Email, &v.Phone, &v.WhatsApp,
 		&v.ColorNavy, &v.ColorRoyal, &v.ColorRed, &v.ColorOrange, &v.TVPublishUser, &v.TVPublishPass,
-		&v.AppNotice, &v.AppNoticeURL, &v.AppPlayStoreURL, &v.AppPrivacyURL, &v.AppAPKURL, &v.AppAPKVersion} {
+		&v.AppNotice, &v.AppNoticeURL, &v.AppPlayStoreURL, &v.AppPrivacyURL, &v.AppAPKURL, &v.AppAPKVersion,
+		&v.AppColorBg, &v.AppColorBg2, &v.AppColorCard, &v.AppColorAccent, &v.AppColorPlay, &v.AppColorText} {
 		trim(p)
+	}
+	// Colores de la app vacíos (formulario anterior a esos campos): los de por defecto.
+	def := domain.DefaultSiteSettings()
+	for _, c := range []struct {
+		v *string
+		d string
+	}{{&v.AppColorBg, def.AppColorBg}, {&v.AppColorBg2, def.AppColorBg2},
+		{&v.AppColorCard, def.AppColorCard}, {&v.AppColorAccent, def.AppColorAccent},
+		{&v.AppColorPlay, def.AppColorPlay}, {&v.AppColorText, def.AppColorText}} {
+		if *c.v == "" {
+			*c.v = c.d
+		}
 	}
 	if v.SiteName == "" {
 		return domain.Invalid("site_name", "El nombre de la radio es obligatorio")
 	}
 	for field, c := range map[string]string{"color_navy": v.ColorNavy, "color_royal": v.ColorRoyal,
-		"color_red": v.ColorRed, "color_orange": v.ColorOrange} {
+		"color_red": v.ColorRed, "color_orange": v.ColorOrange,
+		"app_color_bg": v.AppColorBg, "app_color_bg2": v.AppColorBg2, "app_color_card": v.AppColorCard,
+		"app_color_accent": v.AppColorAccent, "app_color_play": v.AppColorPlay, "app_color_text": v.AppColorText} {
 		if !hexColor.MatchString(c) {
 			return domain.Invalid(field, "Color inválido, use formato #RRGGBB")
 		}

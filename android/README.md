@@ -15,7 +15,8 @@ está visible, `GET /api/status` cada 15 s. Contrato de ambos en [`docs/api.md`]
 
 | Qué se cambia | Dónde, en el panel |
 |---|---|
-| Nombre, eslogan, logo, isotipo, colores, WhatsApp, teléfono, email, redes | Admin → Marca y contacto |
+| Nombre, eslogan, logo, isotipo, WhatsApp, teléfono, email, redes | Admin → Marca y contacto |
+| Colores de la app (fondo con degradado, tarjetas, avisos, play, textos), aparte de los de la web | Admin → Marca y contacto → «App Android» → Colores de la app |
 | Aviso en la app (y su enlace), versión mínima, enlace de Google Play, política de privacidad | Admin → Marca y contacto → «App Android» |
 | Botones «Descarga la app» en la web (Google Play y/o APK subido) | Admin → Marca y contacto → «App Android» → Descarga en la web |
 | Frecuencias (etiqueta, ciudad, montaje o URL externa, orden, activa) | Admin → Frecuencias |
@@ -103,6 +104,21 @@ ejemplo un tono con ffmpeg en el PC:
 ffmpeg -re -f lavfi -i "sine=frequency=440" -c:a libmp3lame -b:a 128k -f mp3 -listen 1 http://0.0.0.0:8000/radio
 ```
 y URL `http://10.0.2.2:8000/radio`. Con `make up` (Docker) se prueba la cadena completa.
+
+## APK para probar en un teléfono real (variante «preview»)
+
+**El APK de depuración (`app-debug.apk`) apunta al PC** (`http://10.0.2.2:8120`): en un teléfono
+real no carga ni suena. Para instalar la app en teléfonos sin pasar por Google Play use:
+
+```bash
+./gradlew assemblePreview
+```
+
+APK: `app/build/outputs/apk/preview/app-preview.apk` (~3 MB). Es igual que la de release (servidor
+`https://radioclub25peru.com`, solo HTTPS, R8) pero firmada con la clave de depuración, así que
+no necesita la clave de subida. Se llama «Club25 (prueba)» (`pe.club25peru.radio.preview`) y se
+instala al lado de la de Play. No la suba a Play ni a la web para el público: para eso, el APK de
+release firmado.
 
 ## Release: AAB firmado para Google Play
 

@@ -4,32 +4,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import pe.club25.radio.data.BrandColors
+import pe.club25.radio.data.AppColors
 
 /**
- * Tema de la app con los colores de la marca que llegan del panel admin:
- * azul marino de fondo, azul rey en tarjetas, rojo de acento y naranja secundario.
+ * Tema de la app con sus colores propios, que llegan del panel admin («Colores de la app»,
+ * aparte de los de la web): fondo con degradado, tarjetas, botón de play, avisos y textos.
  */
 @Composable
-fun Club25Theme(colors: BrandColors?, content: @Composable () -> Unit) {
-    val c = colors ?: BrandColors()
-    val navy = Color(c.navy)
-    val royal = Color(c.royal)
+fun Club25Theme(colors: AppColors?, content: @Composable () -> Unit) {
+    val c = colors ?: AppColors()
+    val bg = Color(c.bg)
+    val card = Color(c.card)
+    val text = Color(c.text)
     val scheme = darkColorScheme(
-        primary = Color(c.red),
+        primary = Color(c.play),
         onPrimary = Color.White,
-        secondary = Color(c.orange),
+        secondary = Color(c.accent),
         onSecondary = Color.White,
-        background = navy,
-        onBackground = Color.White,
-        surface = navy,
-        onSurface = Color.White,
-        surfaceVariant = royal,
-        onSurfaceVariant = Color.White,
-        surfaceContainer = royal,
-        surfaceContainerHigh = royal,
-        primaryContainer = royal,
-        onPrimaryContainer = Color.White,
+        tertiary = Color(c.bg2), // abajo del degradado del fondo
+        background = bg,
+        onBackground = text,
+        surface = bg,
+        onSurface = text,
+        surfaceVariant = card,
+        onSurfaceVariant = text,
+        surfaceContainer = card,
+        surfaceContainerHigh = card,
+        primaryContainer = card,
+        onPrimaryContainer = text,
     )
     MaterialTheme(colorScheme = scheme, content = content)
 }

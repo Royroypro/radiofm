@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -60,6 +61,7 @@ import pe.club25.radio.data.LiveStatus
 import pe.club25.radio.data.Station
 
 private val LiveGreen = Color(0xFF2ECC71)
+private val PlayIconTint = Color.White // ícono sobre el botón de play
 
 @Composable
 fun HomeScreen(
@@ -73,7 +75,9 @@ fun HomeScreen(
     onUpdate: () -> Unit,
     onShare: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    // Fondo con degradado: «Fondo (arriba)» → «Fondo (abajo)» del panel.
+    val bg = Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.tertiary))
+    Surface(Modifier.fillMaxSize().background(bg), color = Color.Transparent) {
         val cfg = ui.config
         if (cfg == null) {
             NoConfig(ui, onRetry)
@@ -99,7 +103,7 @@ fun HomeScreen(
         ) {
             item { Header(cfg, playing = player.playing && !player.error) }
             if (ui.error != null && ui.fromCache) {
-                item { Text("Sin conexión: se muestran los últimos datos guardados.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f)) }
+                item { Text("Sin conexión: se muestran los últimos datos guardados.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)) }
             }
             if (cfg.notice.isNotBlank()) {
                 item { Notice(cfg, onOpenUrl) }
@@ -113,7 +117,7 @@ fun HomeScreen(
                 item { TvCard(cfg, ui.status, onOpenTv) }
             }
             if (!cfg.radioEnabled && !cfg.tvEnabled) {
-                item { Text("La transmisión no está disponible por ahora.", color = Color.White) }
+                item { Text("La transmisión no está disponible por ahora.", color = MaterialTheme.colorScheme.onBackground) }
             }
             if (cfg.links.isNotEmpty()) {
                 item { SectionTitle("Contacto y redes") }
@@ -134,9 +138,9 @@ private fun NoConfig(ui: HomeUi, onRetry: () -> Unit) {
         if (ui.loading) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
             Spacer(Modifier.height(16.dp))
-            Text("Conectando…", color = Color.White)
+            Text("Conectando…", color = MaterialTheme.colorScheme.onBackground)
         } else {
-            Text(ui.error ?: "No se pudo cargar la radio.", color = Color.White, textAlign = TextAlign.Center)
+            Text(ui.error ?: "No se pudo cargar la radio.", color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
             Button(onClick = onRetry) { Text("Reintentar") }
         }
@@ -167,11 +171,11 @@ private fun HeaderContent(cfg: AppConfig) {
                 modifier = Modifier.height(96.dp).fillMaxWidth(),
             )
         } else {
-            Text(cfg.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
+            Text(cfg.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
         }
         if (cfg.slogan.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
-            Text(cfg.slogan, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = .85f), textAlign = TextAlign.Center)
+            Text(cfg.slogan, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .85f), textAlign = TextAlign.Center)
         }
     }
 }
@@ -187,14 +191,14 @@ private fun Notice(cfg: AppConfig, onOpenUrl: (String) -> Unit) {
         Text(
             cfg.notice + if (clickable) "  ›" else "",
             modifier = Modifier.padding(14.dp),
-            color = Color.White, fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold,
         )
     }
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White,
+    Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(top = 6.dp))
 }
 
@@ -203,7 +207,7 @@ private fun SectionTitle(text: String) {
 private fun LiveBadge(online: Boolean?) {
     val (text, color) = when (online) {
         true -> "EN VIVO" to LiveGreen
-        false -> "FUERA DEL AIRE" to Color.White.copy(alpha = .55f)
+        false -> "FUERA DEL AIRE" to MaterialTheme.colorScheme.onBackground.copy(alpha = .55f)
         null -> "SEÑAL EXTERNA" to MaterialTheme.colorScheme.secondary
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -240,8 +244,8 @@ private fun StationCard(st: Station, status: LiveStatus?, player: PlayerUi, onTo
                 Column(Modifier.weight(1f)) {
                     LiveBadge(online)
                     Spacer(Modifier.height(4.dp))
-                    Text(st.label, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
-                    if (st.city.isNotBlank()) Text(st.city, color = Color.White.copy(alpha = .8f))
+                    Text(st.label, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
+                    if (st.city.isNotBlank()) Text(st.city, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .8f))
                     val line = when {
                         s?.title?.isNotBlank() == true -> "♪ " + s.title
                         s?.program?.isNotBlank() == true -> s.program
@@ -249,10 +253,10 @@ private fun StationCard(st: Station, status: LiveStatus?, player: PlayerUi, onTo
                     }
                     if (line.isNotBlank()) {
                         Spacer(Modifier.height(4.dp))
-                        Text(line, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        Text(line, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground)
                     }
                     s?.listeners?.takeIf { it > 0 }?.let {
-                        Text(if (it == 1) "1 oyente" else "$it oyentes", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f))
+                        Text(if (it == 1) "1 oyente" else "$it oyentes", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f))
                     }
                     if (current && player.error) {
                         Text("No se pudo reproducir. Toque para reintentar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
@@ -266,10 +270,10 @@ private fun StationCard(st: Station, status: LiveStatus?, player: PlayerUi, onTo
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
                     ) {
                         Icon(painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play), contentDescription = null,
-                            modifier = Modifier.size(34.dp), tint = Color.White)
+                            modifier = Modifier.size(34.dp), tint = PlayIconTint)
                     }
                     if (current && player.buffering) {
-                        CircularProgressIndicator(Modifier.size(72.dp), color = Color.White, strokeWidth = 3.dp)
+                        CircularProgressIndicator(Modifier.size(72.dp), color = PlayIconTint, strokeWidth = 3.dp)
                     }
                 }
             }
@@ -288,13 +292,13 @@ private fun TvCard(cfg: AppConfig, status: LiveStatus?, onOpenTv: (String) -> Un
         Column(Modifier.padding(16.dp)) {
             LiveBadge(online)
             Spacer(Modifier.height(4.dp))
-            Text("${cfg.name} TV", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text("${cfg.name} TV", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
             Text(
                 if (online) "Mírenos en vivo a pantalla completa." else "La TV está fuera del aire. Vuelva más tarde.",
-                color = Color.White.copy(alpha = .85f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = .85f),
             )
             if (online && (status?.tvViewers ?: 0) > 0) {
-                Text("${status!!.tvViewers} viendo ahora", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .7f))
+                Text("${status!!.tvViewers} viendo ahora", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f))
             }
             Spacer(Modifier.height(12.dp))
             Button(
@@ -303,7 +307,7 @@ private fun TvCard(cfg: AppConfig, status: LiveStatus?, onOpenTv: (String) -> Un
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(painterResource(R.drawable.ic_tv), contentDescription = null, tint = Color.White)
+                Icon(painterResource(R.drawable.ic_tv), contentDescription = null, tint = PlayIconTint)
                 Spacer(Modifier.width(8.dp))
                 Text("Ver TV en vivo")
             }
@@ -316,7 +320,7 @@ private fun TvCard(cfg: AppConfig, status: LiveStatus?, onOpenTv: (String) -> Un
 private fun Links(cfg: AppConfig, onOpenUrl: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         cfg.links.forEach { l ->
-            OutlinedButton(onClick = { onOpenUrl(l.url) }) { Text(l.label, color = Color.White) }
+            OutlinedButton(onClick = { onOpenUrl(l.url) }) { Text(l.label, color = MaterialTheme.colorScheme.onBackground) }
         }
     }
 }
@@ -324,9 +328,9 @@ private fun Links(cfg: AppConfig, onOpenUrl: (String) -> Unit) {
 @Composable
 private fun Footer(cfg: AppConfig, onOpenUrl: (String) -> Unit, onShare: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onShare) { Text("Compartir app", color = Color.White.copy(alpha = .8f)) }
+        TextButton(onClick = onShare) { Text("Compartir app", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .8f)) }
         if (cfg.privacyUrl.isNotBlank()) {
-            TextButton(onClick = { onOpenUrl(cfg.privacyUrl) }) { Text("Privacidad", color = Color.White.copy(alpha = .8f)) }
+            TextButton(onClick = { onOpenUrl(cfg.privacyUrl) }) { Text("Privacidad", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .8f)) }
         }
     }
 }

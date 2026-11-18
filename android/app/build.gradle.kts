@@ -55,6 +55,16 @@ android {
             buildConfigField("String", "SERVER_URL", "\"$serverUrlRelease\"")
             signingConfig = signingConfigs.findByName("release")
         }
+        // APK para probar en teléfonos reales sin Google Play: igual que release (servidor de
+        // producción, solo HTTPS) pero firmado con la clave de depuración, así se instala sin
+        // la clave de subida. Se instala al lado de la de Play. ./gradlew assemblePreview
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     testOptions {

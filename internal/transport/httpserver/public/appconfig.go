@@ -50,7 +50,10 @@ func (h *Handler) APIAppConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name": s.SiteName, "slogan": s.Slogan, "about": s.About, "categories": categories,
 		"logo_url": s.LogoURL, "icon_url": s.FaviconURL,
-		"colors":        map[string]string{"navy": s.ColorNavy, "royal": s.ColorRoyal, "red": s.ColorRed, "orange": s.ColorOrange},
+		"colors": map[string]string{"navy": s.ColorNavy, "royal": s.ColorRoyal, "red": s.ColorRed, "orange": s.ColorOrange},
+		// Colores propios de la app (Admin → Marca y contacto → App Android); "colors" son los de la web.
+		"app_colors": map[string]string{"bg": s.AppColorBg, "bg2": s.AppColorBg2, "card": s.AppColorCard,
+			"accent": s.AppColorAccent, "play": s.AppColorPlay, "text": s.AppColorText},
 		"radio_enabled": s.RadioEnabled,
 		"stations":      stations,
 		"tv":            map[string]any{"enabled": tvEnabled, "hls_url": s.TVStreamURL},

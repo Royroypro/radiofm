@@ -62,6 +62,13 @@ type SiteSettings struct {
 	AppPrivacyURL   string // política de privacidad (la pide Google Play)
 	AppAPKURL       string // APK para descarga directa: subida al panel (/uploads/app/…) o enlace https
 	AppAPKVersion   string // versión del APK que se muestra en la web ("1.0.0"), opcional
+	// Colores de la app, aparte de los de la web (#RRGGBB)
+	AppColorBg     string // fondo, arriba del degradado
+	AppColorBg2    string // fondo, abajo del degradado
+	AppColorCard   string // tarjetas de radio y TV
+	AppColorAccent string // avisos, «Señal externa», detalles
+	AppColorPlay   string // botón de play
+	AppColorText   string // textos
 }
 
 // settingKeys enumera las claves en el orden en que se guardan.
@@ -74,6 +81,7 @@ var settingKeys = []string{
 	"preroll_interval_min",
 	"app_notice", "app_notice_url", "app_min_version", "app_play_store_url", "app_privacy_url",
 	"app_apk_url", "app_apk_version",
+	"app_color_bg", "app_color_bg2", "app_color_card", "app_color_accent", "app_color_play", "app_color_text",
 }
 
 // DefaultSiteSettings devuelve los valores iniciales (marca provisional Radio Club 25).
@@ -90,6 +98,12 @@ func DefaultSiteSettings() SiteSettings {
 		ColorRoyal:         "#223CB8",
 		ColorRed:           "#FF1E1E",
 		ColorOrange:        "#FF961E",
+		AppColorBg:         "#3A0A4B",
+		AppColorBg2:        "#1E0526",
+		AppColorCard:       "#6A1B9A",
+		AppColorAccent:     "#FF961E",
+		AppColorPlay:       "#FF1E1E",
+		AppColorText:       "#FFFFFF",
 		RadioEnabled:       true,
 		TVEnabled:          true,
 		RadioStreamURL:     "/radio",
@@ -117,6 +131,8 @@ func (s SiteSettings) ToMap() map[string]string {
 		"app_min_version":    strconv.Itoa(s.AppMinVersion),
 		"app_play_store_url": s.AppPlayStoreURL, "app_privacy_url": s.AppPrivacyURL,
 		"app_apk_url": s.AppAPKURL, "app_apk_version": s.AppAPKVersion,
+		"app_color_bg": s.AppColorBg, "app_color_bg2": s.AppColorBg2, "app_color_card": s.AppColorCard,
+		"app_color_accent": s.AppColorAccent, "app_color_play": s.AppColorPlay, "app_color_text": s.AppColorText,
 	}
 }
 
@@ -181,6 +197,12 @@ func SiteSettingsFromMap(m map[string]string) SiteSettings {
 	str("app_privacy_url", &s.AppPrivacyURL)
 	str("app_apk_url", &s.AppAPKURL)
 	str("app_apk_version", &s.AppAPKVersion)
+	str("app_color_bg", &s.AppColorBg)
+	str("app_color_bg2", &s.AppColorBg2)
+	str("app_color_card", &s.AppColorCard)
+	str("app_color_accent", &s.AppColorAccent)
+	str("app_color_play", &s.AppColorPlay)
+	str("app_color_text", &s.AppColorText)
 	return s
 }
 

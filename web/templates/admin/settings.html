@@ -115,6 +115,17 @@
         <input type="url" name="app_privacy_url" value="{{$s.AppPrivacyURL}}" placeholder="https://.../privacidad">
         {{with .FieldError "app_privacy_url"}}<span class="err">{{.}}</span>{{end}}</label>
     </div>
+    <h3>Colores de la app</h3>
+    <p class="hint small">Solo para la app Android; los de la web son los de «Colores» más arriba.
+      La app los toma al abrirse.</p>
+    <div class="grid grid-3">
+      {{template "colorfield" (colorArgs "app_color_bg" "Fondo (arriba)" $s.AppColorBg $def.AppColorBg (.FieldError "app_color_bg"))}}
+      {{template "colorfield" (colorArgs "app_color_bg2" "Fondo (abajo, degradado)" $s.AppColorBg2 $def.AppColorBg2 (.FieldError "app_color_bg2"))}}
+      {{template "colorfield" (colorArgs "app_color_card" "Tarjetas" $s.AppColorCard $def.AppColorCard (.FieldError "app_color_card"))}}
+      {{template "colorfield" (colorArgs "app_color_accent" "Avisos y detalles" $s.AppColorAccent $def.AppColorAccent (.FieldError "app_color_accent"))}}
+      {{template "colorfield" (colorArgs "app_color_play" "Botón de play" $s.AppColorPlay $def.AppColorPlay (.FieldError "app_color_play"))}}
+      {{template "colorfield" (colorArgs "app_color_text" "Textos" $s.AppColorText $def.AppColorText (.FieldError "app_color_text"))}}
+    </div>
     <h3>Descarga en la web</h3>
     <p class="hint small">La web muestra «Descarga la app» con el botón de Google Play (si hay enlace arriba)
       y/o el de descarga directa del APK. Sin ninguno de los dos, no se muestra nada.</p>
