@@ -1,4 +1,4 @@
-# Publicar «Radio Club 25» en Google Play — pasos para el dueño de la app
+# Publicar «radioclub25peru» en Google Play — pasos para el dueño de la app
 
 Esta guía es lo que **solo usted puede hacer** (cuenta de Google, pagos, firma, envíos a revisión).
 Todo lo técnico ya está hecho: la app compila, la web ya tiene `/api/app/config` y
@@ -64,7 +64,7 @@ misma clave de subida. Si se pierde, hay que pedirle a Google que la cambie (tar
 **Para qué:** reserva el nombre y abre el formulario de la ficha y de las políticas.
 
 1. Play Console → **Crear app**.
-2. Nombre: `Radio Club 25` · Idioma predeterminado: **Español (Latinoamérica) – es-419**
+2. Nombre: `radioclub25peru` (el mismo que muestra el teléfono bajo el ícono) · Idioma predeterminado: **Español (Latinoamérica) – es-419**
    · Tipo: **App** · **Gratis** (una app gratis no puede pasar a ser de pago).
 3. Acepte las declaraciones (políticas del programa y leyes de exportación de EE. UU.).
 
@@ -72,7 +72,7 @@ misma clave de subida. Si se pierde, hay que pedirle a Google que la cambie (tar
 
 **Para qué:** es lo que ven las personas antes de instalar. Google la revisa.
 
-- **Nombre** (máx. 30): `Radio Club 25`
+- **Nombre** (máx. 30): `radioclub25peru`
 - **Descripción breve** (máx. 80):
   `Radio Club 25 de Huacho en vivo: 93.3 FM, más frecuencias y TV en vivo.`
 - **Descripción completa** (máx. 4000), texto sugerido:

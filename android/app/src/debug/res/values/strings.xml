@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- La versión de depuración se instala junto a la de Play con otro nombre. -->
-    <string name="app_name">Club25 (dev)</string>
+    <string name="app_name">radioclub25peru (dev)</string>
 </resources>

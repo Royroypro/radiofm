@@ -116,7 +116,7 @@ real no carga ni suena. Para instalar la app en teléfonos sin pasar por Google 
 
 APK: `app/build/outputs/apk/preview/app-preview.apk` (~3 MB). Es igual que la de release (servidor
 `https://radioclub25peru.com`, solo HTTPS, R8) pero firmada con la clave de depuración, así que
-no necesita la clave de subida. Se llama «Club25 (prueba)» (`pe.club25peru.radio.preview`) y se
+no necesita la clave de subida. Se llama «radioclub25peru (prueba)» (`pe.club25peru.radio.preview`) y se
 instala al lado de la de Play. No la suba a Play ni a la web para el público: para eso, el APK de
 release firmado.
 
@@ -166,7 +166,7 @@ Guía detallada para el dueño de la app: **[GOOGLE-PLAY.md](GOOGLE-PLAY.md)**. 
 1. **Cuenta de desarrollador** en <https://play.google.com/console> (pago único). Las cuentas
    personales nuevas deben hacer una **prueba cerrada con al menos 12 testers durante 14 días**
    antes de poder pasar a producción; las cuentas de organización no (requieren número D-U-N-S).
-2. **Crear la app**: nombre «Club25 Radio» (o el de la marca), idioma español (Perú), App, Gratis.
+2. **Crear la app**: nombre «radioclub25peru», idioma español (Perú), App, Gratis.
 3. **Ficha de Play Store**:
    - Descripción breve (80 caracteres) y completa: radio de Huacho, las frecuencias, TV en vivo.
    - Ícono 512×512 PNG, gráfico de funciones 1024×500, al menos 2 capturas de teléfono
