@@ -12,15 +12,28 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Último espectro de la radio que suena, para dibujarlo en la pantalla (como el
- * AnalyserNode de la web, site.js §8). Lo escribe [SpectrumAnalyzer] en el
- * hilo de audio y lo lee la interfaz en cada cuadro.
+ * Espectro de la radio que suena, para dibujarlo en la pantalla (como el AnalyserNode
+ * de la web, site.js §8). Lo escribe [SpectrumAnalyzer] en el hilo de audio y lo lee
+ * la interfaz en cada cuadro.
+ *
+ * El audio se analiza antes de entrar al búfer de salida, así que va por delante de lo
+ * que se oye (unos 250 ms de búfer de ExoPlayer más la latencia del teléfono). Para que
+ * las barras coincidan con el golpe se guardan los últimos análisis con su hora y la
+ * pantalla muestra el de hace [LATENCY_MS] ([delayed]).
  */
 object SpectrumTap {
     /** Cantidad de bandas: igual que el analizador de la web (fftSize 256 → 128). */
     const val BANDS = 128
 
-    /** Valores 0..1 de graves a agudos; se reemplaza el arreglo entero en cada análisis. */
+    /** Retraso con el que se muestra el espectro: aprox. lo que tarda el audio en oírse. */
+    const val LATENCY_MS = 300L
+
+    private const val KEEP = 64 // ~1,5 s de análisis (uno cada ~23 ms)
+    private val frames = arrayOfNulls<FloatArray>(KEEP)
+    private val times = LongArray(KEEP)
+    private var head = 0 // próxima posición a escribir
+
+    /** Último análisis (sin retraso): valores 0..1 de graves a agudos. */
     @Volatile
     var bands: FloatArray = FloatArray(BANDS)
         private set
@@ -29,14 +42,41 @@ object SpectrumTap {
     private var updatedAt = 0L
 
     /** Hay datos recientes: el audio está pasando por el reproductor. */
-    fun live(): Boolean = SystemClock.elapsedRealtime() - updatedAt < 400
+    fun live(): Boolean = SystemClock.elapsedRealtime() - updatedAt < 400 + LATENCY_MS
 
-    internal fun publish(b: FloatArray) {
-        bands = b
-        updatedAt = SystemClock.elapsedRealtime()
+    /** El análisis de hace [LATENCY_MS], es decir, el del audio que se está oyendo ahora. */
+    @Synchronized
+    fun delayed(): FloatArray {
+        val target = SystemClock.elapsedRealtime() - LATENCY_MS
+        var best: FloatArray? = null
+        var oldest: FloatArray? = null
+        for (k in 1..KEEP) { // del más nuevo al más viejo
+            val i = (head - k + KEEP) % KEEP
+            val f = frames[i] ?: break
+            oldest = f
+            if (times[i] <= target) {
+                best = f
+                break
+            }
+        }
+        return best ?: oldest ?: bands
     }
 
+    @Synchronized
+    internal fun publish(b: FloatArray) {
+        val now = SystemClock.elapsedRealtime()
+        frames[head] = b
+        times[head] = now
+        head = (head + 1) % KEEP
+        bands = b
+        updatedAt = now
+    }
+
+    @Synchronized
     internal fun clear() {
+        frames.fill(null)
+        times.fill(0L)
+        head = 0
         bands = FloatArray(BANDS)
         updatedAt = 0L
     }
