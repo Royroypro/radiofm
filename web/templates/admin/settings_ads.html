@@ -1,0 +1,18 @@
+{{/* Publicidad → Ajustes de publicidad. .Data: S domain.SiteSettings, Defaults domain.SiteSettings, MaxUploadMB int */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$def := .Data.Defaults}}
+<p class="muted page-intro">Cada cuánto ve publicidad un mismo oyente de la web. Los anuncios se cargan en <a href="/admin/ads">Publicidad web</a>.</p>
+<form class="form" method="post" action="/admin/settings/ads">
+  {{template "csrf" .}}
+
+  <fieldset class="box">
+    <legend>Pre-roll y cuñas de la web</legend>
+    <label class="{{if .FieldError "preroll_interval_min"}}has-error{{end}}">Minutos entre pre-roll/cuñas para el mismo oyente
+      <input type="number" name="preroll_interval_min" min="0" max="1440" value="{{$s.PrerollIntervalMin}}" style="max-width:160px">
+      <span class="hint">0 = mostrar publicidad cada vez que se pulsa reproducir.</span>
+      {{with .FieldError "preroll_interval_min"}}<span class="err">{{.}}</span>{{end}}</label>
+  </fieldset>
+
+  <div class="form-actions"><button class="btn" type="submit">Guardar cambios</button></div>
+</form>
+{{end}}

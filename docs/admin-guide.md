@@ -2,6 +2,20 @@
 
 Entrar en **https://radioclub25peru.com/login** con su email y contraseña.
 
+## Organización del menú
+| Apartado | Pantallas |
+|---|---|
+| Resumen | estado de la radio, la TV y las PC del estudio |
+| **Emisión** | Frecuencias · Programación · Streams (radio y TV)* · Monitoreo del estudio* · Control remoto |
+| **Publicidad** | Publicidad web · Publicidad FM · Estadísticas · Ajustes de publicidad* |
+| **Personalización*** | Marca e identidad · Contacto y redes |
+| **App Android*** | App, colores y APK |
+| **Accesos y seguridad*** | Tokens y claves · Usuarios |
+| Superadmin | (solo el proveedor) cliente, planes, contratos, pagos, licencia, auditoría |
+
+\* solo administradores. Cada página de ajustes tiene su propio botón **Guardar cambios** y solo
+guarda lo de esa página.
+
 ## Roles
 - **Administrador**: todo el panel de la radio.
 - **Editor**: publicidad, estadísticas y programación.
@@ -75,30 +89,43 @@ Cada frecuencia tiene **su propio reproductor** en la web y su **audio**:
 Cada frecuencia tiene también **su PC del estudio** (token en Estudio (PC)). No se puede borrar la
 última frecuencia ni una que tenga programas o cuñas propias (páselos antes a «Todas» o a otra).
 
-## Marca y contacto (administrador)
-Nombre, frecuencia, eslogan, categorías, texto "quiénes somos", **logo**, **isotipo** (favicon),
-imagen de fondo, **colores** (con enlace para volver al original), teléfono, WhatsApp, email,
-dirección, mapa de Google, horario y redes sociales. Los cambios se ven al instante en la web.
+## Personalización → Marca e identidad (administrador)
+Nombre, frecuencia (solo si no hay ninguna en Frecuencias), eslogan, categorías, texto "quiénes
+somos", **logo**, **isotipo** (favicon), imagen de fondo y **colores de la web** (con enlace para
+volver al original). Los cambios se ven al instante en la web.
 
-**App Android** (en la misma página): aviso que muestra la app, versión mínima, enlace de Google
-Play, política de privacidad y **colores de la app** (fondo con degradado, tarjetas, avisos,
-botón de play y textos), que son **aparte de los de la web**: cambiar unos no cambia los otros.
-La app los toma la próxima vez que se abre. En **Descarga en la web** se sube el archivo **.apk** (o se pega
-un enlace) y su versión: el pie de todas las páginas muestra «Descarga la app» con el botón de
-Google Play y/o el de descarga directa del APK. Sin ninguno de los dos no se muestra nada; para
-quitar el botón del APK, borre su enlace y guarde. Suba siempre el APK **de release firmado**.
+## Personalización → Contacto y redes (administrador)
+Teléfono, WhatsApp, email, dirección, horario, mapa de Google y redes sociales.
 
-## Streams y emisión (administrador)
-Datos para configurar la PC emisora (ver `docs/streaming.md`), estado de las señales,
-activar/desactivar radio o TV en la web y generar una clave nueva para OBS.
+## Publicidad → Ajustes de publicidad (administrador)
+Minutos entre pre-roll/cuñas de la web para un mismo oyente (0 = cada vez que pulsa reproducir).
 
-## Estudio (PC) (administrador)
-Una PC por frecuencia. Para cada una: estado (conectada, versión, modo, lo que suena), a qué
-montaje envía su audio y su **token de acceso**: *Generar token* lo muestra **una sola vez** para
-pegarlo en el Club25 Estudio de esa ciudad. Generar uno nuevo o **Revocar** deja sin acceso al
-anterior (por ejemplo, si cambia de PC).
+## App Android → App, colores y APK (administrador)
+Aviso que muestra la app, versión mínima, enlace de Google Play, política de privacidad y
+**colores de la app** (fondo con degradado, tarjetas, avisos, botón de play y textos), que son
+**aparte de los de la web**: cambiar unos no cambia los otros. La app los toma la próxima vez que
+se abre. En **Descarga (APK y Google Play)** se sube el archivo **.apk** (o se pega un enlace) y su
+versión: el pie de todas las páginas muestra «Descarga la app» con el botón de Google Play y/o el
+de descarga directa del APK. Sin ninguno de los dos no se muestra nada; para quitar el botón del
+APK, borre su enlace y guarde. Suba siempre el APK **de release firmado**.
 
-## Usuarios (administrador)
+## Emisión → Streams (radio y TV) (administrador)
+Datos para configurar la PC emisora y OBS (ver `docs/streaming.md`), estado de las señales y
+mostrar u ocultar la radio o la TV en la web.
+
+## Emisión → Monitoreo del estudio (administrador)
+Una PC por frecuencia: conexión, versión, modo, lo que suena, automatización, emisión a la web,
+grabador, RDS, respaldos y problemas recientes.
+
+## Accesos y seguridad → Tokens y claves (administrador)
+Todo lo que permite conectarse a la emisión desde fuera del panel:
+- **Token de la PC del estudio** de cada frecuencia: *Generar token* lo muestra **una sola vez**
+  para pegarlo en el Club25 Estudio de esa ciudad. Generar uno nuevo o **Revocar** deja sin acceso
+  al anterior (por ejemplo, si cambia de PC).
+- **Publicación de la TV (OBS)**: usuario y clave nueva.
+- **Fuente de la radio (Icecast)**: usuario y contraseña (se define en el servidor).
+
+## Accesos y seguridad → Usuarios (administrador)
 Crear administradores y editores, desactivarlos o cambiar su contraseña.
 
 ## Avisos del servicio

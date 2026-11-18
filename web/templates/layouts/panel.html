@@ -23,18 +23,33 @@
       </button>
     </div>
     <nav class="side-nav" data-nav>
-      <p class="side-label">Radio</p>
+      {{/* Menú por apartados. Para añadir una pantalla: su enlace en el apartado que le toca
+           (y solo para admin si su ruta está en el grupo RequireRole(RoleAdmin) de router.go). */}}
       <a href="/admin" {{if eq .Path "/admin" "/admin/"}}class="active"{{end}}>Resumen</a>
-      <a href="/admin/ads" {{if hasPrefix .Path "/admin/ads"}}class="active"{{end}}>Publicidad</a>
-      <a href="/admin/fm-spots" {{if hasPrefix .Path "/admin/fm-spots"}}class="active"{{end}}>Publicidad FM</a>
-      <a href="/admin/stats" {{if hasPrefix .Path "/admin/stats"}}class="active"{{end}}>Estadísticas</a>
-      <a href="/admin/programs" {{if hasPrefix .Path "/admin/programs"}}class="active"{{end}}>Programación</a>
+
+      <p class="side-label">Emisión</p>
       <a href="/admin/frequencies" {{if hasPrefix .Path "/admin/frequencies"}}class="active"{{end}}>Frecuencias</a>
+      <a href="/admin/programs" {{if hasPrefix .Path "/admin/programs"}}class="active"{{end}}>Programación</a>
+      {{if isAdmin .User}}<a href="/admin/streams" {{if hasPrefix .Path "/admin/streams"}}class="active"{{end}}>Streams (radio y TV)</a>
+      <a href="/admin/studio" {{if hasPrefix .Path "/admin/studio"}}class="active"{{end}}>Monitoreo del estudio</a>{{end}}
       <a href="/admin/control" {{if hasPrefix .Path "/admin/control"}}class="active"{{end}}>Control remoto</a>
+
+      <p class="side-label">Publicidad</p>
+      <a href="/admin/ads" {{if hasPrefix .Path "/admin/ads"}}class="active"{{end}}>Publicidad web</a>
+      <a href="/admin/fm-spots" {{if or (hasPrefix .Path "/admin/fm-spots") (hasPrefix .Path "/admin/fm-advertisers")}}class="active"{{end}}>Publicidad FM</a>
+      <a href="/admin/stats" {{if hasPrefix .Path "/admin/stats"}}class="active"{{end}}>Estadísticas</a>
+      {{if isAdmin .User}}<a href="/admin/settings/ads" {{if eq .Path "/admin/settings/ads"}}class="active"{{end}}>Ajustes de publicidad</a>{{end}}
+
       {{if isAdmin .User}}
-      <a href="/admin/settings" {{if hasPrefix .Path "/admin/settings"}}class="active"{{end}}>Marca y contacto</a>
-      <a href="/admin/streams" {{if hasPrefix .Path "/admin/streams"}}class="active"{{end}}>Streams y emisión</a>
-      <a href="/admin/studio" {{if hasPrefix .Path "/admin/studio"}}class="active"{{end}}>Estudio (PC)</a>
+      <p class="side-label">Personalización</p>
+      <a href="/admin/settings/brand" {{if or (eq .Path "/admin/settings") (eq .Path "/admin/settings/brand")}}class="active"{{end}}>Marca e identidad</a>
+      <a href="/admin/settings/contact" {{if eq .Path "/admin/settings/contact"}}class="active"{{end}}>Contacto y redes</a>
+
+      <p class="side-label">App Android</p>
+      <a href="/admin/settings/app" {{if eq .Path "/admin/settings/app"}}class="active"{{end}}>App, colores y APK</a>
+
+      <p class="side-label">Accesos y seguridad</p>
+      <a href="/admin/access" {{if hasPrefix .Path "/admin/access"}}class="active"{{end}}>Tokens y claves</a>
       <a href="/admin/users" {{if hasPrefix .Path "/admin/users"}}class="active"{{end}}>Usuarios</a>
       {{end}}
       {{if isSuperAdmin .User}}

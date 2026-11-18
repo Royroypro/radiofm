@@ -52,7 +52,7 @@
 {{end}}
 
 {{/* "appdownload": botones «Descarga la app» (Google Play y/o APK directo). Recibe
-     domain.SiteSettings; se configuran en Admin → Marca y contacto → «App Android».
+     domain.SiteSettings; se configuran en Admin → App Android.
      Sin ninguno de los dos enlaces no se muestra nada. */}}
 {{define "appdownload"}}
 {{if or .AppPlayStoreURL .AppAPKURL}}
@@ -76,4 +76,16 @@
   <span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span><span class="c5"></span>
   <span class="dot-o"></span><span class="dot-r"></span><span class="dot-w"></span>
 </div>
+{{end}}
+
+{{/* "colorfield": selector de color con texto y botón para restaurar. */}}
+{{define "colorfield"}}
+<label class="{{if .Err}}has-error{{end}}">{{.Label}}
+  <span class="color-row">
+    <input type="color" value="{{.Value}}" data-color-for="{{.Name}}" aria-label="{{.Label}}">
+    <input type="text" name="{{.Name}}" value="{{.Value}}" maxlength="7" pattern="#[0-9A-Fa-f]{6}" data-color-text>
+  </span>
+  <span class="hint">Original: <a href="#" data-color-reset="{{.Name}}" data-value="{{.Default}}">{{.Default}}</a></span>
+  {{with .Err}}<span class="err">{{.}}</span>{{end}}
+</label>
 {{end}}

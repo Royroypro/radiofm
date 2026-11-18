@@ -1,0 +1,67 @@
+{{/* App Android. .Data: S domain.SiteSettings, Defaults domain.SiteSettings, MaxUploadMB int */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$def := .Data.Defaults}}
+<p class="muted page-intro">Todo lo de la app Android: aviso, versión mínima, enlaces de Google Play y privacidad, colores y el APK de descarga directa.</p>
+<form class="form" method="post" enctype="multipart/form-data" action="/admin/settings/app">
+  {{template "csrf" .}}
+
+  <fieldset class="box">
+    <legend>Configuración de la app</legend>
+    <p class="hint small">La app toma de aquí y de <a href="/admin/frequencies">Frecuencias</a> y
+      <a href="/admin/streams">Streams</a> su nombre, logo, colores, radios y TV cada vez que se abre:
+      no hace falta publicar una versión nueva. Consulta: <code>/api/app/config</code>.</p>
+    <label class="{{if .FieldError "app_notice"}}has-error{{end}}">Aviso en la app <span class="hint">opcional; se muestra arriba (vacío = ninguno)</span>
+      <input type="text" name="app_notice" value="{{$s.AppNotice}}" maxlength="300" placeholder="¡Escucha la transmisión especial del sábado!">
+      {{with .FieldError "app_notice"}}<span class="err">{{.}}</span>{{end}}</label>
+    <div class="grid grid-2">
+      <label class="{{if .FieldError "app_notice_url"}}has-error{{end}}">Enlace del aviso <span class="hint">opcional</span>
+        <input type="url" name="app_notice_url" value="{{$s.AppNoticeURL}}" placeholder="https://...">
+        {{with .FieldError "app_notice_url"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_min_version"}}has-error{{end}}">Versión mínima <span class="hint">número de versión (versionCode); 0 = sin mínimo</span>
+        <input type="number" name="app_min_version" min="0" value="{{$s.AppMinVersion}}" style="max-width:160px">
+        {{with .FieldError "app_min_version"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_play_store_url"}}has-error{{end}}">Enlace en Google Play
+        <input type="url" name="app_play_store_url" value="{{$s.AppPlayStoreURL}}" placeholder="https://play.google.com/store/apps/details?id=...">
+        {{with .FieldError "app_play_store_url"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label class="{{if .FieldError "app_privacy_url"}}has-error{{end}}">Política de privacidad <span class="hint">la pide Google Play</span>
+        <input type="url" name="app_privacy_url" value="{{$s.AppPrivacyURL}}" placeholder="https://.../privacidad">
+        {{with .FieldError "app_privacy_url"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Colores de la app</legend>
+    <p class="hint small">Solo para la app Android; los de la web están en
+      <a href="/admin/settings/brand">Marca e identidad</a>. La app los toma al abrirse.</p>
+    <div class="grid grid-3">
+      {{template "colorfield" (colorArgs "app_color_bg" "Fondo (arriba)" $s.AppColorBg $def.AppColorBg (.FieldError "app_color_bg"))}}
+      {{template "colorfield" (colorArgs "app_color_bg2" "Fondo (abajo, degradado)" $s.AppColorBg2 $def.AppColorBg2 (.FieldError "app_color_bg2"))}}
+      {{template "colorfield" (colorArgs "app_color_card" "Tarjetas" $s.AppColorCard $def.AppColorCard (.FieldError "app_color_card"))}}
+      {{template "colorfield" (colorArgs "app_color_accent" "Avisos y detalles" $s.AppColorAccent $def.AppColorAccent (.FieldError "app_color_accent"))}}
+      {{template "colorfield" (colorArgs "app_color_play" "Botón de play" $s.AppColorPlay $def.AppColorPlay (.FieldError "app_color_play"))}}
+      {{template "colorfield" (colorArgs "app_color_text" "Textos" $s.AppColorText $def.AppColorText (.FieldError "app_color_text"))}}
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Descarga (APK y Google Play)</legend>
+    <p class="hint small">La web muestra «Descarga la app» con el botón de Google Play (si hay enlace arriba)
+      y/o el de descarga directa del APK. Sin ninguno de los dos, no se muestra nada.</p>
+    <div class="grid grid-2">
+      <div class="field {{if or (.FieldError "app_apk_url") (.FieldError "app_apk_file")}}has-error{{end}}">
+        <span>APK para descarga directa <span class="hint">suba el archivo .apk o pegue un enlace</span></span>
+        <input type="file" name="app_apk_file" accept=".apk,application/vnd.android.package-archive">
+        <input type="text" name="app_apk_url" value="{{$s.AppAPKURL}}" placeholder="/uploads/app/… o https://..." aria-label="Enlace del APK">
+        <span class="hint">Use el APK firmado de release (ver android/README.md). Borre el enlace para quitar el botón. Máximo {{.Data.MaxUploadMB}} MB.</span>
+        {{with .FieldError "app_apk_file"}}<span class="err">{{.}}</span>{{end}}
+        {{with .FieldError "app_apk_url"}}<span class="err">{{.}}</span>{{end}}
+      </div>
+      <label class="{{if .FieldError "app_apk_version"}}has-error{{end}}">Versión del APK <span class="hint">opcional; se muestra en el botón</span>
+        <input type="text" name="app_apk_version" value="{{$s.AppAPKVersion}}" maxlength="20" placeholder="1.0.0" style="max-width:160px">
+        {{with .FieldError "app_apk_version"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
+  </fieldset>
+
+  <div class="form-actions"><button class="btn" type="submit">Guardar cambios</button></div>
+</form>
+{{end}}

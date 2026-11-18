@@ -195,13 +195,22 @@ func NewRouter(d Deps) http.Handler {
 		// Solo admin o superadmin
 		r.Group(func(r chi.Router) {
 			r.Use(mw.RequireRole(domain.RoleAdmin))
-			r.Get("/settings", adm.SettingsForm)
-			r.Post("/settings", adm.SettingsSave)
+			// Personalización, App Android y Ajustes de publicidad (un formulario por apartado)
+			r.Get("/settings", adm.SettingsIndex)
+			r.Post("/settings", adm.SettingsSaveAll) // compatibilidad: todos los apartados
+			r.Get("/settings/{section}", adm.SettingsForm)
+			r.Post("/settings/{section}", adm.SettingsSave)
+			// Emisión
 			r.Get("/streams", adm.Streams)
 			r.Post("/streams", adm.StreamsSave)
 			r.Get("/studio", adm.StudioPage)
-			r.Post("/studio/{fid}/token", adm.StudioTokenNew)
-			r.Post("/studio/{fid}/token/revoke", adm.StudioTokenRevoke)
+			// Accesos y seguridad: tokens de las PC, clave de la TV, fuente de Icecast
+			r.Get("/access", adm.AccessPage)
+			r.Post("/access/tv", adm.AccessTVSave)
+			r.Post("/access/studio/{fid}/token", adm.StudioTokenNew)
+			r.Post("/access/studio/{fid}/token/revoke", adm.StudioTokenRevoke)
+			r.Post("/studio/{fid}/token", adm.StudioTokenNew)           // rutas anteriores
+			r.Post("/studio/{fid}/token/revoke", adm.StudioTokenRevoke) // (compatibilidad)
 			r.Get("/users", adm.UsersList)
 			r.Get("/users/new", adm.UserNew)
 			r.Post("/users", adm.UserSave)

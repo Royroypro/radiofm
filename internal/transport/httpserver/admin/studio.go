@@ -19,7 +19,7 @@ import (
 )
 
 // Pantallas del panel para "Club25 Estudio" (la PC de la radio):
-//   - Estudio (PC), solo admin: una PC por frecuencia, cada una con su token y su estado.
+//   - Monitoreo del estudio, solo admin: el estado de la PC de cada frecuencia (los tokens, en access.go).
 //   - Cuñas FM, editor o superior: alta/edición de cuñas y comprobante de emisión.
 
 // studioOnline es el tiempo sin heartbeat tras el que la PC se considera desconectada.
@@ -64,22 +64,27 @@ func (h *Handler) studioAlarms(ctx context.Context) []StudioAlarms {
 	return out
 }
 
-// StudioPage muestra la PC de cada frecuencia: GET /admin/studio
+// StudioPage muestra el estado de la PC de cada frecuencia: GET /admin/studio
+// (los tokens se gestionan en Tokens y claves: /admin/access).
 func (h *Handler) StudioPage(w http.ResponseWriter, r *http.Request) {
-	h.renderStudio(w, r, 0, "")
-}
-
-func (h *Handler) renderStudio(w http.ResponseWriter, r *http.Request, tokenFor int64, newToken string) {
-	ctx := r.Context()
-	freqs, err := h.Frequencies.List(ctx)
+	list, err := h.studioStations(r)
 	if err != nil {
 		h.Views.Error(w, r, err)
 		return
 	}
+	h.Views.Render(w, r, http.StatusOK, "admin/studio", "Monitoreo del estudio", map[string]any{"Stations": list})
+}
+
+// studioStations arma el estado de la PC de cada frecuencia.
+func (h *Handler) studioStations(r *http.Request) ([]StudioStation, error) {
+	ctx := r.Context()
+	freqs, err := h.Frequencies.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	states, err := h.Studio.States(ctx)
 	if err != nil {
-		h.Views.Error(w, r, err)
-		return
+		return nil, err
 	}
 	now := time.Now()
 	list := make([]StudioStation, 0, len(freqs))
@@ -95,13 +100,11 @@ func (h *Handler) renderStudio(w http.ResponseWriter, r *http.Request, tokenFor 
 		}
 		list = append(list, s)
 	}
-	h.Views.Render(w, r, http.StatusOK, "admin/studio", "Estudio (PC)", map[string]any{
-		"Stations": list, "TokenFor": tokenFor, "NewToken": newToken, "APIBase": h.Cfg.BaseURL + "/api/studio",
-	})
+	return list, nil
 }
 
 // StudioTokenNew genera un token nuevo para la PC de una frecuencia y lo
-// muestra una sola vez: POST /admin/studio/{fid}/token
+// muestra una sola vez en Tokens y claves: POST /admin/access/studio/{fid}/token
 func (h *Handler) StudioTokenNew(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	f, err := h.Frequencies.Get(ctx, form.ID(chi.URLParam(r, "fid")))
@@ -115,10 +118,10 @@ func (h *Handler) StudioTokenNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	h.renderStudio(w, r, f.ID, tok)
+	h.renderAccess(w, r, f.ID, tok)
 }
 
-// StudioTokenRevoke revoca el token de una frecuencia: POST /admin/studio/{fid}/token/revoke
+// StudioTokenRevoke revoca el token de una frecuencia: POST /admin/access/studio/{fid}/token/revoke
 func (h *Handler) StudioTokenRevoke(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	f, err := h.Frequencies.Get(ctx, form.ID(chi.URLParam(r, "fid")))
@@ -130,7 +133,7 @@ func (h *Handler) StudioTokenRevoke(w http.ResponseWriter, r *http.Request) {
 		h.Views.Error(w, r, err)
 		return
 	}
-	views.Redirect(w, r, "/admin/studio", "ok", "Token de "+f.City+" revocado: esa PC ya no puede sincronizar.")
+	views.Redirect(w, r, "/admin/access", "ok", "Token de "+f.City+" revocado: esa PC ya no puede sincronizar.")
 }
 
 // Cuñas FM (campañas, versiones y anunciantes): ver campaigns.go.

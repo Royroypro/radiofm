@@ -1,0 +1,68 @@
+{{/* Personalización → Marca e identidad. .Data: S domain.SiteSettings, Defaults domain.SiteSettings, MaxUploadMB int */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$def := .Data.Defaults}}
+<p class="muted page-intro">Cómo se ve la radio en la web: nombre, textos, logo, imágenes y colores. Los cambios se ven al instante.</p>
+<form class="form" method="post" enctype="multipart/form-data" action="/admin/settings/brand">
+  {{template "csrf" .}}
+
+  <fieldset class="box">
+    <legend>Identidad</legend>
+    <div class="grid grid-3">
+      <label class="{{if .FieldError "site_name"}}has-error{{end}}">Nombre de la radio
+        <input type="text" name="site_name" value="{{$s.SiteName}}" required maxlength="80">
+        {{with .FieldError "site_name"}}<span class="err">{{.}}</span>{{end}}</label>
+      <label>Frecuencia <span class="hint">solo si no hay ninguna en <a href="/admin/frequencies">Frecuencias</a></span><input type="text" name="frequency" value="{{$s.Frequency}}" maxlength="20" placeholder="93.3 FM"></label>
+      <label>Eslogan<input type="text" name="slogan" value="{{$s.Slogan}}" maxlength="120"></label>
+    </div>
+    <label>Categorías <span class="hint">separadas por coma; se muestran bajo el logo</span>
+      <input type="text" name="categories" value="{{$s.Categories}}" maxlength="200"></label>
+    <label>Texto «Quiénes somos»<textarea name="about" maxlength="1000">{{$s.About}}</textarea></label>
+
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Imágenes</legend>
+    <div class="grid grid-3">
+      <div class="field">
+        <span>Logo</span>
+        <img class="preview-logo" src="{{$s.LogoURL}}" alt="Logo actual">
+        <input type="file" name="logo_file" accept="image/png,image/svg+xml,image/webp,image/jpeg">
+        <input type="text" name="logo_url" value="{{$s.LogoURL}}" aria-label="URL del logo">
+        <span class="hint">PNG o SVG con fondo transparente. Provisional: <code>{{$def.LogoURL}}</code></span>
+      </div>
+      <div class="field">
+        <span>Isotipo / favicon</span>
+        <img class="preview-logo" src="{{$s.FaviconURL}}" alt="Isotipo actual" style="max-height:56px">
+        <input type="file" name="favicon_file" accept="image/png,image/svg+xml">
+        <input type="text" name="favicon_url" value="{{$s.FaviconURL}}" aria-label="URL del favicon">
+        <span class="hint">Cuadrado, mínimo 192×192 px. Provisional: <code>{{$def.FaviconURL}}</code></span>
+      </div>
+      <div class="field">
+        <span>Imagen de fondo del inicio (opcional)</span>
+        {{with $s.HeroImageURL}}<img class="preview" src="{{.}}" alt="">{{end}}
+        <input type="file" name="hero_file" accept="image/jpeg,image/png,image/webp">
+        <input type="text" name="hero_image_url" value="{{$s.HeroImageURL}}" aria-label="URL de la imagen de fondo">
+        <span class="hint">Vacío = solo los círculos de la marca.</span>
+      </div>
+    </div>
+    {{with .FieldError "logo_file"}}<span class="err">{{.}}</span>{{end}}
+    {{with .FieldError "favicon_file"}}<span class="err">{{.}}</span>{{end}}
+    {{with .FieldError "hero_file"}}<span class="err">{{.}}</span>{{end}}
+    <p class="hint small">Máximo {{.Data.MaxUploadMB}} MB por archivo.</p>
+
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Colores de la web</legend>
+    <p class="hint small">Los de la app Android se eligen aparte, en <a href="/admin/settings/app">App Android</a>.</p>
+    <div class="grid grid-4">
+      {{template "colorfield" (colorArgs "color_navy" "Azul marino (fondo)" $s.ColorNavy $def.ColorNavy (.FieldError "color_navy"))}}
+      {{template "colorfield" (colorArgs "color_royal" "Azul rey (tarjetas)" $s.ColorRoyal $def.ColorRoyal (.FieldError "color_royal"))}}
+      {{template "colorfield" (colorArgs "color_red" "Rojo (acento)" $s.ColorRed $def.ColorRed (.FieldError "color_red"))}}
+      {{template "colorfield" (colorArgs "color_orange" "Naranja (secundario)" $s.ColorOrange $def.ColorOrange (.FieldError "color_orange"))}}
+    </div>
+  </fieldset>
+
+  <div class="form-actions"><button class="btn" type="submit">Guardar cambios</button></div>
+</form>
+{{end}}

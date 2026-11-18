@@ -1,4 +1,4 @@
-{{/* Streams y emisión. .Data: S domain.SiteSettings, Info admin.StreamInfo, Status media.Status, TVPlanEnabled bool */}}
+{{/* Emisión → Streams (radio y TV): datos para configurar la emisión y mostrar u ocultar radio/TV en la web. .Data: S domain.SiteSettings, Info admin.StreamInfo, Status media.Status, TVPlanEnabled bool */}}
 {{define "content"}}
 {{$s := .Data.S}}{{$i := .Data.Info}}{{$st := .Data.Status}}
 <div class="grid grid-2">
@@ -43,12 +43,7 @@
   <h2>Ajustes de emisión</h2>
   <label class="check"><input type="checkbox" name="radio_enabled" {{if $s.RadioEnabled}}checked{{end}}> Mostrar la radio en la web</label>
   <label class="check"><input type="checkbox" name="tv_enabled" {{if $s.TVEnabled}}checked{{end}}> Mostrar la TV en la web y aceptar la señal de OBS</label>
-  <div class="grid grid-2">
-    <label class="{{if .FieldError "tv_publish_pass"}}has-error{{end}}">Usuario de publicación de TV
-      <input type="text" name="tv_publish_user" value="{{$s.TVPublishUser}}" maxlength="40" pattern="[A-Za-z0-9_\-\.]+">
-      {{with .FieldError "tv_publish_pass"}}<span class="err">{{.}}</span>{{end}}</label>
-    <label class="check" style="align-self:end"><input type="checkbox" name="regenerate_key"> Generar una clave nueva (la anterior deja de funcionar)</label>
-  </div>
+  <p class="small muted">El usuario y la clave de publicación de la TV se cambian en <a href="/admin/access">Tokens y claves</a>.</p>
   <div class="form-actions"><button class="btn" type="submit">Guardar</button></div>
 </form>
 {{end}}

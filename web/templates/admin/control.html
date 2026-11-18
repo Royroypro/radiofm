@@ -4,7 +4,7 @@
 {{define "content"}}
 {{$d := .Data}}
 {{if not $d.Freqs}}
-<p class="muted">Ninguna frecuencia tiene una PC del estudio conectada. Un administrador la configura en «Estudio (PC)».</p>
+<p class="muted">Ninguna frecuencia tiene una PC del estudio conectada. Un administrador genera su token en «Accesos y seguridad → Tokens y claves».</p>
 {{else}}
 <meta http-equiv="refresh" content="15">
 {{if gt (len $d.Freqs) 1}}

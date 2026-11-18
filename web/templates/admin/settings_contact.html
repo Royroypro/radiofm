@@ -1,0 +1,40 @@
+{{/* Personalización → Contacto y redes. .Data: S domain.SiteSettings, Defaults domain.SiteSettings, MaxUploadMB int */}}
+{{define "content"}}
+{{$s := .Data.S}}{{$def := .Data.Defaults}}
+<p class="muted page-intro">Datos que aparecen en la página de contacto y en el pie de la web.</p>
+<form class="form" method="post" action="/admin/settings/contact">
+  {{template "csrf" .}}
+
+  <fieldset class="box">
+    <legend>Contacto</legend>
+    <div class="grid grid-3">
+      <label>Teléfono<input type="tel" name="phone" value="{{$s.Phone}}" maxlength="40"></label>
+      <label>WhatsApp<input type="tel" name="whatsapp" value="{{$s.WhatsApp}}" maxlength="40" placeholder="+51 999 999 999"></label>
+      <label class="{{if .FieldError "email"}}has-error{{end}}">Email<input type="email" name="email" value="{{$s.Email}}" maxlength="120">
+        {{with .FieldError "email"}}<span class="err">{{.}}</span>{{end}}</label>
+    </div>
+    <div class="grid grid-2">
+      <label>Dirección<input type="text" name="address" value="{{$s.Address}}" maxlength="200"></label>
+      <label>Horario de atención<input type="text" name="office_hours" value="{{$s.OfficeHours}}" maxlength="120" placeholder="Lun a Sáb, 8:00 a 18:00"></label>
+    </div>
+    <label class="{{if .FieldError "map_url"}}has-error{{end}}">Mapa (URL de inserción de Google Maps)
+      <input type="url" name="map_url" value="{{$s.MapURL}}" placeholder="https://www.google.com/maps/embed?pb=...">
+      <span class="hint">En Google Maps: Compartir → Insertar un mapa → copie solo la URL de src="...".</span>
+      {{with .FieldError "map_url"}}<span class="err">{{.}}</span>{{end}}</label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Redes sociales</legend>
+    <div class="grid grid-3">
+      <label>Facebook<input type="url" name="facebook" value="{{$s.Facebook}}" placeholder="https://facebook.com/..."></label>
+      <label>Instagram<input type="url" name="instagram" value="{{$s.Instagram}}" placeholder="https://instagram.com/..."></label>
+      <label>TikTok<input type="url" name="tiktok" value="{{$s.TikTok}}" placeholder="https://tiktok.com/@..."></label>
+      <label>YouTube<input type="url" name="youtube" value="{{$s.YouTube}}" placeholder="https://youtube.com/@..."></label>
+      <label>X (Twitter)<input type="url" name="x" value="{{$s.X}}" placeholder="https://x.com/..."></label>
+    </div>
+    {{range $f := split "facebook,instagram,tiktok,youtube,x" ","}}{{with $.FieldError $f}}<p class="err">{{.}}</p>{{end}}{{end}}
+  </fieldset>
+
+  <div class="form-actions"><button class="btn" type="submit">Guardar cambios</button></div>
+</form>
+{{end}}

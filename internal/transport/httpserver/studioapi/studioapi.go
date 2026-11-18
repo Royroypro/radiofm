@@ -3,7 +3,7 @@
 //
 // Seguridad (aplicada en router.go):
 //   - middleware.StudioToken: "Authorization: Bearer <token>" generado en
-//     Admin → Estudio (PC). Sin token válido: 401 {"error":"unauthorized"}.
+//     Admin → Accesos y seguridad → Tokens y claves. Sin token válido: 401 {"error":"unauthorized"}.
 //   - middleware.PublicLicenseGuard: con bloqueo total de licencia responde
 //     503 {"error":"suspended"}; la PC sigue sonando por FM.
 //   - Exenta de CSRF como el resto de /api/.

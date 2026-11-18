@@ -12,7 +12,8 @@ import (
 // Para añadir un ajuste nuevo:
 //  1. Añadir el campo aquí y su clave en settingKeys.
 //  2. Darle valor por defecto en DefaultSiteSettings.
-//  3. Añadir el input en web/templates/admin/settings.html y leerlo en el handler.
+//  3. Leerlo en el apply de su apartado (transport/httpserver/admin/settings.go) y añadir el
+//     input en web/templates/admin/settings_<apartado>.html (brand, contact, app o ads).
 type SiteSettings struct {
 	// Marca
 	SiteName     string

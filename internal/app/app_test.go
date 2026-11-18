@@ -121,7 +121,8 @@ func TestPanelsRequireLoginAndRoles(t *testing.T) {
 
 	e.login("super@test.pe", "supersecreta")
 	pages := []string{"/admin", "/admin/ads", "/admin/ads/new", "/admin/stats", "/admin/programs", "/admin/programs/new",
-		"/admin/settings", "/admin/streams", "/admin/users", "/admin/users/new", "/admin/password",
+		"/admin/settings/brand", "/admin/settings/contact", "/admin/settings/app", "/admin/settings/ads",
+		"/admin/streams", "/admin/studio", "/admin/access", "/admin/users", "/admin/users/new", "/admin/password",
 		"/superadmin", "/superadmin/client", "/superadmin/plans", "/superadmin/plans/new", "/superadmin/contracts",
 		"/superadmin/contracts/new", "/superadmin/payments", "/superadmin/payments/new", "/superadmin/license", "/superadmin/audit"}
 	for _, p := range pages {
@@ -141,7 +142,7 @@ func TestPanelsRequireLoginAndRoles(t *testing.T) {
 	if code, _ := ed.get("/admin/ads"); code != http.StatusOK {
 		t.Errorf("editor → publicidad = %d", code)
 	}
-	for _, p := range []string{"/admin/settings", "/superadmin"} {
+	for _, p := range []string{"/admin/settings/brand", "/admin/access", "/admin/streams", "/superadmin"} {
 		if code, _ := ed.get(p); code != http.StatusForbidden {
 			t.Errorf("editor → %s debe dar 403, dio %d", p, code)
 		}

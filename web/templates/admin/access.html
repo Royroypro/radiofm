@@ -1,0 +1,78 @@
+{{/* Accesos y seguridad → Tokens y claves.
+     .Data: Stations []admin.StudioStation, TokenFor int64, NewToken string, APIBase string,
+            S domain.SiteSettings, Info admin.StreamInfo, TVPlanEnabled bool */}}
+{{define "content"}}
+{{$d := .Data}}{{$i := $d.Info}}
+<p class="muted page-intro">Todo lo que permite conectarse a la emisión desde fuera del panel. Trátelo como una contraseña:
+  si un token o una clave se filtra, genere uno nuevo y el anterior deja de funcionar al instante.
+  Las personas que entran al panel se gestionan en <a href="/admin/users">Usuarios</a>.</p>
+
+{{with $d.NewToken}}
+<div class="alert alert-warn">
+  <p><strong>Copie este token ahora: no se volverá a mostrar.</strong> Péguelo en Club25 Estudio → Ajustes → Sincronización
+    de la PC de esa frecuencia. Si lo pierde, genere otro.</p>
+  <span class="copy-row"><input type="text" readonly value="{{.}}"><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span>
+</div>
+{{end}}
+
+<section class="box">
+  <h2>Tokens de las PC del estudio</h2>
+  <p class="small muted">Cada frecuencia tiene su propia PC con Club25 Estudio y su propio token. Con el token la PC descarga
+    sus cuñas y su programación, informa lo que suena y recibe órdenes del control remoto.
+    Dirección de la API para todas las PC: <code>{{$d.APIBase}}</code></p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Frecuencia</th><th>PC</th><th>Token</th><th>Audio</th><th></th></tr></thead>
+    <tbody>
+    {{range $d.Stations}}{{$st := .State}}
+      <tr {{if eq $d.TokenFor .Freq.ID}}class="highlight"{{end}}>
+        <td><strong>{{.Freq.Label}}</strong> · {{.Freq.City}}</td>
+        <td>{{if .Online}}<span class="pill live">conectada</span>{{else}}<span class="pill">sin conexión</span>{{end}}</td>
+        <td>{{if $st.HasToken}}<span class="pill ok">activo</span> <span class="small muted">desde {{with $st.TokenCreatedAt}}{{datetime .}}{{end}}</span>
+          {{else}}<span class="pill warn">sin token</span>{{end}}</td>
+        <td class="small">{{if .Ingest}}<code>{{.Ingest}}</code>{{else}}externo{{end}}</td>
+        <td class="actions">
+          <form method="post" action="/admin/access/studio/{{.Freq.ID}}/token" {{if $st.HasToken}}data-confirm="Se generará un token nuevo para {{.Freq.City}} y el actual dejará de funcionar. ¿Continuar?"{{end}}>
+            {{template "csrf" $}}<button class="btn btn-sm" type="submit">{{if $st.HasToken}}Generar nuevo{{else}}Generar token{{end}}</button>
+          </form>
+          {{if $st.HasToken}}
+          <form method="post" action="/admin/access/studio/{{.Freq.ID}}/token/revoke" data-confirm="La PC de {{.Freq.City}} dejará de sincronizar hasta que configure un token nuevo. ¿Revocar?">
+            {{template "csrf" $}}<button class="btn btn-sm btn-danger" type="submit">Revocar</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  <p class="small muted">El estado detallado de cada PC está en <a href="/admin/studio">Monitoreo del estudio</a>.</p>
+</section>
+
+<div class="grid grid-2">
+  <form class="box form" method="post" action="/admin/access/tv">
+    {{template "csrf" .}}
+    <h2>Publicación de la TV (OBS)</h2>
+    {{if not $d.TVPlanEnabled}}<div class="alert alert-warn">Su plan no incluye TV.</div>{{end}}
+    <label class="field">Clave de retransmisión actual
+      <span class="copy-row"><input type="text" readonly value="{{$i.RTMPKey}}" data-secret><button class="btn btn-sm btn-ghost" type="button" data-copy>Copiar</button></span></label>
+    <label class="{{if .FieldError "tv_publish_pass"}}has-error{{end}}">Usuario de publicación
+      <input type="text" name="tv_publish_user" value="{{$d.S.TVPublishUser}}" maxlength="40" pattern="[A-Za-z0-9_\-\.]+"></label>
+    <label class="check"><input type="checkbox" name="regenerate_key"> Generar una clave nueva (la anterior deja de funcionar)</label>
+    <div class="form-actions"><button class="btn" type="submit">Guardar</button></div>
+    <p class="small muted">Servidor y demás datos para OBS: <a href="/admin/streams">Streams (radio y TV)</a>.</p>
+  </form>
+
+  <section class="box">
+    <h2>Fuente de la radio (Icecast)</h2>
+    <p class="small muted">Las PC del estudio (o BUTT) se conectan con este usuario y contraseña. La contraseña se define en
+      el servidor (<code>ICECAST_SOURCE_PASSWORD</code> en <code>.env</code>) y Icecast solo acepta montajes de frecuencias activas.</p>
+    <table>
+      <tbody>
+        <tr><th>Usuario</th><td><code>{{$i.IcecastUser}}</code></td></tr>
+        <tr><th>Contraseña</th><td>{{if $i.IcecastPass}}<code data-secret>{{$i.IcecastPass}}</code>{{else}}<span class="muted">definida en el servidor</span>{{end}}</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+{{end}}
