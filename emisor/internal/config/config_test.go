@@ -112,7 +112,13 @@ func TestValidateTV(t *testing.T) {
 		{"tv.password", func(c *Config) { c.TV.Protocol = ProtoSRT; c.TV.Password = "a:b" }},
 		{"tv.video_url", func(c *Config) { c.TV.Video = Source{Kind: SourceURL, Name: "rtmp://x/y"} }},
 		{"tv.video_url", func(c *Config) { c.TV.Video = Source{Kind: SourceURL, Name: "https://"} }},
-		{"tv.audio", func(c *Config) { c.TV.Audio = Source{Kind: SourceFromVideo} }},
+		{"tv.video_url", func(c *Config) { c.TV.Video = Source{Kind: SourceRTSP, Name: "http://camara/stream"} }},
+		{"tv.video_url", func(c *Config) { c.TV.Video = Source{Kind: SourceRTSP, Name: "rtsp://"} }},
+		{"tv.audio_mode", func(c *Config) { c.TV.AudioMode = "mitad" }},
+		{"tv.audio_mode", func(c *Config) { c.TV.OtherMixDB = 13 }},
+		{"tv.audio_mode", func(c *Config) { c.TV.VideoMixDB = -31 }},
+		{"tv.audio", func(c *Config) { c.TV.Audio = Source{Kind: SourceRadio}; c.Radio.Input = Source{Kind: SourceDShow} }},
+		{"tv.audio", func(c *Config) { c.TV.Audio = Source{Kind: SourceIcecast}; c.Radio.Mount = "" }},
 	}
 	for _, tc := range cases {
 		c := valid()
@@ -124,7 +130,9 @@ func TestValidateTV(t *testing.T) {
 	// Video desde https con su propio audio, y radio con los altavoces de la PC.
 	c := valid()
 	c.TV.Video = Source{Kind: SourceURL, Name: " https://cdn.example/live/index.m3u8 "}
-	c.TV.Audio = Source{Kind: SourceFromVideo}
+	c.TV.Audio = Source{Kind: SourceRadio}
+	c.TV.AudioMode = AudioModeVideo
+	c.Radio.Input = Source{Kind: SourceDShow, Name: "Micrófono (USB)"}
 	c.Normalize()
 	if err := c.ValidateTV(); err != nil || c.TV.Video.Name != "https://cdn.example/live/index.m3u8" {
 		t.Fatalf("video por URL: %v (%q)", err, c.TV.Video.Name)
@@ -188,5 +196,76 @@ func TestLoadLayers(t *testing.T) {
 	os.WriteFile(user, []byte(`{roto`), 0o600)
 	if _, err := Load("", user); err == nil {
 		t.Fatal("JSON roto debe dar error")
+	}
+}
+
+func TestRTSPAndTVAudioMode(t *testing.T) {
+	for raw, ok := range map[string]bool{
+		"rtsp://192.168.1.64:554/Streaming/Channels/101": true,
+		"rtsp://admin:cl@ve@camara.local/stream1":        true,
+		"rtsps://camara.example/live":                    true,
+		" rtsp://10.0.0.5/h264 ":                         true,
+		"rtsp://":                                        false,
+		"https://camara/stream":                          false,
+		"camara:554":                                     false,
+	} {
+		if got := ValidRTSPURL(raw); got != ok {
+			t.Errorf("ValidRTSPURL(%q) = %v", raw, got)
+		}
+	}
+
+	// Cámara RTSP con la radio como respaldo y mezcla.
+	c := valid()
+	c.TV.Video = Source{Kind: SourceRTSP, Name: " rtsp://admin:1234@192.168.1.64/stream1 "}
+	c.TV.Audio = Source{Kind: SourceRadio}
+	c.TV.AudioMode, c.TV.VideoMixDB, c.TV.OtherMixDB = AudioModeBoth, 0, -6
+	c.Normalize()
+	if err := c.ValidateTV(); err != nil {
+		t.Fatalf("cámara RTSP: %v", err)
+	}
+	if c.TV.Video.Name != "rtsp://admin:1234@192.168.1.64/stream1" {
+		t.Errorf("no se recortaron los espacios: %q", c.TV.Video.Name)
+	}
+	if got := c.TV.EffectiveAudioMode(); got != AudioModeBoth {
+		t.Errorf("modo %q, esperaba both", got)
+	}
+	if URLPassword(c.TV.Video.Name) != "1234" || URLPassword("rtsp://camara/x") != "" {
+		t.Error("URLPassword no devuelve la clave de la dirección")
+	}
+
+	// Con cámara USB, pantalla o barras no hay audio de video: siempre el otro.
+	c.TV.Video = Source{Kind: SourceScreen}
+	if got := c.TV.EffectiveAudioMode(); got != AudioModeOther {
+		t.Errorf("con pantalla el modo debe ser other, es %q", got)
+	}
+
+	// Radio desde el servidor: la dirección de oyente de Icecast.
+	c.TV.Audio = Source{Kind: SourceIcecast}
+	if err := c.ValidateTV(); err != nil {
+		t.Fatalf("radio desde el servidor: %v", err)
+	}
+	if got := c.Radio.ListenURL(); got != "http://radioclub25peru.com:8010/radio" {
+		t.Errorf("ListenURL = %q", got)
+	}
+}
+
+// Una configuración anterior a 1.7.0 con «el audio que trae el video» pasa a
+// modo «solo el audio del video» con la radio de respaldo.
+func TestMigrateFromVideo(t *testing.T) {
+	dir := t.TempDir()
+	user := filepath.Join(dir, "emisor.json")
+	os.WriteFile(user, []byte(`{"tv":{"video":{"kind":"url","name":"https://x/v.mp4"},"audio":{"kind":"fromvideo","name":""}}}`), 0o600)
+	c, err := Load("", user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TV.AudioMode != AudioModeVideo || c.TV.Audio.Kind != SourceRadio {
+		t.Fatalf("migración: modo %q, audio %+v", c.TV.AudioMode, c.TV.Audio)
+	}
+	// Sin modo guardado (configuración vieja con otro audio) queda «other».
+	os.WriteFile(user, []byte(`{"tv":{"audio":{"kind":"none"}}}`), 0o600)
+	c, _ = Load("", user)
+	if c.TV.AudioMode != AudioModeOther {
+		t.Fatalf("modo por defecto %q", c.TV.AudioMode)
 	}
 }

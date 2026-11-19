@@ -125,6 +125,12 @@ textarea { resize: vertical; font-family: Consolas, monospace; font-size: 12px; 
 .src label.kind { grid-column: span 2; }
 .src label.dev { grid-column: span 2; }
 .src .note { grid-column: 1 / -1; margin: -4px 0 0; }
+/* Modo de audio de la TV (video por dirección o RTSP): ocupa toda la fila. */
+.src-mode { display: contents; }
+.src-mode > label { grid-column: span 2; }
+.src-mode .mix { display: contents; }
+.src-mode .mix label { grid-column: span 1; }
+.src-mode .hint { grid-column: 1 / -1; margin: -4px 0 0; }
 
 /* MEJORA (procesador de sonido) y Aplicar */
 .out-actions { flex-wrap: wrap; }

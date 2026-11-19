@@ -42,9 +42,21 @@ const (
 	SourceLoopback  = "loopback"  // lo que suena en un adaptador de reproducción (altavoces); Name "" = el predeterminado
 	SourceScreen    = "screen"    // captura de pantalla (solo video)
 	SourceURL       = "url"       // video (con o sin audio) desde una dirección http:// o https:// (solo video)
-	SourceFromVideo = "fromvideo" // el audio que trae la fuente de video (URL); solo para el audio de la TV
+	SourceRTSP      = "rtsp"      // video (con o sin audio) de una cámara IP o servidor RTSP: rtsp:// o rtsps:// (solo video)
+	SourceFromVideo = "fromvideo" // (anterior a 1.7.0) el audio que trae el video; hoy es TV.AudioMode = AudioModeVideo
+	SourceRadio     = "radio"     // la misma entrada que usa la radio (solo para el audio de la TV); se sigue al aire
+	SourceIcecast   = "icecast"   // la radio tal como sale del servidor Icecast (lo que oyen los oyentes); solo TV
 	SourceTest      = "test"      // señal de prueba: tono o barras de color
 	SourceNone      = "none"      // sin audio: silencio (solo para el audio de la TV)
+)
+
+// Qué audio lleva la TV cuando el video viene de una dirección o de una cámara
+// RTSP (que pueden traer audio propio). Con cámara, pantalla o barras no hay
+// audio de video: se usa siempre TV.Audio.
+const (
+	AudioModeOther = "other" // solo TV.Audio (micrófono, radio, Icecast…): el audio del video se descarta
+	AudioModeVideo = "video" // solo el audio que trae el video; si el video no trae audio, se usa TV.Audio
+	AudioModeBoth  = "both"  // los dos mezclados; si el video no trae audio, solo TV.Audio
 )
 
 // Códecs de audio de la radio.
@@ -97,16 +109,22 @@ type Radio struct {
 
 // TV es la salida de video (H.264 + AAC) hacia MediaMTX por RTMP o SRT.
 type TV struct {
-	Enabled     bool    `json:"enabled"`
-	Protocol    string  `json:"protocol"`
-	Host        string  `json:"host"`
-	RTMPPort    int     `json:"rtmp_port"`
-	SRTPort     int     `json:"srt_port"`
-	Path        string  `json:"path"`
-	User        string  `json:"user"`
-	Password    string  `json:"password"`
-	Video       Source  `json:"video"`
-	Audio       Source  `json:"audio"`
+	Enabled  bool   `json:"enabled"`
+	Protocol string `json:"protocol"`
+	Host     string `json:"host"`
+	RTMPPort int    `json:"rtmp_port"`
+	SRTPort  int    `json:"srt_port"`
+	Path     string `json:"path"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	Video    Source `json:"video"`
+	Audio    Source `json:"audio"`
+	// AudioMode: AudioModeOther, AudioModeVideo o AudioModeBoth. Solo cuenta con
+	// video por dirección o RTSP (ver EffectiveAudioMode). Vacío = AudioModeOther.
+	AudioMode string `json:"audio_mode"`
+	// VideoMixDB y OtherMixDB son el volumen (dB) de cada parte en AudioModeBoth.
+	VideoMixDB  float64 `json:"video_mix_db"`
+	OtherMixDB  float64 `json:"other_mix_db"`
 	Width       int     `json:"width"`
 	Height      int     `json:"height"`
 	FPS         int     `json:"fps"`
@@ -167,8 +185,18 @@ func (c *Config) Normalize() {
 	t.Path = strings.Trim(strings.TrimSpace(t.Path), "/")
 	t.User = strings.TrimSpace(t.User)
 	t.Protocol = strings.ToLower(strings.TrimSpace(t.Protocol))
-	if t.Video.Kind == SourceURL {
+	if t.Video.Kind == SourceURL || t.Video.Kind == SourceRTSP {
 		t.Video.Name = strings.TrimSpace(t.Video.Name)
+	}
+	// Configuración anterior a 1.7.0: «el audio que trae el video» era una fuente
+	// de audio. Hoy es un modo; si el video no trae audio, sale el de la radio.
+	if t.Audio.Kind == SourceFromVideo {
+		t.AudioMode = AudioModeVideo
+		t.Audio = Source{Kind: SourceRadio}
+	}
+	t.AudioMode = strings.ToLower(strings.TrimSpace(t.AudioMode))
+	if t.AudioMode == "" {
+		t.AudioMode = AudioModeOther
 	}
 	c.Panel.URL = strings.TrimRight(strings.TrimSpace(c.Panel.URL), "/")
 }
@@ -269,15 +297,35 @@ func (c Config) ValidateTV() error {
 		if !ValidVideoURL(t.Video.Name) {
 			return invalid("tv.video_url", "Escriba la dirección del video: debe empezar con http:// o https://.")
 		}
+	case SourceRTSP:
+		if !ValidRTSPURL(t.Video.Name) {
+			return invalid("tv.video_url", "Escriba la dirección RTSP de la cámara: debe empezar con rtsp:// o rtsps://.")
+		}
 	default:
 		return invalid("tv.video", "Elija una fuente de video.")
 	}
-	if t.Audio.Kind == SourceFromVideo {
-		if t.Video.Kind != SourceURL {
-			return invalid("tv.audio", "«Audio del video» solo sirve cuando el video viene de una dirección http/https.")
+	switch t.AudioMode {
+	case "", AudioModeOther, AudioModeVideo, AudioModeBoth:
+	default:
+		return invalid("tv.audio_mode", "Modo de audio de la TV desconocido: %q.", t.AudioMode)
+	}
+	if t.VideoMixDB < -30 || t.VideoMixDB > 12 || t.OtherMixDB < -30 || t.OtherMixDB > 12 {
+		return invalid("tv.audio_mode", "El volumen de cada parte de la mezcla debe estar entre -30 y +12 dB.")
+	}
+	switch t.Audio.Kind {
+	case SourceRadio:
+		// Sigue a la entrada de la radio: esa entrada tiene que estar elegida.
+		if err := validateAudioSource("tv.audio", c.Radio.Input, false); err != nil {
+			return invalid("tv.audio", "«Audio de la radio» usa la entrada de la pestaña Radio, que todavía no está elegida.")
 		}
-	} else if err := validateAudioSource("tv.audio", t.Audio, true); err != nil {
-		return err
+	case SourceIcecast:
+		if c.Radio.Host == "" || c.Radio.Port < 1 || c.Radio.Port > 65535 || c.Radio.Mount == "" || c.Radio.Mount == "/" {
+			return invalid("tv.audio", "«Radio desde el servidor» usa el servidor, puerto y montaje de la pestaña Radio: complételos.")
+		}
+	default:
+		if err := validateAudioSource("tv.audio", t.Audio, true); err != nil {
+			return err
+		}
 	}
 	switch {
 	case t.Width < 160 || t.Width > 3840 || t.Width%2 != 0 || t.Height < 120 || t.Height > 2160 || t.Height%2 != 0:
@@ -320,6 +368,48 @@ func validateAudioSource(field string, s Source, allowNone bool) error {
 func ValidVideoURL(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// ValidRTSPURL acepta direcciones rtsp:// o rtsps:// con servidor (puede llevar
+// usuario:clave@, como piden muchas cámaras IP).
+func ValidRTSPURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	return err == nil && (u.Scheme == "rtsp" || u.Scheme == "rtsps") && u.Hostname() != ""
+}
+
+// NetworkVideo dice si la fuente de video viene de la red (dirección o RTSP) y,
+// por eso, puede traer audio propio.
+func NetworkVideo(s Source) bool { return s.Kind == SourceURL || s.Kind == SourceRTSP }
+
+// EffectiveAudioMode es el modo de audio que se usa de verdad: con video que no
+// viene de la red no hay audio de video, así que siempre es AudioModeOther.
+func (t TV) EffectiveAudioMode() string {
+	if !NetworkVideo(t.Video) {
+		return AudioModeOther
+	}
+	switch t.AudioMode {
+	case AudioModeVideo, AudioModeBoth:
+		return t.AudioMode
+	}
+	return AudioModeOther
+}
+
+// ListenURL es la dirección de oyente de la radio en el servidor Icecast
+// (http://host:puerto/montaje), sin usuario ni clave.
+func (r Radio) ListenURL() string {
+	u := url.URL{Scheme: "http", Host: net.JoinHostPort(r.Host, fmt.Sprint(r.Port)), Path: r.Mount}
+	return u.String()
+}
+
+// URLPassword devuelve la clave que lleva una dirección (usuario:clave@), para
+// ocultarla en el registro. "" si no lleva.
+func URLPassword(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.User == nil {
+		return ""
+	}
+	p, _ := u.User.Password()
+	return p
 }
 
 // Encoders son los codificadores H.264 que ofrece la interfaz.

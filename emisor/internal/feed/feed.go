@@ -143,6 +143,8 @@ func Describe(s config.Source) string {
 		return "audio de la PC · " + s.Name
 	case config.SourceTest:
 		return "tono de prueba"
+	case config.SourceIcecast:
+		return "radio desde el servidor · " + s.Name
 	case config.SourceNone:
 		return "silencio"
 	}
@@ -163,6 +165,11 @@ func (f *Feed) start(s config.Source) (func(), error) {
 			return nil, errors.New("Elija el micrófono o la entrada de línea.")
 		}
 		return f.captureDShow(s.Name), nil
+	case config.SourceIcecast:
+		if s.Name == "" {
+			return nil, errors.New("Falta la dirección de la radio en el servidor.")
+		}
+		return f.capture("la radio desde el servidor", NetCaptureArgs(s.Name)), nil
 	}
 	return nil, fmt.Errorf("fuente desconocida: %q", s.Kind)
 }
@@ -200,13 +207,19 @@ func Tone(write func([]byte), freq, dbfs float64) func() {
 // (PCM hacia el bus). Si el proceso se cae (dispositivo desconectado), lo vuelve
 // a abrir cada 3 s mientras siga siendo la fuente elegida; el envío no se corta.
 func (f *Feed) captureDShow(device string) func() {
+	return f.capture("«"+device+"»", CaptureArgs(device))
+}
+
+// capture corre un ffmpeg que entrega PCM al bus (args) y lo reabre cada 3 s si
+// se corta, mientras siga siendo la fuente elegida. label es para el registro.
+func (f *Feed) capture(label string, args []string) func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		lastErr := ""
 		for ctx.Err() == nil {
-			cmd := f.opt.NewCmd(ctx, f.opt.FFmpeg, CaptureArgs(device)...)
+			cmd := f.opt.NewCmd(ctx, f.opt.FFmpeg, args...)
 			if f.opt.Hide != nil {
 				f.opt.Hide(cmd)
 			}
@@ -238,12 +251,12 @@ func (f *Feed) captureDShow(device string) func() {
 							m = "el dispositivo dejó de entregar audio"
 						}
 						if m != lastErr {
-							f.opt.OnLog(fmt.Sprintf("[%s] la captura de «%s» se cortó: %s · se reintenta (la emisión sigue con silencio)", f.opt.Name, device, m))
+							f.opt.OnLog(fmt.Sprintf("[%s] la captura de %s se cortó: %s · se reintenta (la emisión sigue con silencio)", f.opt.Name, label, m))
 							lastErr = m
 						}
 					}
 				} else if err.Error() != lastErr {
-					f.opt.OnLog(fmt.Sprintf("[%s] no se pudo abrir «%s»: %v", f.opt.Name, device, err))
+					f.opt.OnLog(fmt.Sprintf("[%s] no se pudo abrir %s: %v", f.opt.Name, label, err))
 					lastErr = err.Error()
 				}
 			}
@@ -261,6 +274,18 @@ func (f *Feed) captureDShow(device string) func() {
 func CaptureArgs(device string) []string {
 	return []string{"-hide_banner", "-nostdin", "-loglevel", "error",
 		"-f", "dshow", "-audio_buffer_size", "50", "-i", "audio=" + device,
+		"-f", "s16le", "-ar", fmt.Sprint(loopback.SampleRate), "-ac", fmt.Sprint(loopback.Channels), "pipe:1"}
+}
+
+// NetCaptureArgs escucha un stream de audio por http (la radio en Icecast, como
+// un oyente) y lo entrega al bus como PCM s16le estéreo 48 kHz. Se reconecta si
+// el servidor corta; si la radio no está al aire, Icecast responde 404 y el
+// bus sigue en silencio hasta que vuelva (se reintenta cada 3 s).
+func NetCaptureArgs(rawURL string) []string {
+	return []string{"-hide_banner", "-nostdin", "-loglevel", "error",
+		"-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-reconnect_delay_max", "5",
+		"-rw_timeout", "15000000", "-user_agent", "Club25Emisor",
+		"-i", rawURL, "-vn",
 		"-f", "s16le", "-ar", fmt.Sprint(loopback.SampleRate), "-ac", fmt.Sprint(loopback.Channels), "pipe:1"}
 }
 

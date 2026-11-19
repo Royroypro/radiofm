@@ -5,3 +5,8 @@ build/dist/
 frontend/wailsjs/
 # ffmpeg no se versiona: se copia al empaquetar
 ffmpeg.exe
+# ffmpeg descargado por scripts/get-ffmpeg.ps1 (no se versiona)
+third_party/
+# Herramientas que genera wails build -nsis
+build/windows/installer/tmp/
+build/windows/installer/wails_tools.nsh

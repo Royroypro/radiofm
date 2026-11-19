@@ -79,12 +79,17 @@ func (a *App) Apply(which string, c config.Config) (bool, error) {
 	if err := a.SaveConfig(c); err != nil {
 		return false, err
 	}
+	if which == "radio" {
+		a.followRadio(c) // la TV con «audio de la radio» sigue a la entrada nueva
+	} else {
+		a.forgetProbe() // al reconectar se vuelve a mirar si el video trae audio
+	}
 	if !r.Running() {
 		return false, nil
 	}
 	// Si solo cambió la entrada de audio, se cambia al aire: los oyentes no se cortan.
 	if onlyInputChanged(before, c, which) {
-		if err := a.switchLive(which, inputOf(c, which)); err != nil {
+		if err := a.switchLive(which, liveSource(c, which)); err != nil {
 			return false, err
 		}
 		a.markDirty()
@@ -151,6 +156,9 @@ func (a *App) SetInput(which string, src config.Source) (bool, error) {
 	if err := a.SaveConfig(c); err != nil {
 		return false, err
 	}
+	if which == "radio" {
+		a.followRadio(c) // la TV con «audio de la radio» cambia junto con la radio
+	}
 	if !r.Running() {
 		return false, nil
 	}
@@ -160,7 +168,12 @@ func (a *App) SetInput(which string, src config.Source) (bool, error) {
 		a.markDirty()
 		return true, nil
 	}
-	return false, a.switchLive(which, src)
+	if which == "tv" && !a.tvUsesBus() {
+		// Al aire va solo el audio del video: la fuente nueva queda guardada y se
+		// usará si el video deja de traer audio o al cambiar el modo.
+		return false, nil
+	}
+	return false, a.switchLive(which, liveSource(c, which))
 }
 
 // switchLive cambia la entrada del bus de which sin tocar la conexión.

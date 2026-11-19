@@ -136,14 +136,15 @@ func TestTVArgs(t *testing.T) {
 	}
 	// Video desde https con su propio audio: una sola entrada y el audio sale de 0:a.
 	v.Video = config.Source{Kind: config.SourceURL, Name: "https://cdn.example/live/index.m3u8"}
-	v.Audio = config.Source{Kind: config.SourceFromVideo}
+	v.AudioMode = config.AudioModeVideo
 	a = TVArgs(v)
 	s = join(a)
 	if strings.Count(s, " -i ") != 1 || !strings.Contains(s, "-reconnect 1") || !strings.Contains(s, "-re ") ||
 		after(a, "-i") != "https://cdn.example/live/index.m3u8" || !strings.Contains(after(a, "-filter_complex"), "[0:a]aresample") {
 		t.Errorf("video por URL: %s", s)
 	}
-	// Video por URL con el audio de los altavoces de la PC.
+	// Video por URL con el audio de los altavoces de la PC (el del video no sale).
+	v.AudioMode = config.AudioModeOther
 	v.Audio = config.Source{Kind: config.SourceLoopback, Addr: "tcp://127.0.0.1:5000"}
 	s = join(TVArgs(v))
 	if !strings.Contains(s, "-f s16le -ar 48000 -ac 2 -i tcp://127.0.0.1:5000") || !strings.Contains(s, "[1:a]aresample") {
@@ -363,5 +364,102 @@ func TestGainCommand(t *testing.T) {
 	}
 	if !strings.Contains(after(RadioArgs(radio()), "-filter_complex"), "volume@ganancia=volume=0.0dB") {
 		t.Fatal("la ganancia debe estar siempre en el filtro (para cambiarla al aire)")
+	}
+}
+
+func TestTVArgsRTSP(t *testing.T) {
+	v := tv()
+	v.Video = config.Source{Kind: config.SourceRTSP, Name: "rtsp://admin:1234@192.168.1.64:554/stream1"}
+	v.Audio = config.Source{Kind: config.SourceLoopback, Addr: "tcp://127.0.0.1:5000"}
+	a := TVArgs(v)
+	s := join(a)
+	if after(a, "-rtsp_transport") != "tcp" || after(a, "-timeout") != "15000000" ||
+		after(a, "-i") != "rtsp://admin:1234@192.168.1.64:554/stream1" {
+		t.Errorf("entrada RTSP: %s", s)
+	}
+	// RTSP es un directo: no lleva -re (solo la segunda entrada, el bus, no lo usa tampoco).
+	if strings.Contains(s, "-re -rtsp") || strings.Contains(s, "-reconnect") {
+		t.Errorf("RTSP no debe llevar -re ni opciones http: %s", s)
+	}
+	if !strings.Contains(s, "[1:a]aresample") {
+		t.Errorf("modo other: el audio debe salir de la segunda entrada: %s", s)
+	}
+	// La clave de la cámara no aparece en el registro.
+	if r := Redact(s, config.URLPassword(v.Video.Name)); strings.Contains(r, "1234") {
+		t.Errorf("la clave de la cámara quedó en el registro: %s", r)
+	}
+}
+
+func TestTVArgsAudioModes(t *testing.T) {
+	v := tv()
+	v.Video = config.Source{Kind: config.SourceRTSP, Name: "rtsp://camara/stream1"}
+	v.Audio = config.Source{Kind: config.SourceLoopback, Addr: "tcp://127.0.0.1:5000"}
+
+	// Solo el audio del video: una sola entrada.
+	v.AudioMode = config.AudioModeVideo
+	s := join(TVArgs(v))
+	if strings.Count(s, " -i ") != 1 || strings.Contains(s, "tcp://127.0.0.1:5000") || !strings.Contains(s, "[0:a]aresample") {
+		t.Errorf("modo video: %s", s)
+	}
+
+	// Los dos mezclados, cada uno con su volumen, sin que amix baje el nivel.
+	v.AudioMode, v.VideoMixDB, v.OtherMixDB = config.AudioModeBoth, -3, -6.5
+	a := TVArgs(v)
+	s = join(a)
+	f := after(a, "-filter_complex")
+	if strings.Count(s, " -i ") != 2 || !strings.Contains(s, "-i tcp://127.0.0.1:5000") {
+		t.Errorf("modo both: faltan las dos entradas: %s", s)
+	}
+	for _, want := range []string{"[0:a]aresample=44100:async=1", "volume=-3dB[avid]", "[1:a]aresample=44100:async=1",
+		"volume=-6.5dB[aotro]", "[avid][aotro]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[amix]", "[amix]aresample"} {
+		if !strings.Contains(f, want) {
+			t.Errorf("modo both: falta %q en %s", want, f)
+		}
+	}
+
+	// Con video que no viene de la red, el modo se ignora (no hay audio de video).
+	v.Video = config.Source{Kind: config.SourceScreen}
+	s = join(TVArgs(v))
+	if strings.Contains(s, "amix") || !strings.Contains(s, "[1:a]aresample") {
+		t.Errorf("pantalla: debe usar solo el otro audio: %s", s)
+	}
+}
+
+func TestProbe(t *testing.T) {
+	a := ProbeArgs(config.Source{Kind: config.SourceURL, Name: "https://x/v.mp4"})
+	if strings.Contains(join(a), " -re ") || after(a, "-i") != "https://x/v.mp4" || after(a, "-loglevel") != "info" {
+		t.Errorf("probe http: %s", join(a))
+	}
+	a = ProbeArgs(config.Source{Kind: config.SourceRTSP, Name: "rtsp://c/s"})
+	if after(a, "-rtsp_transport") != "tcp" || after(a, "-i") != "rtsp://c/s" {
+		t.Errorf("probe rtsp: %s", join(a))
+	}
+	withAudio := `Input #0, rtsp, from 'rtsp://c/s':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: h264 (Main), yuv420p(progressive), 1920x1080, 25 fps
+  Stream #0:1: Audio: pcm_alaw, 8000 Hz, mono, s16, 64 kb/s
+At least one output file must be specified`
+	noAudio := `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'https://x/fondo.mp4':
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p, 1280x720, 30 fps (default)
+At least one output file must be specified`
+	hlsAudio := `  Stream #0:1(und): Audio: aac (LC) ([15][0][0][0] / 0x000F), 44100 Hz, stereo, fltp`
+	if !HasAudioStream(withAudio) || HasAudioStream(noAudio) || !HasAudioStream(hlsAudio) {
+		t.Error("HasAudioStream no distingue un video con y sin audio")
+	}
+	if !HasVideoStream(noAudio) || HasVideoStream("Connection refused") {
+		t.Error("HasVideoStream")
+	}
+}
+
+func TestRTSPHints(t *testing.T) {
+	h := Hint("[rtsp @ 000001] method DESCRIBE failed: 401 Unauthorized")
+	if !strings.Contains(h, "cámara RTSP rechazó") || !IsAuthHint(h) {
+		t.Errorf("401 de la cámara: %q", h)
+	}
+	if h := Hint("method DESCRIBE failed: 404 Not Found"); !strings.Contains(h, "no tiene esa ruta") {
+		t.Errorf("404 de la cámara: %q", h)
+	}
+	if h := Hint("Server returned 401 Unauthorized"); IsAuthHint(h) == false || strings.Contains(h, "cámara") {
+		t.Errorf("el 401 del servidor no debe confundirse con la cámara: %q", h)
 	}
 }

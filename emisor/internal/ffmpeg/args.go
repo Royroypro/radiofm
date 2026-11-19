@@ -68,6 +68,8 @@ func videoInput(s config.Source, w, h, fps int) []string {
 		return []string{"-thread_queue_size", "1024", "-f", "dshow", "-rtbufsize", "256M", "-i", "video=" + s.Name}
 	case config.SourceURL:
 		return URLInput(s.Name)
+	case config.SourceRTSP:
+		return RTSPInput(s.Name)
 	case config.SourceScreen:
 		// Todo el escritorio (todas las pantallas); el filtro escala al tamaño de salida.
 		return []string{"-thread_queue_size", "1024", "-f", "gdigrab", "-framerate", strconv.Itoa(fps),
@@ -87,6 +89,59 @@ func URLInput(raw string) []string {
 		"-rw_timeout", "15000000", // 15 s sin datos del origen = error (en microsegundos)
 		"-user_agent", "Club25Emisor",
 		"-i", strings.TrimSpace(raw)}
+}
+
+// RTSPInput lee una cámara IP o un servidor RTSP (rtsp:// o rtsps://). Va por
+// TCP: por UDP, en internet o en wifi, se pierden paquetes y la imagen sale rota.
+// Es un directo, así que no lleva -re (ya llega a velocidad real). timeout
+// corta si el origen deja de mandar datos 15 s; el supervisor reconecta.
+func RTSPInput(raw string) []string {
+	return []string{"-thread_queue_size", "1024",
+		"-rtsp_transport", "tcp",
+		"-timeout", "15000000", // en microsegundos
+		"-user_agent", "Club25Emisor",
+		"-i", strings.TrimSpace(raw)}
+}
+
+// ProbeArgs abre la fuente de video sin emitir nada, para ver qué pistas trae
+// (ffmpeg las lista en stderr y termina con «At least one output file must be
+// specified»). Solo para video por dirección o RTSP.
+func ProbeArgs(s config.Source) []string {
+	in := URLInput(s.Name)
+	if s.Kind == config.SourceRTSP {
+		in = RTSPInput(s.Name)
+	}
+	args := []string{"-hide_banner", "-nostdin", "-loglevel", "info"}
+	for _, a := range in {
+		if a != "-re" { // para mirar las pistas no hace falta ir a velocidad real
+			args = append(args, a)
+		}
+	}
+	return args
+}
+
+// HasAudioStream dice si en lo que ffmpeg escribió al abrir una entrada
+// (ProbeArgs) aparece una pista de audio («Stream #0:1: Audio: aac …»).
+func HasAudioStream(probeOutput string) bool {
+	for _, line := range strings.Split(probeOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Stream #0:") && strings.Contains(line, ": Audio:") {
+			return true
+		}
+	}
+	return false
+}
+
+// HasVideoStream dice si la entrada probada trae video (para distinguir «sin
+// audio» de «no se pudo abrir»).
+func HasVideoStream(probeOutput string) bool {
+	for _, line := range strings.Split(probeOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Stream #0:") && strings.Contains(line, ": Video:") {
+			return true
+		}
+	}
+	return false
 }
 
 // meterChain es la rama del filtro que mide el nivel y lo escribe en stdout.
@@ -199,24 +254,48 @@ func videoEncoderArgs(t config.TV) []string {
 }
 
 // TVArgs arma el comando para la TV (video H.264 + audio AAC → MediaMTX).
+//
+// El audio depende de t.EffectiveAudioMode():
+//   - AudioModeOther: solo t.Audio (segunda entrada); el audio del video se descarta.
+//   - AudioModeVideo: solo el audio que trae el video (0:a); no hay segunda entrada.
+//   - AudioModeBoth: los dos mezclados (amix), cada uno con su volumen.
+//
+// Quien llama decide el modo: si el video no trae audio, debe pasar
+// AudioModeOther (internal/ui lo comprueba antes de cada intento), porque pedir
+// 0:a a un video sin audio hace fallar a ffmpeg.
 func TVArgs(t config.TV) []string {
 	const sr, ch = 44100, 2
+	mode := t.EffectiveAudioMode()
 	args := common()
 	args = append(args, videoInput(t.Video, t.Width, t.Height, t.FPS)...)
-	audioIn := "1:a"
-	if t.Audio.Kind == config.SourceFromVideo {
-		audioIn = "0:a" // el audio que trae el propio video (URL); no hay segunda entrada
-	} else {
+	if mode != config.AudioModeVideo {
 		args = append(args, audioInput(t.Audio, sr, ch)...)
 	}
 	// Escala manteniendo la proporción y rellena con negro hasta el tamaño de salida.
 	v := fmt.Sprintf("[0:v]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,"+
 		"setsar=1,fps=%d,format=yuv420p[vout]", t.Width, t.Height, t.Width, t.Height, t.FPS)
+	var audioIn, mix string
+	switch mode {
+	case config.AudioModeVideo:
+		audioIn = "0:a"
+	case config.AudioModeBoth:
+		// Cada parte se lleva al mismo formato y a su volumen; normalize=0 para que
+		// amix no baje el nivel a la mitad, y el limitador final evita que sature.
+		pre := func(in, label string, db float64) string {
+			return fmt.Sprintf("[%s]aresample=%d:async=1,aformat=sample_rates=%d:channel_layouts=stereo,volume=%sdB[%s];",
+				in, sr, sr, strconv.FormatFloat(db, 'f', -1, 64), label)
+		}
+		mix = pre("0:a", "avid", t.VideoMixDB) + pre("1:a", "aotro", t.OtherMixDB) +
+			"[avid][aotro]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[amix];"
+		audioIn = "amix"
+	default:
+		audioIn = "1:a"
+	}
 	gain := t.GainDB
-	if t.Audio.Kind == config.SourceNone {
+	if mode == config.AudioModeOther && t.Audio.Kind == config.SourceNone {
 		gain = 0
 	}
-	args = append(args, "-filter_complex", v+";"+audioChain(audioIn, sr, ch, gain, t.Enhance, t.EQ.Effective()), "-map", "[vout]", "-map", "[aout]")
+	args = append(args, "-filter_complex", v+";"+mix+audioChain(audioIn, sr, ch, gain, t.Enhance, t.EQ.Effective()), "-map", "[vout]", "-map", "[aout]")
 	args = append(args, videoEncoderArgs(t)...)
 	args = append(args, "-c:a", "aac", "-b:a", strconv.Itoa(t.AudioKbps)+"k", "-ar", strconv.Itoa(sr), "-ac", strconv.Itoa(ch))
 	target, format := TVURL(t)

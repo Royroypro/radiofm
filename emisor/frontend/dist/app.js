@@ -43,9 +43,10 @@ const KINDS = {
     ["test", "Tono de prueba (1 kHz)"],
   ],
   tvaudio: [
+    ["radio", "📻 Audio de la radio (la misma entrada de la pestaña Radio)"],
+    ["icecast", "📡 La radio desde el servidor (lo que oyen los oyentes)"],
     ["dshow", "🎙 Micrófono o entrada de línea"],
     ["loopback", "🔊 Audio de la PC (altavoces / salidas de reproducción)"],
-    ["fromvideo", "🌐 El audio que trae el video (dirección http/https)"],
     ["none", "Sin audio (silencio)"],
     ["test", "Tono de prueba (1 kHz)"],
   ],
@@ -53,6 +54,7 @@ const KINDS = {
     ["dshow", "📷 Cámara o capturadora"],
     ["screen", "🖥 Captura de pantalla (todo el escritorio)"],
     ["url", "🌐 Video desde una dirección http/https"],
+    ["rtsp", "📹 Cámara IP o servidor RTSP (rtsp://)"],
     ["test", "Barras de color de prueba"],
   ],
 };
@@ -60,9 +62,44 @@ const ROLE_TITLE = { audio: "Entrada de audio", tvaudio: "Audio de la TV", video
 const NOTES = {
   loopback: "Se envía todo lo que suena en esa salida (reproductor, navegador, programa de radio…). Si en esa misma salida se escucha la radio en vivo, habrá eco.",
   url: "Un archivo (MP4…) o un directo (HLS .m3u8, MPEG-TS, FLV) por http o https. Si el origen se corta, se reconecta solo.",
-  fromvideo: "Si el video de esa dirección no trae audio, la TV no arranca: elija otro audio.",
+  rtsp: "Cámara IP, DVR/NVR o servidor RTSP. Si pide usuario y clave, van en la dirección: rtsp://usuario:clave@192.168.1.64:554/ruta (la ruta depende de la marca). Va por TCP y se reconecta solo si se corta.",
+  radio: "Sale lo mismo que entra a la radio, sin retraso, aunque la radio no esté emitiendo. Si cambia la entrada de la radio, la TV cambia con ella, sin cortar.",
+  icecast: "Se escucha la radio en el servidor, como un oyente: sale exactamente lo que está al aire, venga de esta PC o de otra (Club25 Estudio, Jazler…). Llega con unos segundos de retraso. Si la radio no está al aire, la TV va en silencio hasta que vuelva.",
 };
-const lastURL = {}; // dirección escrita, para no perderla al cambiar de tipo
+// Campo de dirección para los tipos de video que la llevan.
+const URL_KINDS = {
+  url: { label: "Dirección del video", placeholder: "https://servidor/canal/index.m3u8" },
+  rtsp: { label: "Dirección RTSP de la cámara", placeholder: "rtsp://usuario:clave@192.168.1.64:554/stream1" },
+};
+const NET_VIDEO = (k) => k in URL_KINDS; // el video viene de la red y puede traer audio propio
+const lastURL = {}; // dirección escrita por tipo, para no perderla al cambiar de tipo
+
+// hidePass oculta la clave de una dirección (rtsp://usuario:****@…) para mostrarla en pantalla.
+function hidePass(u) { return String(u || "").replace(/^([a-z]+:\/\/[^:/@]+:)[^@/]*@/i, "$1****@"); }
+
+// tvAudioTitle es el título del audio de la TV según el modo (con video por dirección o RTSP).
+function tvAudioTitle() {
+  if (!NET_VIDEO(cfg.tv.video.kind)) return "Audio de la TV";
+  switch (cfg.tv.audio_mode) {
+    case "video": return "Audio si el video no trae audio";
+    case "both": return "Audio para mezclar con el del video";
+    default: return "Audio de la TV (el del video no sale)";
+  }
+}
+
+// renderAudioMode muestra el modo de audio solo con video por dirección o RTSP.
+function renderAudioMode() {
+  const box = $("#tv-audiomode");
+  if (!box) return;
+  box.classList.toggle("hidden", !NET_VIDEO(cfg.tv.video.kind));
+  $("#tv-mix").classList.toggle("hidden", cfg.tv.audio_mode !== "both");
+  const notes = {
+    video: "Sale el audio que trae el video. Si el video no trae audio (por ejemplo, un video de fondo), sale el audio elegido abajo.",
+    other: "Sale solo el audio elegido abajo (por ejemplo, la radio); el audio del video no se escucha.",
+    both: "Salen los dos a la vez. Si el video no trae audio, sale solo el audio elegido abajo. Ajuste el volumen de cada uno.",
+  };
+  $("#tv-audiomode-note").textContent = notes[cfg.tv.audio_mode] || "";
+}
 
 // devicesFor devuelve las opciones de la lista para un tipo (o null si ese tipo no lleva lista).
 function devicesFor(role, kind) {
@@ -80,24 +117,26 @@ function devicesFor(role, kind) {
 function renderSource(box) {
   const path = box.dataset.src, role = box.dataset.role;
   const cur = get(path);
-  if (cur.kind === "url") lastURL[path] = cur.name;
+  const uk = URL_KINDS[cur.kind];
+  if (uk) lastURL[path + ":" + cur.kind] = cur.name;
+  const title = role === "tvaudio" ? tvAudioTitle() : ROLE_TITLE[role];
   box.innerHTML = `
-    <label class="kind">${ROLE_TITLE[role]}<select class="src-kind"></select></label>
+    <label class="kind">${title}<select class="src-kind"></select></label>
     <label class="dev list"><span class="dev-title"></span><select class="src-dev"></select></label>
-    <label class="dev url">Dirección del video
-      <input class="src-url" spellcheck="false" placeholder="https://servidor/canal/index.m3u8"></label>
+    <label class="dev url"><span class="url-title"></span>
+      <input class="src-url" spellcheck="false"></label>
     <p class="hint note"></p>`;
   const kindSel = $(".src-kind", box), devSel = $(".src-dev", box), url = $(".src-url", box);
-  KINDS[role].forEach(([k, label]) => {
-    // «El audio que trae el video» solo tiene sentido si el video viene de una dirección.
-    const disabled = k === "fromvideo" && cfg.tv.video.kind !== "url";
-    kindSel.append(opt(k, label + (disabled ? "  (primero elija video por dirección)" : ""), disabled));
-  });
+  KINDS[role].forEach(([k, label]) => kindSel.append(opt(k, label)));
   kindSel.value = cur.kind;
 
   const list = devicesFor(role, cur.kind);
   $(".list", box).classList.toggle("hidden", !list);
-  $(".url", box).classList.toggle("hidden", cur.kind !== "url");
+  $(".url", box).classList.toggle("hidden", !uk);
+  if (uk) {
+    $(".url-title", box).textContent = uk.label;
+    url.placeholder = uk.placeholder;
+  }
   if (list) {
     $(".dev-title", box).textContent = cur.kind === "loopback" ? "Salida de reproducción (altavoces)"
       : role === "video" ? "Cámara o capturadora" : "Micrófono o entrada de línea";
@@ -108,33 +147,31 @@ function renderSource(box) {
     if (cur.kind === "dshow" && !cur.name) devSel.prepend(opt("", "— elija —"));
     devSel.value = cur.name;
   }
-  if (cur.kind === "url") url.value = cur.name;
+  if (uk) url.value = cur.name;
   $(".note", box).textContent = NOTES[cur.kind] || "";
 
   kindSel.addEventListener("change", () => {
     const k = kindSel.value;
     let name = "";
-    if (k === "url") name = lastURL[path] || "";
+    if (URL_KINDS[k]) name = lastURL[path + ":" + k] || "";
     const l = devicesFor(role, k);
     if (k === "dshow" && l && l.length) name = l[0][0];
     set(path, { kind: k, name });
     changeInput(path);
-    // Si el video deja de ser por dirección, «el audio del video» ya no sirve.
-    if (path === "tv.video" && k !== "url" && cfg.tv.audio.kind === "fromvideo") cfg.tv.audio = { kind: "none", name: "" };
     renderAllSources();
     $(".src-kind", box).focus(); // el cuadro se redibujó: se devuelve el foco (teclado)
     scheduleSave();
   });
   devSel.addEventListener("change", () => { set(path, { kind: cur.kind, name: devSel.value }); changeInput(path); scheduleSave(); });
   url.addEventListener("change", () => {
-    lastURL[path] = url.value.trim();
-    set(path, { kind: "url", name: url.value.trim() });
+    lastURL[path + ":" + cur.kind] = url.value.trim();
+    set(path, { kind: cur.kind, name: url.value.trim() });
     markPending(path);
     scheduleSave();
   });
 }
 
-function renderAllSources() { $$(".src").forEach(renderSource); }
+function renderAllSources() { $$(".src").forEach(renderSource); renderAudioMode(); }
 
 function fillCodecs() {
   const sel = $("#codec");
@@ -233,6 +270,7 @@ function bindInputs() {
       el.classList.remove("invalid");
       if (el.dataset.k === "radio.codec" || el.dataset.k === "radio.channels") fillBitrates();
       if (el.dataset.k === "tv.video_kbps") $("#vkbps-range").value = v;
+      if (el.dataset.k === "tv.audio_mode") renderAllSources(); // cambia el título del audio y la mezcla
       updateCards();
       scheduleSave();
     });
@@ -489,7 +527,7 @@ function demoBackend() {
           titles: { source: "jazler", file: "C:\\Jazler RadioStar 2\\Exports\\NowOnAir.xml", idle_text: "Radio Club 25", playlist: "" },
           stream_name: "Radio Club 25", genre: "Variado", description: "En vivo desde Huacho", website: "https://radioclub25peru.com" },
         tv: { enabled: false, protocol: "rtmp", host: "radioclub25peru.com", rtmp_port: 1935, srt_port: 8890, path: "tv",
-          user: "emisora", password: "", video: { kind: "screen", name: "" }, audio: { kind: "none", name: "" },
+          user: "emisora", password: "", video: { kind: "screen", name: "" }, audio: { kind: "radio", name: "" }, audio_mode: "video", video_mix_db: 0, other_mix_db: -6,
           width: 1280, height: 720, fps: 30, video_kbps: 2500, audio_kbps: 128, encoder: "libx264", keyframe_sec: 2, gain_db: 0, eq: { enabled: false, preset: "Plano", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } },
         panel: { url: "https://radioclub25peru.com", token: "" }, ffmpeg_path: "",
         startup: { with_windows: false, auto_broadcast: false, background: true }, eq_profiles: [],
@@ -801,8 +839,22 @@ function sourceText(role, s) {
   if (s.kind === "dshow") return s.name ? s.name : "⚠ sin elegir";
   if (s.kind === "loopback") return "Audio de la PC · " + (s.name || "salida predeterminada");
   if (s.kind === "url") return "Dirección: " + (s.name || "⚠ sin escribir");
+  if (s.kind === "rtsp") return "Cámara RTSP: " + (s.name ? hidePass(s.name) : "⚠ sin escribir");
   return label;
 }
+
+// tvAudioText es el audio de la TV para el resumen, según el modo.
+function tvAudioText(t) {
+  const short = { radio: "audio de la radio", icecast: "radio desde el servidor" };
+  const other = short[t.audio.kind] || sourceText("tvaudio", t.audio);
+  if (!NET_VIDEO(t.video.kind)) return other;
+  switch (t.audio_mode) {
+    case "video": return "el que trae el video · si no trae: " + other;
+    case "both": return `video (${fmtDB(t.video_mix_db)}) + ${other} (${fmtDB(t.other_mix_db)})`;
+    default: return other + " (el del video no sale)";
+  }
+}
+function fmtDB(v) { v = Number(v) || 0; return (v > 0 ? "+" : "") + v + " dB"; }
 
 function eqText(eq) {
   if (!eq || !eq.enabled) return "apagado";
@@ -860,7 +912,7 @@ function renderSummary() {
       card("Estado", "", statusRows("tv"), "wide") +
       card("Entradas", "tv.entradas", [
         ["Video", esc(sourceText("video", t.video)), t.video.kind === "dshow" && !t.video.name],
-        ["Audio", t.audio.kind === "fromvideo" ? "el que trae el video" : esc(sourceText("tvaudio", t.audio))],
+        ["Audio", esc(tvAudioText(t))],
       ]) +
       card("Stream", "tv.stream", [
         ["Calidad", `${t.width}×${t.height} · ${t.fps} fps`],
@@ -879,7 +931,7 @@ function renderSummary() {
 // subForError elige el apartado según el mensaje de error de la validación.
 function subForError(which, msg) {
   const m = msg.toLowerCase();
-  if (/(micr|entrada|c[aá]mara|video|direcci[oó]n del video|fuente)/.test(m)) return which === "tv" ? "entradas" : "entrada";
+  if (/(micr|entrada|c[aá]mara|video|direcci[oó]n del video|fuente|mezcla|modo de audio|audio de la radio|radio desde)/.test(m)) return which === "tv" ? "entradas" : "entrada";
   if (/(banda|ecualiz|ganancia)/.test(m)) return "mejoras";
   return "stream";
 }

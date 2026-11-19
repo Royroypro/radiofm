@@ -35,7 +35,7 @@ import (
 //
 // Es variable para poder fijarla al compilar:
 // -ldflags "-X radioclub25/emisor/internal/ui.Version=1.5.1"
-var Version = "1.6.0"
+var Version = "1.7.0"
 
 // App es el objeto que ve el frontend.
 type App struct {
@@ -51,7 +51,8 @@ type App struct {
 	devices  []ffmpeg.Device
 
 	radio, tv *runner.Runner
-	fd        feeds // bus de audio de cada salida (la entrada se cambia al aire)
+	fd        feeds        // bus de audio de cada salida (la entrada se cambia al aire)
+	tva       tvAudioState // audio de la TV: si usa el bus y si el video trae audio
 	dirty     chan struct{}
 
 	logMu   sync.Mutex
@@ -473,11 +474,22 @@ func (a *App) tvArgs() ([]string, error) {
 	if err := c.ValidateTV(); err != nil {
 		return nil, err
 	}
-	in, err := a.busInput("tv", c.TV.Audio)
-	if err != nil {
-		return nil, err
+	// Con video por dirección o RTSP: ¿lleva el audio del video, el otro o los dos?
+	// Si el video no trae audio, va el otro (por ejemplo, el de la radio).
+	c.TV.AudioMode = a.tvAudioMode(c)
+	direct := c.TV.AudioMode == config.AudioModeVideo
+	a.tva.mu.Lock()
+	a.tva.direct = direct
+	a.tva.mu.Unlock()
+	if direct {
+		a.closeFeed("tv") // el audio sale del propio video: no hace falta el bus
+	} else {
+		in, err := a.busInput("tv", resolveTVAudio(c))
+		if err != nil {
+			return nil, err
+		}
+		c.TV.Audio = in
 	}
-	c.TV.Audio = in
 	a.eq.set("tv", c.TV.EQ.Effective())
 	return ffmpeg.TVArgs(c.TV), nil
 }
@@ -486,7 +498,8 @@ func (a *App) redact(s string) string {
 	a.mu.Lock()
 	c := a.cfg
 	a.mu.Unlock()
-	return ffmpeg.Redact(s, c.Radio.Password, c.TV.Password, c.Panel.Token)
+	// Las cámaras RTSP suelen llevar usuario:clave@ en la dirección.
+	return ffmpeg.Redact(s, c.Radio.Password, c.TV.Password, c.Panel.Token, config.URLPassword(c.TV.Video.Name))
 }
 
 // ---------- eventos hacia la ventana ----------

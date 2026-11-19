@@ -225,6 +225,20 @@
         <legend>Entradas</legend>
         <div class="grid">
           <div class="src" data-src="tv.video" data-role="video"></div>
+          <div class="src-mode hidden" id="tv-audiomode">
+            <label>¿Qué audio sale con este video?
+              <select data-k="tv.audio_mode">
+                <option value="video">Solo el audio del video (si no trae, el de abajo)</option>
+                <option value="other">Solo el audio de abajo (radio, micrófono…)</option>
+                <option value="both">Los dos mezclados</option>
+              </select>
+            </label>
+            <div class="mix" id="tv-mix">
+              <label>Volumen del video (dB) <input type="number" min="-30" max="12" step="1" data-k="tv.video_mix_db" data-num></label>
+              <label>Volumen del otro audio (dB) <input type="number" min="-30" max="12" step="1" data-k="tv.other_mix_db" data-num></label>
+            </div>
+            <p class="hint" id="tv-audiomode-note"></p>
+          </div>
           <div class="src" data-src="tv.audio" data-role="tvaudio"></div>
           <label class="btn-cell"><button class="btn ghost" data-refresh>↻ Actualizar dispositivos</button></label>
         </div>

@@ -219,3 +219,15 @@ func TestToneLevelAndArgs(t *testing.T) {
 		t.Fatal("Describe")
 	}
 }
+
+func TestNetCaptureArgs(t *testing.T) {
+	a := strings.Join(NetCaptureArgs("http://radio.example:8010/radio"), " ")
+	for _, want := range []string{"-reconnect 1", "-i http://radio.example:8010/radio", "-vn", "-f s16le -ar 48000 -ac 2 pipe:1"} {
+		if !strings.Contains(a, want) {
+			t.Errorf("falta %q en %s", want, a)
+		}
+	}
+	if got := Describe(config.Source{Kind: config.SourceIcecast, Name: "http://r:8010/radio"}); !strings.Contains(got, "servidor") {
+		t.Errorf("Describe icecast = %q", got)
+	}
+}

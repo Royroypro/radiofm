@@ -5,6 +5,11 @@ import "strings"
 // hints traduce los errores más comunes de ffmpeg a una explicación para el operador.
 // El orden importa: gana la primera coincidencia.
 var hints = []struct{ match, hint string }{
+	// RTSP (cámara IP) antes que los genéricos: un 401 de la cámara no es la clave del servidor.
+	{"describe failed: 401", hintRTSPAuth},
+	{"describe failed: 404", "La cámara RTSP no tiene esa ruta (404). Revise la dirección rtsp:// (cada marca usa la suya, por ejemplo /stream1 o /Streaming/Channels/101)."},
+	{"describe failed", "La cámara RTSP no aceptó la conexión. Revise la dirección rtsp://, el usuario y la clave."},
+	{"setup failed: 461", "La cámara RTSP no acepta video por TCP. Actualice la cámara o use otra ruta de la cámara."},
 	{"401 unauthorized", hintAuth},
 	{"authentication required", hintAuth},
 	{"authentication failed", "El servidor rechazó el usuario o la clave. Revise los datos en Admin → Streams y emisión."},
@@ -34,10 +39,12 @@ var hints = []struct{ match, hint string }{
 
 const hintAuth = "El servidor rechazó la clave (401). Revise la contraseña en Admin → Streams y emisión."
 
+const hintRTSPAuth = "La cámara RTSP rechazó el usuario o la clave (401). Revise la dirección: rtsp://usuario:clave@cámara/ruta."
+
 // IsAuthHint dice si la explicación es un rechazo de usuario o clave: reintentar
 // no lo arregla (hay que corregir la clave), así que el emisor deja de insistir.
 func IsAuthHint(h string) bool {
-	return h == hintAuth || strings.HasPrefix(h, "El servidor rechazó el usuario o la clave")
+	return h == hintAuth || h == hintRTSPAuth || strings.HasPrefix(h, "El servidor rechazó el usuario o la clave")
 }
 
 // Hint devuelve una explicación en español para un mensaje de ffmpeg, o "".

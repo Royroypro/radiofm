@@ -28,8 +28,8 @@ Si al iniciar falta un dato, el aviso lleva directo al apartado donde está.
 | | |
 |---|---|
 | Entradas de audio | **micrófono o entrada de línea** (DirectShow), **audio de la PC**: lo que suena en los altavoces o en cualquier salida de reproducción (HDMI, auriculares, cable virtual…), o tono de prueba. Se elige primero el tipo y después el dispositivo, así los micrófonos y las salidas de reproducción van en listas separadas. |
-| Entradas de video | cámara o capturadora (DirectShow), captura de pantalla (todo el escritorio), **video desde una dirección http:// o https://** (archivo MP4 o directo HLS `.m3u8`, MPEG-TS, FLV; se reconecta si el origen se corta), barras de prueba |
-| Audio de la TV | micrófono o línea, audio de la PC, **el audio que trae el video** (si viene de una dirección), tono de prueba o «sin audio» (silencio, para que la pista AAC exista igual) |
+| Entradas de video | cámara o capturadora (DirectShow), captura de pantalla (todo el escritorio), **video desde una dirección http:// o https://** (archivo MP4 o directo HLS `.m3u8`, MPEG-TS, FLV; se reconecta si el origen se corta), **cámara IP o servidor RTSP** (`rtsp://` o `rtsps://`, por TCP; 1.7.0), barras de prueba |
+| Audio de la TV | **audio de la radio** (la misma entrada de la pestaña Radio, sin retraso), **la radio desde el servidor** (Icecast, lo que oyen los oyentes), micrófono o línea, audio de la PC, tono de prueba o «sin audio» (silencio, para que la pista AAC exista igual). Con video por dirección o RTSP, además se elige **qué audio sale** (1.7.0): solo el del video, solo el elegido o **los dos mezclados** con volumen para cada uno. Si el video no trae audio (videos de fondo), sale el elegido: la TV nunca queda muda. |
 | Medidores | pico y RMS por canal, 10 por segundo, de -60 a 0 dB |
 | Estado | Detenido / Conectando / En vivo (con reloj, kbps y fps) / Reconectando en N s (intento N) |
 | Reconexión | automática, con espera creciente (1, 2, 4… hasta 30 s). Si una conexión se queda sin avanzar 20 s, se reinicia. Si el servidor rechaza la clave 3 veces seguidas, se detiene y lo explica (reintentar no lo arregla). |
@@ -77,10 +77,49 @@ conexión TCP local (`internal/loopback`). Detalles:
 
 En la pestaña TV, tipo «Video desde una dirección http/https»: se escribe la dirección de un archivo
 (`https://…/video.mp4`) o de un directo (`https://…/index.m3u8`). El video se lee a velocidad real, se
-reescala a la resolución elegida y se recodifica a H.264 (y el audio a AAC) para MediaMTX. El audio de
-la TV puede ser «el audio que trae el video» o cualquier otro (micrófono, audio de la PC…). Cuando un
+reescala a la resolución elegida y se recodifica a H.264 (y el audio a AAC) para MediaMTX. Cuando un
 archivo termina, el supervisor lo vuelve a empezar como una reconexión. Una dirección que no existe
 muestra «No se encontró nada en esa dirección (404)».
+
+### Cámara IP o servidor RTSP (1.7.0)
+
+Tipo «Cámara IP o servidor RTSP»: se escribe la dirección de la cámara, del DVR/NVR o de un servidor
+RTSP, con usuario y clave si los pide: `rtsp://usuario:clave@192.168.1.64:554/ruta`. La ruta depende de
+la marca (por ejemplo `/Streaming/Channels/101` en Hikvision o `/cam/realmonitor?channel=1&subtype=0` en
+Dahua; búsquela en el manual o en la app de la cámara). Se lee siempre **por TCP**, porque por UDP, en
+wifi o en internet, se pierden paquetes y la imagen sale rota. Si la cámara deja de mandar datos 15 s,
+se reconecta. La clave de la dirección no aparece en el registro ni en el resumen. Errores propios:
+clave de la cámara rechazada (401: se detiene tras 3 intentos, como con la clave del servidor) y ruta
+que no existe (404).
+
+### Qué audio sale con un video por dirección o RTSP (1.7.0)
+
+Un video por dirección o una cámara RTSP pueden traer audio propio o no traerlo (videos de fondo,
+cámaras sin micrófono). En TV → Entradas, «¿Qué audio sale con este video?»:
+
+| Opción | Qué sale | Si el video no trae audio |
+|---|---|---|
+| Solo el audio del video | el del video | el «audio de abajo» |
+| Solo el audio de abajo | el elegido (radio, micrófono…); el del video se descarta | el mismo |
+| Los dos mezclados | los dos, cada uno con su volumen (-30 a +12 dB) | solo el «audio de abajo» |
+
+Antes de cada conexión el emisor abre el video sin emitir y mira si trae pista de audio (lo recuerda
+10 minutos para la misma dirección, así un archivo que vuelve a empezar no espera). El registro dice
+qué audio se usa: «el video no trae audio: se usa el audio de la radio».
+
+El «audio de abajo» puede ser:
+
+- **Audio de la radio:** la misma entrada que la pestaña Radio, sin retraso, aunque la radio no esté
+  emitiendo. Si se cambia la entrada de la radio, la TV cambia con ella, al aire y sin reconectar.
+- **La radio desde el servidor:** el emisor escucha el montaje de la radio en Icecast
+  (`http://servidor:8010/radio`, como un oyente). Sale exactamente lo que está al aire, venga de esta PC
+  o de otra (Club25 Estudio, Jazler en otra máquina…), con unos segundos de retraso. Si la radio no está
+  al aire, la TV va en silencio y se reintenta cada 3 s.
+- Micrófono o línea, audio de la PC, tono o silencio, como antes.
+
+Cambiar el «audio de abajo» va al aire sin reconectar; cambiar la opción o los volúmenes de la mezcla
+se aplica con **Aplicar** (reconecta en menos de un segundo). Las configuraciones anteriores con «el
+audio que trae el video» pasan solas a «Solo el audio del video» con el audio de la radio de respaldo.
 
 ## Los valores por defecto y cómo llegan los datos
 
@@ -262,6 +301,30 @@ El script compila la ventana y la consola, copia un `ffmpeg.exe` estático (si e
 de Chocolatey, copia el ffmpeg real) y arma `build\dist\Club25Emisor-<versión>.zip` con LEEME. Se instala
 descomprimiendo, sin instalador. Requiere WebView2, que ya viene en Windows 10 y 11. ffmpeg es GPL: al
 entregarlo, indique de dónde sale su código fuente (el LEEME lo menciona).
+
+### Instalador (1.7.0)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\instalador.ps1
+```
+
+Arma `build\bin\Club25Emisor-<versión>-instalador.exe` (unos 53 MB) con **todo lo necesario para emitir**:
+el programa, `emisor-consola.exe`, `ffmpeg.exe` con su licencia, LEEME y el ejemplo de
+`emisor.defaults.json`. Si la PC no tiene WebView2, el instalador lo instala.
+
+- ffmpeg lo descarga `scripts\get-ffmpeg.ps1`: la misma build GPL de BtbN fijada que usa Club25 Estudio,
+  verificada con SHA-256 (si no coincide, no se usa). Queda en `third_party\ffmpeg\` (no se versiona).
+- Se instala **por usuario y sin administrador** en `%LOCALAPPDATA%\Programs\Club25 Emisor`, para que
+  la actualización automática pueda reemplazar el `.exe` (en Archivos de programa no podría).
+- Crea accesos en el escritorio y en el menú Inicio, y aparece en Configuración → Aplicaciones.
+- Si el emisor está abierto (aunque esté oculto junto al reloj), pide cerrarlo antes de reemplazarlo.
+- Al desinstalar quita el programa, los accesos y «Iniciar con Windows», pero **conserva la
+  configuración** (`%APPDATA%\Club25 Emisor`).
+- Instalación silenciosa: `Club25Emisor-<versión>-instalador.exe /S` (carpeta propia: `/D=C:\ruta`, al final).
+
+Requisitos para armarlo, además de los de «Compilar»: NSIS 3 (`winget install NSIS.NSIS`). El
+instalador se define en `build\windows\installer\project.nsi`. Los archivos intermedios van en
+`%TEMP%\club25-emisor-instalador`, porque NSIS no acepta rutas de más de 260 caracteres.
 
 ## Pruebas
 
