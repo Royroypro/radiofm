@@ -1,15 +1,21 @@
 package integration
 
 import (
+	"bytes"
+	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"radioclub25/emisor/internal/config"
 	"radioclub25/emisor/internal/ffmpeg"
+	"radioclub25/emisor/internal/runner"
 )
 
 // needFFmpeg es como need, pero solo pide ffmpeg (sin ffprobe).
@@ -75,11 +81,39 @@ func TestTVAudioModesReal(t *testing.T) {
 		tv.Audio = config.Source{Kind: config.SourceTest} // «el otro audio»: un tono
 		tv.AudioMode, tv.VideoMixDB, tv.OtherMixDB = mode, -3, -6
 		args := ffmpeg.TVArgs(tv)
-		args = append(args[:len(args)-3], "-t", "2", "-f", "null", "-")
-		cmd := exec.Command(ff, args...)
-		cmd.Stdin = strings.NewReader("") // sin «q»: termina con -t
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Errorf("%s / modo %s: ffmpeg falló: %v\n%s", name, mode, err, tail(string(out), 1500))
+		args = append(args[:len(args)-3], "-f", "null", "-")
+		// Se detiene con «q», como el emisor: -t no alcanza, porque la rama de los
+		// medidores (asplit → anullsink) sigue leyendo las fuentes infinitas y
+		// ffmpeg no termina solo.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, ff, args...)
+		cmd.Cancel = func() error { return runner.KillTree(cmd) } // el ffmpeg de Chocolatey es un lanzador
+		cmd.WaitDelay = 3 * time.Second
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &out, &out
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(3 * time.Second)
+		_, _ = io.WriteString(stdin, "q")
+		_ = stdin.Close()
+		err = cmd.Wait()
+		// Codificó si el progreso pasó de 1,5 s de salida (-progress pipe:2: out_time_us=…).
+		secs := 0.0
+		for _, l := range strings.Split(out.String(), "\n") {
+			if v, ok := strings.CutPrefix(strings.TrimSpace(l), "out_time_us="); ok {
+				if n, e := strconv.ParseFloat(v, 64); e == nil {
+					secs = n / 1e6
+				}
+			}
+		}
+		if ctx.Err() != nil || secs < 1.5 {
+			t.Errorf("%s / modo %s: ffmpeg no codificó (%.1f s de salida, %v)\n%s", name, mode, secs, err, tail(out.String(), 1500))
 		}
 	}
 	for _, mode := range []string{config.AudioModeOther, config.AudioModeVideo, config.AudioModeBoth} {

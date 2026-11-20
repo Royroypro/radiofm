@@ -50,7 +50,9 @@ func TestTVFromURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c, out, waitRecv := receiver(t, ff, config.ProtoRTMP)
 			c.Video = config.Source{Kind: config.SourceURL, Name: tc.url}
-			c.Audio = config.Source{Kind: config.SourceFromVideo}
+			// 1.7.0: «el audio del video» es un modo; el audio elegido queda de respaldo.
+			c.AudioMode = config.AudioModeVideo
+			c.Audio = config.Source{Kind: config.SourceNone}
 			w, stop := emitTV(t, ff, c)
 			s := w.wait(t, "TV en vivo desde "+tc.name, 30*time.Second, func(s runner.Status) bool {
 				return s.State == runner.Live && s.SentBytes > 300_000 && len(s.Levels) == 2
