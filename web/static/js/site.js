@@ -175,6 +175,15 @@
     var state = 'idle';             // idle | ad | playing
     var retries = 0;
     var retryTimer = null;
+    // Reconexión: el stream en vivo puede terminar (la fuente se reconecta, el
+    // servidor cambia de nodo) o congelarse (red) sin que el navegador avise con
+    // «error». Se reintenta con esperas crecientes durante unos minutos.
+    var RETRY_DELAYS = [1, 2, 3, 5, 8, 13, 20, 30]; // segundos; después, cada 30 s
+    var MAX_RETRIES = 15;                           // ≈ 5 minutos en total
+    var STALL_SECONDS = 12;                         // sin avanzar el audio = congelado
+    var reconnecting = false;
+    var lastTime = 0;
+    var lastProgress = 0;
 
     function inCard(sel) { return current ? current.querySelector(sel) : null; }
     function isExternal(card) { return !!(card && card.hasAttribute('data-external')); }
@@ -238,12 +247,22 @@
 
     function startStream() {
       state = 'playing';
+      reconnecting = false;
+      clearTimeout(retryTimer);
+      lastTime = 0;
+      lastProgress = Date.now();
       audio = isExternal(current) ? ext : local;
       var url = urlOf(current);
       // En nuestro Icecast se evita la caché intermedia; a un servidor externo se le pide la URL tal cual.
       audio.src = isExternal(current) ? url : url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
-      var p = audio.play();
-      if (p && p.catch) p.catch(function () { msg('Toca reproducir de nuevo para escuchar.'); stop(); });
+      var a = audio;
+      var p = a.play();
+      if (p && p.catch) p.catch(function (e) {
+        if (state !== 'playing' || a !== audio) return;
+        // Solo el bloqueo de reproducción automática necesita otro toque; lo demás se reintenta.
+        if (e && e.name === 'NotAllowedError') { stop(); msg('Toca reproducir de nuevo para escuchar.'); return; }
+        reconnect();
+      });
       setPlaying(true);
       if ('mediaSession' in navigator && window.MediaMetadata) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: nameOf(current), artist: RC.slogan || '' });
@@ -280,7 +299,9 @@
 
     function stop() {
       state = 'idle';
+      reconnecting = false;
       clearTimeout(retryTimer);
+      msg(''); // también «Reconectando…»
       [local, ext].forEach(function (a) {
         a.pause();
         a.removeAttribute('src');
@@ -290,16 +311,41 @@
       cards.forEach(function (c) { var b = c.querySelector('[data-spot]'); if (b) b.hidden = true; });
     }
 
+    // reconnect corta la descarga actual y vuelve a pedir el stream tras una espera.
+    function reconnect() {
+      if (state !== 'playing' || reconnecting) return;
+      if (retries >= MAX_RETRIES) { stop(); msg('Esta frecuencia no está disponible en este momento.'); return; }
+      reconnecting = true;
+      var wait = RETRY_DELAYS[Math.min(retries, RETRY_DELAYS.length - 1)];
+      retries += 1;
+      msg('Reconectando…');
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(function () { if (state === 'playing') startStream(); }, wait * 1000);
+    }
+
     [local, ext].forEach(function (a) {
-      a.addEventListener('playing', function () { if (state === 'playing' && a === audio) { retries = 0; msg(''); } });
-      a.addEventListener('error', function () {
-        if (state !== 'playing' || a !== audio) return;
-        if (retries >= 5) { msg('Esta frecuencia no está disponible en este momento.'); stop(); return; }
-        retries += 1;
-        msg('Reconectando…');
-        clearTimeout(retryTimer);
-        retryTimer = setTimeout(function () { if (state === 'playing') startStream(); }, 3000);
+      a.addEventListener('playing', function () { if (state === 'playing' && a === audio) { msg(''); lastProgress = Date.now(); } });
+      a.addEventListener('timeupdate', function () {
+        if (a !== audio || a.currentTime === lastTime) return;
+        lastTime = a.currentTime;
+        lastProgress = Date.now();
+        if (retries && a.currentTime > 10) retries = 0; // 10 s sonando seguidos: conexión sana
       });
+      a.addEventListener('error', function () { if (a === audio) reconnect(); });
+      a.addEventListener('ended', function () { if (a === audio) reconnect(); }); // el stream en vivo no termina solo
+    });
+    // Vigía: si el audio no avanza (red congelada, o nunca empezó), se reconecta.
+    // Una pausa desde el sistema (teclas multimedia, auriculares) no cuenta.
+    setInterval(function () {
+      if (state !== 'playing' || reconnecting || audio.paused) return;
+      if (Date.now() - lastProgress > STALL_SECONDS * 1000) reconnect();
+    }, 2000);
+    // Al volver la conexión a Internet, no se espera el próximo intento.
+    window.addEventListener('online', function () {
+      if (state === 'playing' && reconnecting) { clearTimeout(retryTimer); startStream(); }
     });
 
     cards.forEach(function (c) {
